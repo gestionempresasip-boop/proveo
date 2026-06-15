@@ -18,6 +18,7 @@ const PLACES = [
 ]
 
 const NUMPAD = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del']
+const PIN_PREFIX = 'pvprveo'
 
 export default function LoginPage() {
   const [selected, setSelected] = useState<(typeof PLACES)[0] | null>(null)
@@ -53,7 +54,7 @@ export default function LoginPage() {
     setError(null)
     const { error } = await supabase.auth.signInWithPassword({
       email: selected.email,
-      password: pinValue,
+      password: PIN_PREFIX + pinValue,
     })
     if (error) {
       setError('PIN incorrecto')
