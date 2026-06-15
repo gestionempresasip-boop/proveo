@@ -18,6 +18,10 @@ export async function getAuthProfile(): Promise<ProfileWithOrg> {
     .eq('id', user.id)
     .single()
 
-  if (!data) redirect('/login')
+  if (!data) {
+    // Sign out to clear the session cookie and avoid a redirect loop
+    await supabase.auth.signOut()
+    redirect('/login')
+  }
   return data as ProfileWithOrg
 }
