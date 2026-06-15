@@ -17,7 +17,7 @@ export default async function AdminProductosPage() {
     sb.from('products')
       .select('id, name, description, price, unit, min_order_quantity, order_increment, is_active, category_id, product_categories(name)')
       .order('name'),
-    sb.from('product_categories').select('id, name').order('name'),
+    sb.from('product_categories').select('id, name, color, order_index').order('order_index').order('name'),
   ])
 
   return (

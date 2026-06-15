@@ -71,3 +71,63 @@ export async function softDeleteProduct(productId: string) {
   revalidatePath('/admin/productos')
   revalidatePath('/inventario')
 }
+
+// ── Category actions ─────────────────────────────────────────────────────────
+
+const DEFAULT_CATEGORIES = [
+  { name: 'Elaboraciones nave',   color: '#1B4332', order_index: 1 },
+  { name: 'Carnes y aves',        color: '#DC2626', order_index: 2 },
+  { name: 'Pescados y mariscos',  color: '#0EA5E9', order_index: 3 },
+  { name: 'Frutas',               color: '#F97316', order_index: 4 },
+  { name: 'Verduras y hortalizas',color: '#16A34A', order_index: 5 },
+  { name: 'Lácteos y huevos',     color: '#F59E0B', order_index: 6 },
+  { name: 'Vinos y bebidas',      color: '#7C3AED', order_index: 7 },
+  { name: 'Secos y conservas',    color: '#78716C', order_index: 8 },
+  { name: 'Salsas y condimentos', color: '#CA8A04', order_index: 9 },
+  { name: 'Panadería y masas',    color: '#D97706', order_index: 10 },
+  { name: 'Utillaje y menaje',    color: '#64748B', order_index: 11 },
+  { name: 'Uniformes y ropa',     color: '#374151', order_index: 12 },
+]
+
+export async function seedDefaultCategories() {
+  const supabase = await createClient()
+  const sb = supabase as any
+
+  const { data: existing } = await sb.from('product_categories').select('name')
+  const existingNames = new Set((existing ?? []).map((c: { name: string }) => c.name))
+
+  const toInsert = DEFAULT_CATEGORIES.filter(c => !existingNames.has(c.name))
+  if (toInsert.length > 0) {
+    await sb.from('product_categories').insert(toInsert)
+  }
+  revalidatePath('/admin/productos')
+}
+
+export async function createCategory(formData: FormData) {
+  const supabase = await createClient()
+  const sb = supabase as any
+  const name = (formData.get('name') as string).trim()
+  const color = (formData.get('color') as string) || '#6B7280'
+  if (!name) throw new Error('Nombre requerido')
+  await sb.from('product_categories').insert({ name, color, order_index: 99 })
+  revalidatePath('/admin/productos')
+}
+
+export async function deleteCategory(categoryId: string) {
+  const supabase = await createClient()
+  const sb = supabase as any
+  // unlink products from this category before deleting
+  await sb.from('products').update({ category_id: null }).eq('category_id', categoryId)
+  await sb.from('product_categories').delete().eq('id', categoryId)
+  revalidatePath('/admin/productos')
+}
+
+export async function updateCategory(categoryId: string, formData: FormData) {
+  const supabase = await createClient()
+  const sb = supabase as any
+  const name = (formData.get('name') as string).trim()
+  const color = (formData.get('color') as string) || '#6B7280'
+  if (!name) throw new Error('Nombre requerido')
+  await sb.from('product_categories').update({ name, color }).eq('id', categoryId)
+  revalidatePath('/admin/productos')
+}
