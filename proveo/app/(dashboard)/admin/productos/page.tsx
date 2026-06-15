@@ -1,23 +1,22 @@
 import { getAuthProfile } from '@/lib/supabase/helpers'
 import { createClient } from '@/lib/supabase/server'
-import { Package, Plus, Pencil } from 'lucide-react'
+import { Package } from 'lucide-react'
+import { NuevoProductoModal } from '@/components/products/NuevoProductoModal'
+import { toggleProductActive } from '@/app/actions/products'
 
 export default async function AdminProductosPage() {
   const profile = await getAuthProfile()
   if (profile.role !== 'admin') {
-    return (
-      <div className="p-6">
-        <p className="text-red-600">No tienes permisos para acceder a esta sección.</p>
-      </div>
-    )
+    return <div className="p-6"><p className="text-red-600">Sin permisos.</p></div>
   }
 
   const supabase = await createClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: products } = await (supabase as any)
-    .from('products')
-    .select('*, product_categories(name)')
-    .order('name')
+  const sb = supabase as any
+
+  const [{ data: products }, { data: categories }] = await Promise.all([
+    sb.from('products').select('*, product_categories(name)').order('name'),
+    sb.from('product_categories').select('id, name').order('name'),
+  ])
 
   return (
     <div className="p-6 space-y-6">
@@ -26,10 +25,7 @@ export default async function AdminProductosPage() {
           <h1 className="text-2xl font-bold text-[#1C1C1E]">Gestión de Productos</h1>
           <p className="text-gray-500 mt-1">{products?.length ?? 0} productos en el catálogo</p>
         </div>
-        <button className="flex items-center gap-2 bg-[#1B4332] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#152d23] transition-colors">
-          <Plus className="w-4 h-4" />
-          Nuevo producto
-        </button>
+        <NuevoProductoModal categories={categories ?? []} />
       </div>
 
       <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
@@ -41,7 +37,6 @@ export default async function AdminProductosPage() {
               <th className="text-left px-4 py-3 text-gray-500 font-medium">Precio</th>
               <th className="text-left px-4 py-3 text-gray-500 font-medium">Unidad</th>
               <th className="text-left px-4 py-3 text-gray-500 font-medium">Estado</th>
-              <th className="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
@@ -57,14 +52,14 @@ export default async function AdminProductosPage() {
                 <td className="px-4 py-3 font-medium">{Number(p.price).toFixed(2)} €</td>
                 <td className="px-4 py-3 text-gray-500">{p.unit}</td>
                 <td className="px-4 py-3">
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${p.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                    {p.is_active ? 'Activo' : 'Inactivo'}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <button className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-600 transition-colors">
-                    <Pencil className="w-4 h-4" />
-                  </button>
+                  <form action={toggleProductActive.bind(null, p.id, p.is_active)}>
+                    <button
+                      type="submit"
+                      className={`px-2 py-0.5 rounded-full text-xs font-medium cursor-pointer ${p.is_active ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                    >
+                      {p.is_active ? 'Activo' : 'Inactivo'}
+                    </button>
+                  </form>
                 </td>
               </tr>
             ))}

@@ -2,28 +2,27 @@ import { createClient } from '@/lib/supabase/server'
 import { getAuthProfile } from '@/lib/supabase/helpers'
 import { Card, CardContent } from '@/components/ui/card'
 import { BookOpen, TrendingUp } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { NuevaRecetaModal } from '@/components/escandallos/NuevaRecetaModal'
 
 export default async function EscandалlosPage() {
   const supabase = await createClient()
   const profile = await getAuthProfile()
+  const sb = supabase as any
 
-  type RecipeWithIngredients = {
-    id: string; name: string; description: string | null; category: string | null
-    servings: number; sale_price: number | null; image_url: string | null
-    recipe_ingredients: Array<{
-      quantity: number; unit: string
-      products: { name: string; price: number; unit: string } | null
-    }>
-  }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawRecipes } = await (supabase as any)
+  const { data: rawRecipes } = await sb
     .from('recipes')
     .select('*, recipe_ingredients(*, products(name, price, unit))')
     .eq('organization_id', profile.organization_id)
     .eq('is_active', true)
     .order('name')
-  const recipes = (rawRecipes ?? []) as RecipeWithIngredients[]
+
+  const { data: products } = await sb
+    .from('products')
+    .select('id, name, unit, price')
+    .eq('is_active', true)
+    .order('name')
+
+  const recipes = rawRecipes ?? []
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
@@ -32,12 +31,10 @@ export default async function EscandалlosPage() {
           <h1 className="text-2xl font-bold text-[#1C1C1E]">Escandallos</h1>
           <p className="text-gray-500 mt-1">Fichas de recetas con cálculo de costes y márgenes</p>
         </div>
-        <Button className="bg-[#1B4332] hover:bg-[#163828] text-white">
-          + Nueva receta
-        </Button>
+        <NuevaRecetaModal products={products ?? []} />
       </div>
 
-      {!recipes || recipes.length === 0 ? (
+      {recipes.length === 0 ? (
         <div className="text-center py-20 text-gray-400">
           <BookOpen className="h-12 w-12 mx-auto mb-3 text-gray-200" />
           <p>No hay escandallos todavía</p>
@@ -45,18 +42,12 @@ export default async function EscandалlosPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {recipes.map((recipe) => {
-            const ingredients = recipe.recipe_ingredients as Array<{
-              quantity: number
-              unit: string
-              products: { name: string; price: number; unit: string } | null
-            }>
-
-            const totalCost = ingredients.reduce((sum, ing) => {
+          {recipes.map((recipe: any) => {
+            const ingredients = recipe.recipe_ingredients ?? []
+            const totalCost = ingredients.reduce((sum: number, ing: any) => {
               if (!ing.products) return sum
               return sum + ing.quantity * ing.products.price
             }, 0)
-
             const costPerServing = recipe.servings > 0 ? totalCost / recipe.servings : 0
             const margin = recipe.sale_price
               ? ((recipe.sale_price - costPerServing) / recipe.sale_price) * 100
@@ -71,25 +62,19 @@ export default async function EscandалlosPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-[#1C1C1E] truncate">{recipe.name}</h3>
-                      {recipe.category && (
-                        <p className="text-xs text-gray-400 mt-0.5">{recipe.category}</p>
-                      )}
+                      {recipe.category && <p className="text-xs text-gray-400 mt-0.5">{recipe.category}</p>}
                     </div>
                   </div>
 
                   <div className="mt-4 grid grid-cols-2 gap-3">
                     <div className="bg-gray-50 rounded-xl p-3">
                       <p className="text-xs text-gray-400 uppercase tracking-wide">Coste/ración</p>
-                      <p className="text-lg font-bold text-[#1B4332] mt-0.5">
-                        {costPerServing.toFixed(2)}€
-                      </p>
+                      <p className="text-lg font-bold text-[#1B4332] mt-0.5">{costPerServing.toFixed(2)}€</p>
                     </div>
                     {recipe.sale_price && (
                       <div className="bg-gray-50 rounded-xl p-3">
                         <p className="text-xs text-gray-400 uppercase tracking-wide">PVP</p>
-                        <p className="text-lg font-bold text-[#1C1C1E] mt-0.5">
-                          {Number(recipe.sale_price).toFixed(2)}€
-                        </p>
+                        <p className="text-lg font-bold text-[#1C1C1E] mt-0.5">{Number(recipe.sale_price).toFixed(2)}€</p>
                       </div>
                     )}
                   </div>
@@ -104,9 +89,19 @@ export default async function EscandалlosPage() {
                   )}
 
                   <div className="mt-3 pt-3 border-t border-gray-100">
-                    <p className="text-xs text-gray-400 mb-2">
+                    <p className="text-xs text-gray-400">
                       {ingredients.length} ingrediente{ingredients.length !== 1 ? 's' : ''} · {recipe.servings} ración{recipe.servings !== 1 ? 'es' : ''}
                     </p>
+                    <div className="mt-2 space-y-1">
+                      {ingredients.slice(0, 3).map((ing: any, i: number) => (
+                        <p key={i} className="text-xs text-gray-500">
+                          {ing.products?.name} — {ing.quantity} {ing.unit}
+                        </p>
+                      ))}
+                      {ingredients.length > 3 && (
+                        <p className="text-xs text-gray-400">+{ingredients.length - 3} más...</p>
+                      )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
