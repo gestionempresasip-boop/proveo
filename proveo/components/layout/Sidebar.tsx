@@ -138,7 +138,7 @@ export function Sidebar({ profile }: SidebarProps) {
 
   return (
     <>
-      {/* ── MOBILE: top bar ──────────────────────────────────────────── */}
+      {/* ── MOBILE + TABLET: top bar (<lg) ──────────────────────────── */}
       <header className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-[#1B4332] h-14 flex items-center px-4 gap-3 border-b border-[#2d6a4f]">
         <button
           onClick={() => setDrawerOpen(true)}
@@ -189,18 +189,7 @@ export function Sidebar({ profile }: SidebarProps) {
         </div>
       )}
 
-      {/* ── TABLET: icon sidebar (md) ────────────────────────────────── */}
-      <aside className="hidden md:flex lg:hidden w-16 min-h-screen bg-[#1B4332] flex-col shrink-0 fixed left-0 top-0 bottom-0 z-30">
-        <div className="p-3 border-b border-[#2d6a4f] flex justify-center">
-          <div className="w-9 h-9 rounded-xl bg-[#F59E0B] flex items-center justify-center">
-            <ChefHat className="h-5 w-5 text-white" />
-          </div>
-        </div>
-        <NavLinks items={visibleItems} pathname={pathname} collapsed />
-        {logoutBtn(false)}
-      </aside>
-
-      {/* ── DESKTOP: full sidebar (lg+) ──────────────────────────────── */}
+      {/* ── DESKTOP only: full sidebar (lg+) ────────────────────────── */}
       <aside className="hidden lg:flex w-64 min-h-screen bg-[#1B4332] flex-col shrink-0">
         {logoBlock}
         {userBlock}
