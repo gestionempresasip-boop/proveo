@@ -2,26 +2,29 @@
 
 import { useState } from 'react'
 import { updateOrderStatus } from '@/app/actions/orders'
+import type { OrderStatus } from '@/app/actions/orders'
 
-const NEXT_STATUS: Record<string, { label: string; next: string; color: string }> = {
-  pendiente:      { label: '👨‍🍳 Poner en preparación', next: 'en_preparacion', color: 'bg-blue-600 hover:bg-blue-700' },
-  en_preparacion: { label: '✅ Marcar como listo',       next: 'listo',          color: 'bg-green-600 hover:bg-green-700' },
-  listo:          { label: '📦 Marcar como enviado',     next: 'entregado',      color: 'bg-[#1B4332] hover:bg-[#163828]' },
+function normalize(s: string): string {
+  if (s === 'en_preparacion' || s === 'listo') return 'hecho'
+  if (s === 'entregado') return 'enviado'
+  return s
+}
+
+const NEXT: Record<string, { label: string; next: OrderStatus; color: string }> = {
+  pendiente: { label: 'Marcar como hecho',   next: 'hecho',   color: 'bg-blue-600 hover:bg-blue-700' },
+  hecho:     { label: 'Marcar como enviado', next: 'enviado', color: 'bg-[#1B4332] hover:bg-[#163828]' },
 }
 
 export function OrderStatusButtons({ orderId, currentStatus }: { orderId: string; currentStatus: string }) {
   const [loading, setLoading] = useState(false)
-  const action = NEXT_STATUS[currentStatus]
+  const action = NEXT[normalize(currentStatus)]
 
   if (!action) return null
 
   async function handleClick() {
     setLoading(true)
-    try {
-      await updateOrderStatus(orderId, action.next as any)
-    } finally {
-      setLoading(false)
-    }
+    try { await updateOrderStatus(orderId, action.next) }
+    finally { setLoading(false) }
   }
 
   return (

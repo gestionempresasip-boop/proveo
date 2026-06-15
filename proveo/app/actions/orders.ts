@@ -3,7 +3,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
-type OrderStatus = 'pendiente' | 'en_preparacion' | 'listo' | 'entregado' | 'cancelado'
+// 3 estados simplificados. Los viejos (en_preparacion, listo, entregado)
+// se mapean en la UI pero se intentan escribir como nuevos si la BD ya migró.
+export type OrderStatus = 'pendiente' | 'hecho' | 'enviado' | 'cancelado'
 
 export async function updateOrderStatus(orderId: string, newStatus: OrderStatus) {
   const supabase = await createClient()
@@ -14,53 +16,45 @@ export async function updateOrderStatus(orderId: string, newStatus: OrderStatus)
     .update({ status: newStatus, updated_at: new Date().toISOString() })
     .eq('id', orderId)
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    // Si falla (constraint antigua), intentar con mapeado legacy
+    const legacy: Record<string, string> = { hecho: 'en_preparacion', enviado: 'entregado' }
+    if (legacy[newStatus]) {
+      await sb.from('orders').update({ status: legacy[newStatus], updated_at: new Date().toISOString() }).eq('id', orderId)
+    }
+  }
 
-  // Si se marca como entregado, generar albarán automáticamente
-  if (newStatus === 'entregado') {
-    await createDeliveryNote(orderId)
+  if (newStatus === 'enviado') {
+    await generateDeliveryNote(orderId)
   }
 
   revalidatePath('/pedidos')
   revalidatePath('/albaranes')
 }
 
-async function createDeliveryNote(orderId: string) {
+export async function generateDeliveryNote(orderId: string) {
   const supabase = await createClient()
   const sb = supabase as any
 
-  // Verificar que no existe ya un albarán para este pedido
-  const { data: existing } = await sb
-    .from('delivery_notes')
-    .select('id')
-    .eq('order_id', orderId)
-    .single()
+  const { data: existing } = await sb.from('delivery_notes').select('id').eq('order_id', orderId).maybeSingle()
+  if (existing) return existing.id
 
-  if (existing) return
-
-  // Obtener datos del pedido con sus líneas
   const { data: order } = await sb
     .from('orders')
     .select('*, order_items(*, products(name, price, unit))')
     .eq('id', orderId)
     .single()
 
-  if (!order) return
+  if (!order) return null
 
-  // Crear albarán
   const { data: note, error } = await sb
     .from('delivery_notes')
-    .insert({
-      order_id: orderId,
-      delivered_at: new Date().toISOString(),
-      notes: null,
-    })
+    .insert({ order_id: orderId, delivered_at: new Date().toISOString() })
     .select()
     .single()
 
-  if (error || !note) return
+  if (error || !note) return null
 
-  // Crear líneas del albarán
   const items = order.order_items.map((item: any) => ({
     delivery_note_id: note.id,
     product_id: item.product_id,
@@ -71,7 +65,8 @@ async function createDeliveryNote(orderId: string) {
     total_price: item.total_price,
   }))
 
-  if (items.length > 0) {
-    await sb.from('delivery_note_items').insert(items)
-  }
+  if (items.length > 0) await sb.from('delivery_note_items').insert(items)
+
+  revalidatePath('/albaranes')
+  return note.id
 }
