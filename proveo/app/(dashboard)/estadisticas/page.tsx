@@ -1,40 +1,66 @@
+import { createClient } from '@/lib/supabase/server'
 import { getAuthProfile } from '@/lib/supabase/helpers'
-import { BarChart2, TrendingUp, Package, ShoppingCart } from 'lucide-react'
+import { EstadisticasClient } from '@/components/stats/EstadisticasClient'
 
 export default async function EstadisticasPage() {
-  await getAuthProfile()
+  const supabase = await createClient()
+  const profile = await getAuthProfile()
+  const sb = supabase as any
+
+  // Traer todos los pedidos con sus líneas y restaurante
+  // Excluimos cancelados
+  const { data: orders } = await sb
+    .from('orders')
+    .select(`
+      id, order_number, created_at, total_price, restaurant_id, status,
+      organizations!restaurant_id(id, name),
+      order_items(id, product_id, quantity, unit, unit_price, total_price,
+        products(name)
+      )
+    `)
+    .neq('status', 'cancelado')
+    .order('created_at', { ascending: false })
+
+  // Aplanar a filas por línea de pedido (para cálculos granulares)
+  type Line = {
+    order_id: string; order_number: number; created_at: string
+    restaurant_id: string; restaurant_name: string
+    product_id: string; product_name: string
+    quantity: number; unit: string; unit_price: number
+    item_total: number; order_total: number
+  }
+
+  const lines: Line[] = []
+  for (const o of orders ?? []) {
+    for (const item of o.order_items ?? []) {
+      lines.push({
+        order_id: o.id,
+        order_number: o.order_number,
+        created_at: o.created_at,
+        restaurant_id: o.restaurant_id,
+        restaurant_name: (o.organizations as any)?.name ?? 'Desconocido',
+        product_id: item.product_id,
+        product_name: (item.products as any)?.name ?? 'Producto eliminado',
+        quantity: Number(item.quantity),
+        unit: item.unit,
+        unit_price: Number(item.unit_price),
+        item_total: Number(item.total_price),
+        order_total: Number(o.total_price),
+      })
+    }
+  }
+
+  // Lista de restaurantes para el filtro
+  const { data: restaurants } = await sb
+    .from('organizations')
+    .select('id, name')
+    .eq('type', 'restaurante')
+    .order('name')
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-[#1C1C1E]">Estadísticas</h1>
-        <p className="text-gray-500 mt-1">Resumen de actividad y consumo</p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'Pedidos este mes', value: '—', icon: ShoppingCart, color: 'bg-amber-50 text-amber-600' },
-          { label: 'Productos más pedidos', value: '—', icon: Package, color: 'bg-green-50 text-green-600' },
-          { label: 'Gasto total mes', value: '—', icon: TrendingUp, color: 'bg-blue-50 text-blue-600' },
-          { label: 'Alertas de stock', value: '—', icon: BarChart2, color: 'bg-red-50 text-red-600' },
-        ].map((stat) => (
-          <div key={stat.label} className="bg-white rounded-xl border border-gray-100 p-5">
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 ${stat.color}`}>
-              <stat.icon className="w-5 h-5" />
-            </div>
-            <p className="text-2xl font-bold text-[#1C1C1E]">{stat.value}</p>
-            <p className="text-sm text-gray-500 mt-1">{stat.label}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="bg-white rounded-xl border border-gray-100 p-8 text-center">
-        <BarChart2 className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-        <p className="text-gray-500 font-medium">Gráficas en desarrollo</p>
-        <p className="text-sm text-gray-400 mt-1">
-          Próximamente: consumo por restaurante, productos más pedidos y evolución mensual
-        </p>
-      </div>
-    </div>
+    <EstadisticasClient
+      lines={lines}
+      restaurants={restaurants ?? []}
+    />
   )
 }
