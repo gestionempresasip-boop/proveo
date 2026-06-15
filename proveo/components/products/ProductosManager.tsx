@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition, useMemo } from 'react'
-import { Package, Pencil, Trash2, Eye, EyeOff, Plus, X, Check, ChevronDown, ChevronRight, Sparkles, Tag } from 'lucide-react'
+import { Package, Pencil, Trash2, Eye, EyeOff, Plus, X, Check, ChevronDown, ChevronRight, Sparkles, Tag, Euro } from 'lucide-react'
 import {
   toggleProductActive, softDeleteProduct, updateProduct, createProduct,
   createCategory, deleteCategory, updateCategory, seedDefaultCategories,
@@ -15,10 +15,19 @@ type Product = {
   price: number; unit: string
   min_order_quantity: number; order_increment: number
   is_active: boolean; category_id: string | null
+  image_url?: string | null
+  cost_price?: number | null
+  iva_rate?: number | null
+  margin?: number | null
   product_categories: { name: string } | null
 }
 
 const UNITS = ['kg', 'g', 'l', 'ml', 'unidad', 'caja', 'bandeja']
+const IVA_OPTIONS = [
+  { value: 4,  label: '4% — Alimentos básicos' },
+  { value: 10, label: '10% — Alimentos / hostelería' },
+  { value: 21, label: '21% — Alcohol y otros' },
+]
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -28,7 +37,12 @@ function ColorDot({ color }: { color: string | null }) {
   return <span className="inline-block w-2.5 h-2.5 rounded-full shrink-0" style={{ background: catColor(color) }} />
 }
 
-// ── Inline toggle active ─────────────────────────────────────────────────────
+function finalPrice(p: Product) {
+  const iva = Number(p.iva_rate) || 0
+  return Number(p.price) * (1 + iva)
+}
+
+// ── Toggle active ─────────────────────────────────────────────────────────────
 
 function ToggleActiveButton({ product }: { product: Product }) {
   const [active, setActive] = useState(product.is_active)
@@ -47,7 +61,7 @@ function ToggleActiveButton({ product }: { product: Product }) {
   )
 }
 
-// ── Delete with confirmation ─────────────────────────────────────────────────
+// ── Delete ────────────────────────────────────────────────────────────────────
 
 function DeleteButton({ product }: { product: Product }) {
   const [confirming, setConfirming] = useState(false)
@@ -57,8 +71,8 @@ function DeleteButton({ product }: { product: Product }) {
     return (
       <div className="flex items-center gap-1">
         <span className="text-xs text-gray-500 whitespace-nowrap">¿Eliminar?</span>
-        <button onClick={doDelete} disabled={pending} className="p-1 rounded text-red-600 hover:bg-red-50" title="Confirmar"><Check className="w-4 h-4" /></button>
-        <button onClick={() => setConfirming(false)} className="p-1 rounded text-gray-400 hover:bg-gray-100" title="Cancelar"><X className="w-4 h-4" /></button>
+        <button onClick={doDelete} disabled={pending} className="p-1 rounded text-red-600 hover:bg-red-50"><Check className="w-4 h-4" /></button>
+        <button onClick={() => setConfirming(false)} className="p-1 rounded text-gray-400 hover:bg-gray-100"><X className="w-4 h-4" /></button>
       </div>
     )
   }
@@ -70,9 +84,110 @@ function DeleteButton({ product }: { product: Product }) {
   )
 }
 
-// ── Product form fields (shared by Edit and Nuevo) ───────────────────────────
+// ── Pricing calculator (nave/admin only) ──────────────────────────────────────
 
-function ProductFields({ product, categories }: { product?: Product; categories: Category[] }) {
+function PricingCalculator({
+  cost_price: initCost = 0,
+  margin: initMargin = 0,      // stored as decimal 0–n, e.g. 0.25 = 25%
+  iva_rate: initIva = 0.10,    // stored as decimal 0–1, e.g. 0.10 = 10%
+  fallbackPrice = 0,
+}: {
+  cost_price?: number | null
+  margin?: number | null
+  iva_rate?: number | null
+  fallbackPrice?: number
+}) {
+  const [cost, setCost]     = useState(Number(initCost)   || 0)
+  const [margin, setMargin] = useState(Math.round((Number(initMargin) || 0) * 100))  // as %
+  const [ivaPct, setIvaPct] = useState(Math.round((Number(initIva)   || 0.10) * 100)) // as %
+
+  const priceNoIva  = cost > 0 ? cost * (1 + margin / 100) : (fallbackPrice || 0)
+  const ivaAmount   = priceNoIva * (ivaPct / 100)
+  const priceConIva = priceNoIva + ivaAmount
+
+  return (
+    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
+      <div className="flex items-center gap-2 mb-1">
+        <Euro className="w-3.5 h-3.5 text-amber-600" />
+        <span className="text-xs font-semibold text-amber-800 uppercase tracking-wide">
+          Precios — solo visible en la nave
+        </span>
+      </div>
+
+      {/* Hidden inputs for the form */}
+      <input type="hidden" name="cost_price"     value={cost} />
+      <input type="hidden" name="margin"          value={(margin / 100).toFixed(6)} />
+      <input type="hidden" name="iva_rate"        value={(ivaPct / 100).toFixed(6)} />
+      {/* price_override drives the final price saved to DB */}
+      <input type="hidden" name="price_override"  value={priceNoIva > 0 ? priceNoIva.toFixed(6) : ''} />
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs text-gray-500 font-medium block mb-1">Precio de coste (€)</label>
+          <input
+            type="number" step="0.0001" min="0"
+            value={cost || ''}
+            onChange={e => setCost(Number(e.target.value) || 0)}
+            placeholder="0.0000"
+            className="w-full border border-amber-200 bg-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+          />
+        </div>
+        <div>
+          <label className="text-xs text-gray-500 font-medium block mb-1">Margen (%)</label>
+          <div className="flex items-center gap-1.5">
+            <input
+              type="number" step="1" min="0" max="2000"
+              value={margin}
+              onChange={e => setMargin(Number(e.target.value) || 0)}
+              className="w-full border border-amber-200 bg-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+            />
+            <span className="text-sm text-amber-700 font-medium shrink-0">%</span>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label className="text-xs text-gray-500 font-medium block mb-1">IVA aplicable</label>
+        <select
+          value={ivaPct}
+          onChange={e => setIvaPct(Number(e.target.value))}
+          className="w-full border border-amber-200 bg-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+        >
+          {IVA_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+      </div>
+
+      {/* Calculated breakdown */}
+      <div className="bg-white rounded-lg p-3 border border-amber-100 space-y-1.5">
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-500">Precio venta <span className="text-xs text-gray-400">(sin IVA)</span></span>
+          <span className="font-semibold text-[#1C1C1E] tabular-nums">{priceNoIva.toFixed(4)} €</span>
+        </div>
+        <div className="flex justify-between text-xs text-gray-400 tabular-nums">
+          <span>+ IVA {ivaPct}%</span>
+          <span>+ {ivaAmount.toFixed(4)} €</span>
+        </div>
+        <div className="flex justify-between items-baseline border-t border-amber-100 pt-1.5">
+          <span className="text-sm font-semibold text-[#1C1C1E]">Precio final (con IVA)</span>
+          <span className="text-xl font-bold text-[#1B4332] tabular-nums">{priceConIva.toFixed(2)} €</span>
+        </div>
+        <p className="text-xs text-gray-400 pt-0.5">Este es el precio que verán los restaurantes</p>
+      </div>
+    </div>
+  )
+}
+
+// ── Product form fields ───────────────────────────────────────────────────────
+
+function ProductFields({
+  product,
+  categories,
+  isNave,
+}: {
+  product?: Product
+  categories: Category[]
+  isNave?: boolean
+}) {
   return (
     <div className="space-y-3">
       <div>
@@ -87,9 +202,8 @@ function ProductFields({ product, categories }: { product?: Product; categories:
       </div>
       <div>
         <label className="text-xs text-gray-500 font-medium block mb-1">URL de imagen</label>
-        <input name="image_url" type="url" defaultValue={(product as any)?.image_url ?? ''} placeholder="https://... (pega una URL de imagen)"
+        <input name="image_url" type="url" defaultValue={product?.image_url ?? ''} placeholder="https://... (pega una URL de imagen)"
           className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]" />
-        <p className="text-xs text-gray-400 mt-0.5">Pega un enlace a la foto del producto (JPG, PNG, WebP)</p>
       </div>
       <div>
         <label className="text-xs text-gray-500 font-medium block mb-1">Categoría</label>
@@ -100,10 +214,19 @@ function ProductFields({ product, categories }: { product?: Product; categories:
         </select>
       </div>
       <div className="grid grid-cols-2 gap-3">
+        {/* When isNave the price is driven by the PricingCalculator via price_override.
+            We still render it for fallback (cost=0 case) but it's labeled clearly. */}
         <div>
-          <label className="text-xs text-gray-500 font-medium block mb-1">Precio (€) *</label>
-          <input name="price" type="number" step="0.01" min="0" defaultValue={product?.price ?? 0} required
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]" />
+          <label className="text-xs text-gray-500 font-medium block mb-1">
+            {isNave ? 'Precio sin IVA (€) — anulado por coste+margen si > 0' : 'Precio (€) *'}
+          </label>
+          <input name="price" type="number" step="0.0001" min="0"
+            defaultValue={product?.price ?? 0}
+            required={!isNave}
+            className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332] ${
+              isNave ? 'border-gray-100 bg-gray-50 text-gray-400' : 'border-gray-200'
+            }`} />
+          {isNave && <p className="text-xs text-gray-400 mt-0.5">Se calcula automáticamente arriba</p>}
         </div>
         <div>
           <label className="text-xs text-gray-500 font-medium block mb-1">Unidad *</label>
@@ -129,9 +252,13 @@ function ProductFields({ product, categories }: { product?: Product; categories:
   )
 }
 
-// ── Edit modal ───────────────────────────────────────────────────────────────
+// ── Edit modal ────────────────────────────────────────────────────────────────
 
-function EditModal({ product, categories, onClose }: { product: Product; categories: Category[]; onClose: () => void }) {
+function EditModal({
+  product, categories, isNave, onClose,
+}: {
+  product: Product; categories: Category[]; isNave?: boolean; onClose: () => void
+}) {
   const [pending, startTransition] = useTransition()
   const [done, setDone] = useState(false)
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -140,15 +267,23 @@ function EditModal({ product, categories, onClose }: { product: Product; categor
     startTransition(async () => { await updateProduct(product.id, fd); setDone(true); setTimeout(onClose, 600) })
   }
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 overflow-y-auto">
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 overflow-y-auto">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md my-4">
         <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
           <h2 className="font-semibold text-[#1C1C1E]">Editar producto</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
         </div>
-        <form onSubmit={handleSubmit} className="px-6 py-4">
-          <ProductFields product={product} categories={categories} />
-          <div className="pt-4 flex gap-2">
+        <form onSubmit={handleSubmit} className="px-6 py-4 space-y-4">
+          {isNave && (
+            <PricingCalculator
+              cost_price={product.cost_price}
+              margin={product.margin}
+              iva_rate={product.iva_rate}
+              fallbackPrice={product.price}
+            />
+          )}
+          <ProductFields product={product} categories={categories} isNave={isNave} />
+          <div className="flex gap-2">
             <button type="button" onClick={onClose} className="flex-1 border border-gray-200 text-gray-600 rounded-lg py-2 text-sm font-medium hover:bg-gray-50">Cancelar</button>
             <button type="submit" disabled={pending || done} className="flex-1 bg-[#1B4332] text-white rounded-lg py-2 text-sm font-medium hover:bg-[#163828] disabled:opacity-60">
               {done ? '✓ Guardado' : pending ? 'Guardando...' : 'Guardar'}
@@ -160,9 +295,13 @@ function EditModal({ product, categories, onClose }: { product: Product; categor
   )
 }
 
-// ── New product modal ────────────────────────────────────────────────────────
+// ── New product modal ─────────────────────────────────────────────────────────
 
-function NuevoModal({ categories, defaultCategoryId, onClose }: { categories: Category[]; defaultCategoryId?: string; onClose: () => void }) {
+function NuevoModal({
+  categories, defaultCategoryId, isNave, onClose,
+}: {
+  categories: Category[]; defaultCategoryId?: string; isNave?: boolean; onClose: () => void
+}) {
   const [pending, startTransition] = useTransition()
   const [done, setDone] = useState(false)
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -170,15 +309,21 @@ function NuevoModal({ categories, defaultCategoryId, onClose }: { categories: Ca
     const fd = new FormData(e.currentTarget)
     startTransition(async () => { await createProduct(fd); setDone(true); setTimeout(onClose, 600) })
   }
+
+  const catForSelect = defaultCategoryId ?? ''
+
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 overflow-y-auto">
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 overflow-y-auto">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md my-4">
         <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
           <h2 className="font-semibold text-[#1C1C1E]">Nuevo producto</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
         </div>
-        <form onSubmit={handleSubmit} className="px-6 py-4">
-          {/* Override defaultValue for category_id via hidden + select default */}
+        <form onSubmit={handleSubmit} className="px-6 py-4 space-y-4">
+          {isNave && (
+            <PricingCalculator iva_rate={0.10} />
+          )}
+          {/* Inline fields (same as ProductFields but with defaultCategoryId) */}
           <div className="space-y-3">
             <div>
               <label className="text-xs text-gray-500 font-medium block mb-1">Nombre *</label>
@@ -192,7 +337,7 @@ function NuevoModal({ categories, defaultCategoryId, onClose }: { categories: Ca
             </div>
             <div>
               <label className="text-xs text-gray-500 font-medium block mb-1">Categoría</label>
-              <select name="category_id" defaultValue={defaultCategoryId ?? ''}
+              <select name="category_id" defaultValue={catForSelect}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]">
                 <option value="">Sin categoría</option>
                 {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -200,9 +345,15 @@ function NuevoModal({ categories, defaultCategoryId, onClose }: { categories: Ca
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-gray-500 font-medium block mb-1">Precio (€) *</label>
-                <input name="price" type="number" step="0.01" min="0" defaultValue="0" required
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]" />
+                <label className="text-xs text-gray-500 font-medium block mb-1">
+                  {isNave ? 'Precio sin IVA (€)' : 'Precio (€) *'}
+                </label>
+                <input name="price" type="number" step="0.0001" min="0" defaultValue="0"
+                  required={!isNave}
+                  className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332] ${
+                    isNave ? 'border-gray-100 bg-gray-50 text-gray-400' : 'border-gray-200'
+                  }`} />
+                {isNave && <p className="text-xs text-gray-400 mt-0.5">Se calcula arriba</p>}
               </div>
               <div>
                 <label className="text-xs text-gray-500 font-medium block mb-1">Unidad *</label>
@@ -224,7 +375,8 @@ function NuevoModal({ categories, defaultCategoryId, onClose }: { categories: Ca
               </div>
             </div>
           </div>
-          <div className="pt-4 flex gap-2">
+
+          <div className="flex gap-2 pt-1">
             <button type="button" onClick={onClose} className="flex-1 border border-gray-200 text-gray-600 rounded-lg py-2 text-sm font-medium hover:bg-gray-50">Cancelar</button>
             <button type="submit" disabled={pending || done} className="flex-1 bg-[#1B4332] text-white rounded-lg py-2 text-sm font-medium hover:bg-[#163828] disabled:opacity-60">
               {done ? '✓ Creado' : pending ? 'Creando...' : 'Crear producto'}
@@ -236,47 +388,88 @@ function NuevoModal({ categories, defaultCategoryId, onClose }: { categories: Ca
   )
 }
 
-// ── Products table (within a category section) ───────────────────────────────
+// ── Products table ────────────────────────────────────────────────────────────
 
-function ProductsTable({ products, categories, onEdit }: { products: Product[]; categories: Category[]; onEdit: (p: Product) => void }) {
+function ProductsTable({
+  products, categories, isNave, onEdit,
+}: {
+  products: Product[]; categories: Category[]; isNave?: boolean; onEdit: (p: Product) => void
+}) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-sm min-w-[580px]">
+      <table className={`w-full text-sm ${isNave ? 'min-w-[820px]' : 'min-w-[580px]'}`}>
         <thead className="bg-gray-50 border-b border-gray-100">
           <tr>
             <th className="text-left px-4 py-2.5 text-xs text-gray-400 font-medium">Producto</th>
-            <th className="text-right px-4 py-2.5 text-xs text-gray-400 font-medium">Precio</th>
-            <th className="text-left px-4 py-2.5 text-xs text-gray-400 font-medium">Unidad</th>
-            <th className="text-center px-4 py-2.5 text-xs text-gray-400 font-medium">Visibilidad</th>
+            {isNave ? (
+              <>
+                <th className="text-right px-3 py-2.5 text-xs text-gray-400 font-medium">Coste</th>
+                <th className="text-right px-3 py-2.5 text-xs text-gray-400 font-medium">Margen</th>
+                <th className="text-right px-3 py-2.5 text-xs text-gray-400 font-medium">Sin IVA</th>
+                <th className="text-right px-3 py-2.5 text-xs text-amber-600 font-medium">Con IVA</th>
+              </>
+            ) : (
+              <th className="text-right px-4 py-2.5 text-xs text-gray-400 font-medium">Precio</th>
+            )}
+            <th className="text-left px-3 py-2.5 text-xs text-gray-400 font-medium">Unidad</th>
+            <th className="text-center px-3 py-2.5 text-xs text-gray-400 font-medium">Visibilidad</th>
             <th className="px-4 py-2.5 w-20"></th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-50">
-          {products.map(p => (
-            <tr key={p.id} className={`hover:bg-gray-50 transition-colors ${!p.is_active ? 'opacity-50' : ''}`}>
-              <td className="px-4 py-3">
-                <div className="flex items-center gap-2">
-                  <Package className="w-3.5 h-3.5 text-gray-300 shrink-0" />
-                  <div>
-                    <p className="font-medium text-[#1C1C1E] leading-tight">{p.name}</p>
-                    {p.description && <p className="text-xs text-gray-400">{p.description}</p>}
+          {products.map(p => {
+            const hasCost = Number(p.cost_price) > 0
+            const marginPct = Math.round((Number(p.margin) || 0) * 100)
+            const ivaPct    = Math.round((Number(p.iva_rate) || 0) * 100)
+            const pFinal    = finalPrice(p)
+            return (
+              <tr key={p.id} className={`hover:bg-gray-50 transition-colors ${!p.is_active ? 'opacity-50' : ''}`}>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <Package className="w-3.5 h-3.5 text-gray-300 shrink-0" />
+                    <div>
+                      <p className="font-medium text-[#1C1C1E] leading-tight">{p.name}</p>
+                      {p.description && <p className="text-xs text-gray-400">{p.description}</p>}
+                    </div>
                   </div>
-                </div>
-              </td>
-              <td className="px-4 py-3 text-right font-semibold text-[#1B4332]">{Number(p.price).toFixed(2)} €</td>
-              <td className="px-4 py-3 text-gray-500 text-xs">{p.unit}</td>
-              <td className="px-4 py-3 text-center"><ToggleActiveButton product={p} /></td>
-              <td className="px-4 py-3">
-                <div className="flex items-center justify-end gap-1">
-                  <button onClick={() => onEdit(p)} title="Editar"
-                    className="p-1.5 rounded-lg text-gray-400 hover:text-[#1B4332] hover:bg-green-50 transition-colors">
-                    <Pencil className="w-3.5 h-3.5" />
-                  </button>
-                  <DeleteButton product={p} />
-                </div>
-              </td>
-            </tr>
-          ))}
+                </td>
+                {isNave ? (
+                  <>
+                    <td className="px-3 py-3 text-right text-xs tabular-nums text-gray-500">
+                      {hasCost ? `${Number(p.cost_price).toFixed(2)} €` : <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className="px-3 py-3 text-right text-xs tabular-nums">
+                      {hasCost
+                        ? <span className="bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-medium">{marginPct}%</span>
+                        : <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className="px-3 py-3 text-right text-xs tabular-nums text-gray-600 font-medium">
+                      {Number(p.price).toFixed(2)} €
+                    </td>
+                    <td className="px-3 py-3 text-right">
+                      <div className="text-sm font-bold text-[#1B4332] tabular-nums">
+                        {pFinal.toFixed(2)} €
+                      </div>
+                      {ivaPct > 0 && <div className="text-xs text-gray-400">IVA {ivaPct}%</div>}
+                    </td>
+                  </>
+                ) : (
+                  <td className="px-4 py-3 text-right font-semibold text-[#1B4332]">{Number(p.price).toFixed(2)} €</td>
+                )}
+                <td className="px-3 py-3 text-gray-500 text-xs">{p.unit}</td>
+                <td className="px-3 py-3 text-center"><ToggleActiveButton product={p} /></td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center justify-end gap-1">
+                    <button onClick={() => onEdit(p)} title="Editar"
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-[#1B4332] hover:bg-green-50 transition-colors">
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <DeleteButton product={p} />
+                  </div>
+                </td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
     </div>
@@ -286,19 +479,18 @@ function ProductsTable({ products, categories, onEdit }: { products: Product[]; 
 // ── Category section (collapsible) ───────────────────────────────────────────
 
 function CategorySection({
-  categoryId, name, color, products, categories, onEdit, onAddProduct,
+  categoryId, name, color, products, categories, isNave, onEdit, onAddProduct,
 }: {
   categoryId: string; name: string; color: string | null
-  products: Product[]; categories: Category[]
+  products: Product[]; categories: Category[]; isNave?: boolean
   onEdit: (p: Product) => void; onAddProduct: (catId: string) => void
 }) {
   const [open, setOpen] = useState(true)
   const visibleCount = products.filter(p => p.is_active).length
-  const hiddenCount = products.length - visibleCount
+  const hiddenCount  = products.length - visibleCount
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-      {/* Section header */}
       <button
         onClick={() => setOpen(v => !v)}
         className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-left"
@@ -308,43 +500,39 @@ function CategorySection({
         <div className="flex items-center gap-2 text-xs text-gray-400">
           <span className="bg-gray-100 px-2 py-0.5 rounded-full">{products.length} productos</span>
           {visibleCount > 0 && <span className="bg-green-50 text-green-600 px-2 py-0.5 rounded-full">{visibleCount} visibles</span>}
-          {hiddenCount > 0 && <span className="bg-gray-100 text-gray-400 px-2 py-0.5 rounded-full">{hiddenCount} ocultos</span>}
+          {hiddenCount  > 0 && <span className="bg-gray-100 text-gray-400 px-2 py-0.5 rounded-full">{hiddenCount} ocultos</span>}
         </div>
         <button
           onClick={e => { e.stopPropagation(); onAddProduct(categoryId) }}
           className="flex items-center gap-1 text-xs text-[#1B4332] hover:bg-green-50 px-2 py-1 rounded-lg transition-colors font-medium"
           title={`Añadir producto en ${name}`}
         >
-          <Plus className="w-3.5 h-3.5" />
-          Añadir
+          <Plus className="w-3.5 h-3.5" />Añadir
         </button>
         {open ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
       </button>
-
-      {/* Products table */}
       {open && (
         products.length > 0
-          ? <ProductsTable products={products} categories={categories} onEdit={onEdit} />
+          ? <ProductsTable products={products} categories={categories} isNave={isNave} onEdit={onEdit} />
           : <p className="text-xs text-gray-400 px-6 py-4">Sin productos. Pulsa "Añadir" para crear el primero.</p>
       )}
     </div>
   )
 }
 
-// ── Category management tab ──────────────────────────────────────────────────
+// ── Category management tab ───────────────────────────────────────────────────
 
 function CategoriasManager({ categories, productCountByCat }: { categories: Category[]; productCountByCat: Record<string, number> }) {
-  const [showNew, setShowNew] = useState(false)
-  const [editingCat, setEditingCat] = useState<Category | null>(null)
-  const [seedPending, startSeedTransition] = useTransition()
-  const [seedDone, setSeedDone] = useState(false)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [showNew, setShowNew]         = useState(false)
+  const [editingCat, setEditingCat]   = useState<Category | null>(null)
+  const [deletingId, setDeletingId]   = useState<string | null>(null)
+  const [seedPending, startSeedTransition]     = useTransition()
   const [deletePending, startDeleteTransition] = useTransition()
+  const [seedDone, setSeedDone] = useState(false)
 
   function handleSeed() {
     startSeedTransition(async () => { await seedDefaultCategories(); setSeedDone(true) })
   }
-
   function handleDeleteCat(id: string) {
     startDeleteTransition(async () => { await deleteCategory(id); setDeletingId(null) })
   }
@@ -354,24 +542,18 @@ function CategoriasManager({ categories, productCountByCat }: { categories: Cate
       <div className="flex items-center justify-between">
         <p className="text-sm text-gray-500">{categories.length} categorías configuradas</p>
         <div className="flex gap-2">
-          <button
-            onClick={handleSeed}
-            disabled={seedPending || seedDone}
-            className="flex items-center gap-1.5 text-xs border border-[#1B4332] text-[#1B4332] px-3 py-2 rounded-xl hover:bg-green-50 disabled:opacity-50 transition-colors font-medium"
-          >
+          <button onClick={handleSeed} disabled={seedPending || seedDone}
+            className="flex items-center gap-1.5 text-xs border border-[#1B4332] text-[#1B4332] px-3 py-2 rounded-xl hover:bg-green-50 disabled:opacity-50 transition-colors font-medium">
             <Sparkles className="w-3.5 h-3.5" />
             {seedDone ? '✓ Insertadas' : seedPending ? 'Insertando...' : 'Categorías por defecto'}
           </button>
-          <button
-            onClick={() => setShowNew(true)}
-            className="flex items-center gap-1.5 text-xs bg-[#1B4332] text-white px-3 py-2 rounded-xl hover:bg-[#163828] transition-colors font-medium"
-          >
+          <button onClick={() => setShowNew(true)}
+            className="flex items-center gap-1.5 text-xs bg-[#1B4332] text-white px-3 py-2 rounded-xl hover:bg-[#163828] transition-colors font-medium">
             <Plus className="w-3.5 h-3.5" /> Nueva categoría
           </button>
         </div>
       </div>
 
-      {/* Category list */}
       <div className="bg-white rounded-xl border border-gray-100 divide-y divide-gray-50">
         {categories.length === 0 && (
           <div className="text-center py-12 text-gray-400">
@@ -414,12 +596,8 @@ function CategoriasManager({ categories, productCountByCat }: { categories: Cate
         ))}
       </div>
 
-      {/* New category inline form */}
       {showNew && <NewCatForm onClose={() => setShowNew(false)} />}
-
-      <p className="text-xs text-gray-400">
-        Al eliminar una categoría, sus productos quedan sin categoría pero no se borran.
-      </p>
+      <p className="text-xs text-gray-400">Al eliminar una categoría, sus productos quedan sin categoría pero no se borran.</p>
     </div>
   )
 }
@@ -463,23 +641,27 @@ function NewCatForm({ onClose }: { onClose: () => void }) {
   )
 }
 
-// ── Main component ───────────────────────────────────────────────────────────
+// ── Main component ────────────────────────────────────────────────────────────
 
-export function ProductosManager({ products, categories }: { products: Product[]; categories: Category[] }) {
-  const [tab, setTab] = useState<'productos' | 'categorias'>('productos')
+export function ProductosManager({
+  products, categories, isNave,
+}: {
+  products: Product[]
+  categories: Category[]
+  isNave?: boolean
+}) {
+  const [tab, setTab]                 = useState<'productos' | 'categorias'>('productos')
   const [editProduct, setEditProduct] = useState<Product | null>(null)
   const [nuevoDefaultCat, setNuevoDefaultCat] = useState<string | undefined>()
-  const [showNuevo, setShowNuevo] = useState(false)
-  const [search, setSearch] = useState('')
+  const [showNuevo, setShowNuevo]     = useState(false)
+  const [search, setSearch]           = useState('')
   const [filterActive, setFilterActive] = useState<'todos' | 'activos' | 'ocultos'>('todos')
 
-  // Category map for quick lookup
   const categoriesById = useMemo(() =>
     Object.fromEntries(categories.map(c => [c.id, c])),
     [categories]
   )
 
-  // Product count per category (for the category manager)
   const productCountByCat = useMemo(() => {
     const counts: Record<string, number> = {}
     for (const p of products) {
@@ -488,7 +670,6 @@ export function ProductosManager({ products, categories }: { products: Product[]
     return counts
   }, [products])
 
-  // Filter products
   const filtered = useMemo(() => products.filter(p => {
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
       (p.description?.toLowerCase().includes(search.toLowerCase()) ?? false)
@@ -497,7 +678,6 @@ export function ProductosManager({ products, categories }: { products: Product[]
     return matchSearch
   }), [products, search, filterActive])
 
-  // Group by category (sorted by order_index)
   const grouped = useMemo(() => {
     const map: Record<string, Product[]> = {}
     const uncategorized: Product[] = []
@@ -509,11 +689,9 @@ export function ProductosManager({ products, categories }: { products: Product[]
         uncategorized.push(p)
       }
     }
-    // Build ordered list: categories sorted by order_index, then uncategorized
     const groups: Array<{ id: string; name: string; color: string | null; products: Product[] }> = categories
-      .filter(c => map[c.id]?.length > 0 || !search) // hide empty sections during search
+      .filter(c => map[c.id]?.length > 0 || !search)
       .map(c => ({ id: c.id, name: c.name, color: c.color, products: map[c.id] ?? [] }))
-
     if (uncategorized.length > 0) {
       groups.push({ id: '__none__', name: 'Sin categoría', color: '#9CA3AF', products: uncategorized })
     }
@@ -531,10 +709,20 @@ export function ProductosManager({ products, categories }: { products: Product[]
   return (
     <>
       {editProduct && (
-        <EditModal product={editProduct} categories={categories} onClose={() => setEditProduct(null)} />
+        <EditModal
+          product={editProduct}
+          categories={categories}
+          isNave={isNave}
+          onClose={() => setEditProduct(null)}
+        />
       )}
       {showNuevo && (
-        <NuevoModal categories={categories} defaultCategoryId={nuevoDefaultCat} onClose={() => { setShowNuevo(false); setNuevoDefaultCat(undefined) }} />
+        <NuevoModal
+          categories={categories}
+          defaultCategoryId={nuevoDefaultCat}
+          isNave={isNave}
+          onClose={() => { setShowNuevo(false); setNuevoDefaultCat(undefined) }}
+        />
       )}
 
       <div className="space-y-4">
@@ -544,8 +732,10 @@ export function ProductosManager({ products, categories }: { products: Product[]
             <h1 className="text-xl sm:text-2xl font-bold text-[#1C1C1E]">Gestión de Productos</h1>
             <p className="text-gray-500 mt-0.5 text-sm">{products.length} productos · {categories.length} categorías</p>
           </div>
-          <button onClick={() => { setNuevoDefaultCat(undefined); setShowNuevo(true) }}
-            className="flex items-center gap-2 bg-[#1B4332] text-white text-sm font-medium px-4 py-2.5 rounded-xl hover:bg-[#163828] transition-colors">
+          <button
+            onClick={() => { setNuevoDefaultCat(undefined); setShowNuevo(true) }}
+            className="flex items-center gap-2 bg-[#1B4332] text-white text-sm font-medium px-4 py-2.5 rounded-xl hover:bg-[#163828] transition-colors"
+          >
             <Plus className="w-4 h-4" /> Nuevo producto
           </button>
         </div>
@@ -560,10 +750,16 @@ export function ProductosManager({ products, categories }: { products: Product[]
           ))}
         </div>
 
-        {/* ── Productos tab ───────────────────────────────────────────────── */}
+        {/* ── Productos tab ─────────────────────────────────────────────── */}
         {tab === 'productos' && (
           <>
-            {/* Filtros */}
+            {isNave && (
+              <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-700">
+                <Euro className="w-3.5 h-3.5 shrink-0" />
+                <span>Vista nave: Coste · Margen · Precio sin IVA · <strong>Precio final con IVA</strong> (lo que ven los restaurantes)</span>
+              </div>
+            )}
+
             <div className="flex flex-wrap gap-2 items-center">
               {[
                 { key: 'todos',   label: `Todos (${products.length})` },
@@ -584,7 +780,6 @@ export function ProductosManager({ products, categories }: { products: Product[]
                 className="ml-auto border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332] w-48" />
             </div>
 
-            {/* Category chips (quick filter) */}
             {categories.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
                 {categories.map(c => {
@@ -592,7 +787,6 @@ export function ProductosManager({ products, categories }: { products: Product[]
                   if (count === 0 && !search) return null
                   return (
                     <button key={c.id}
-                      onClick={() => setSearch(count > 0 ? '' : search)}
                       className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border border-gray-200 hover:border-gray-300 bg-white transition-colors"
                       style={{ borderLeftColor: catColor(c.color), borderLeftWidth: 3 }}
                     >
@@ -604,7 +798,6 @@ export function ProductosManager({ products, categories }: { products: Product[]
               </div>
             )}
 
-            {/* Category sections */}
             <div className="space-y-3">
               {grouped.map(g => (
                 <CategorySection
@@ -614,6 +807,7 @@ export function ProductosManager({ products, categories }: { products: Product[]
                   color={g.color}
                   products={g.products}
                   categories={categories}
+                  isNave={isNave}
                   onEdit={setEditProduct}
                   onAddProduct={handleAddProduct}
                 />
@@ -632,7 +826,7 @@ export function ProductosManager({ products, categories }: { products: Product[]
           </>
         )}
 
-        {/* ── Categorías tab ──────────────────────────────────────────────── */}
+        {/* ── Categorías tab ─────────────────────────────────────────────── */}
         {tab === 'categorias' && (
           <CategoriasManager categories={categories} productCountByCat={productCountByCat} />
         )}

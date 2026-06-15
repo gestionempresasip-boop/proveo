@@ -115,7 +115,7 @@ export function ProductCard({
 
         <div className="mt-2">
           <span className="text-[#1B4332] font-bold text-base">
-            {Number(product.price).toFixed(2)}€
+            {(Number(product.price) * (1 + (Number((product as any).iva_rate) || 0))).toFixed(2)}€
           </span>
           <span className="text-gray-400 text-xs ml-1">/ {unitLabels[product.unit] ?? product.unit}</span>
         </div>

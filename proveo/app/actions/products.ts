@@ -8,17 +8,29 @@ export async function createProduct(formData: FormData) {
   const sb = supabase as any
 
   const name = formData.get('name') as string
-  const price = Number(formData.get('price')) || 0
   const unit = formData.get('unit') as string
   const category_id = formData.get('category_id') as string || null
   const description = formData.get('description') as string || null
   const image_url = (formData.get('image_url') as string)?.trim() || null
+
+  const cost_price = Number(formData.get('cost_price')) || 0
+  const margin     = Number(formData.get('margin'))     || 0  // decimal e.g. 0.25
+  const iva_rate   = Number(formData.get('iva_rate'))   || 0.10
+  const price_override = Number(formData.get('price_override')) || 0
+  const price_manual   = Number(formData.get('price')) || 0
+  // price sin IVA: prefer calculator override, else manual, else cost+margin
+  const price = price_override > 0 ? price_override
+    : cost_price > 0 ? cost_price * (1 + margin)
+    : price_manual
 
   const { error } = await sb.from('products').insert({
     name, price, unit,
     category_id: category_id || null,
     description,
     image_url: image_url || null,
+    cost_price: cost_price || null,
+    margin: margin || null,
+    iva_rate,
     is_active: true,
     visibility: 'todos',
   })
@@ -32,13 +44,21 @@ export async function updateProduct(productId: string, formData: FormData) {
   const sb = supabase as any
 
   const name = formData.get('name') as string
-  const price = Number(formData.get('price')) || 0
   const unit = formData.get('unit') as string
   const category_id = formData.get('category_id') as string || null
   const description = formData.get('description') as string || null
   const image_url = (formData.get('image_url') as string)?.trim() || null
   const min_order_quantity = Number(formData.get('min_order_quantity')) || 1
   const order_increment = Number(formData.get('order_increment')) || 1
+
+  const cost_price = Number(formData.get('cost_price')) || 0
+  const margin     = Number(formData.get('margin'))     || 0
+  const iva_rate   = Number(formData.get('iva_rate'))   || 0.10
+  const price_override = Number(formData.get('price_override')) || 0
+  const price_manual   = Number(formData.get('price')) || 0
+  const price = price_override > 0 ? price_override
+    : cost_price > 0 ? cost_price * (1 + margin)
+    : price_manual
 
   const { error } = await sb.from('products').update({
     name, price, unit,
@@ -47,6 +67,9 @@ export async function updateProduct(productId: string, formData: FormData) {
     image_url: image_url || null,
     min_order_quantity,
     order_increment,
+    cost_price: cost_price || null,
+    margin: margin || null,
+    iva_rate,
   }).eq('id', productId)
 
   if (error) throw new Error(error.message)

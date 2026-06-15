@@ -10,6 +10,11 @@ import { useRouter } from 'next/navigation'
 
 type CartItem = { product: Product; quantity: number }
 
+function priceWithIva(product: Product): number {
+  const iva = Number((product as any).iva_rate) || 0
+  return Number(product.price) * (1 + iva)
+}
+
 // Category color dot
 function CatDot({ color }: { color?: string | null }) {
   if (!color) return null
@@ -53,7 +58,7 @@ export default function CatalogoPage() {
     .map(([id, qty]) => ({ product: products.find(p => p.id === id)!, quantity: qty }))
     .filter(item => item.product)
 
-  const cartTotal = cartItems.reduce((sum, item) => sum + item.quantity * item.product.price, 0)
+  const cartTotal = cartItems.reduce((sum, item) => sum + item.quantity * priceWithIva(item.product), 0)
   const cartCount = cartItems.length
 
   const filteredProducts = selectedCategory === 'todos'
@@ -80,11 +85,14 @@ export default function CatalogoPage() {
       .select().single()
     if (error || !order) { setSubmitting(false); return }
     await sb.from('order_items').insert(
-      cartItems.map((item: CartItem) => ({
-        order_id: order.id, product_id: item.product.id, quantity: item.quantity,
-        unit: item.product.unit, unit_price: item.product.price,
-        total_price: item.quantity * item.product.price,
-      }))
+      cartItems.map((item: CartItem) => {
+        const unitPrice = priceWithIva(item.product)
+        return {
+          order_id: order.id, product_id: item.product.id, quantity: item.quantity,
+          unit: item.product.unit, unit_price: unitPrice,
+          total_price: item.quantity * unitPrice,
+        }
+      })
     )
     setSubmitted(true); setCart({}); setCartOpen(false)
     setTimeout(() => router.push('/pedidos'), 2000)
@@ -119,19 +127,22 @@ export default function CatalogoPage() {
         </p>
       ) : (
         <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-          {cartItems.map(({ product, quantity }) => (
-            <div key={product.id} className="flex items-start justify-between gap-2 text-sm">
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-[#1C1C1E] leading-tight">{product.name}</p>
-                <p className="text-gray-400 text-xs mt-0.5">
-                  {quantity} {product.unit} × {Number(product.price).toFixed(2)}€
-                </p>
+          {cartItems.map(({ product, quantity }) => {
+            const unitPrice = priceWithIva(product)
+            return (
+              <div key={product.id} className="flex items-start justify-between gap-2 text-sm">
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-[#1C1C1E] leading-tight">{product.name}</p>
+                  <p className="text-gray-400 text-xs mt-0.5">
+                    {quantity} {product.unit} × {unitPrice.toFixed(2)}€
+                  </p>
+                </div>
+                <span className="font-semibold text-[#1B4332] shrink-0">
+                  {(quantity * unitPrice).toFixed(2)}€
+                </span>
               </div>
-              <span className="font-semibold text-[#1B4332] shrink-0">
-                {(quantity * Number(product.price)).toFixed(2)}€
-              </span>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
