@@ -2,10 +2,13 @@ import { createClient } from '@/lib/supabase/server'
 import { getAuthProfile } from '@/lib/supabase/helpers'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Printer } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
+import { PrintButton } from './PrintButton'
 
-export default async function AlbaranDetailPage({ params }: { params: { id: string } }) {
+export default async function AlbaranDetailPage({ params }: { params: Promise<{ id: string }> }) {
   await getAuthProfile()
+  const { id } = await params
+
   const supabase = await createClient()
   const sb = supabase as any
 
@@ -18,7 +21,7 @@ export default async function AlbaranDetailPage({ params }: { params: { id: stri
       ),
       delivery_note_items(*, products(name, unit))
     `)
-    .eq('id', params.id)
+    .eq('id', id)
     .single()
 
   if (!note) notFound()
@@ -33,17 +36,10 @@ export default async function AlbaranDetailPage({ params }: { params: { id: stri
         <Link href="/albaranes" className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700">
           <ArrowLeft className="w-4 h-4" /> Volver a albaranes
         </Link>
-        <button
-          onClick={() => window.print()}
-          className="flex items-center gap-2 bg-[#1B4332] text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#163828]"
-        >
-          <Printer className="w-4 h-4" />
-          Imprimir / Guardar PDF
-        </button>
+        <PrintButton />
       </div>
 
-      {/* Documento imprimible */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 print:shadow-none print:rounded-none print:border-none">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 print:shadow-none print:rounded-none print:border-none print:p-0">
         {/* Cabecera */}
         <div className="flex justify-between items-start mb-8">
           <div>
@@ -54,7 +50,7 @@ export default async function AlbaranDetailPage({ params }: { params: { id: stri
             <p className="text-2xl font-bold text-[#1C1C1E]">Albarán #{note.note_number}</p>
             <p className="text-sm text-gray-500 mt-1">
               {new Date(note.delivered_at).toLocaleDateString('es-ES', {
-                day: 'numeric', month: 'long', year: 'numeric'
+                day: 'numeric', month: 'long', year: 'numeric',
               })}
             </p>
           </div>
@@ -102,7 +98,7 @@ export default async function AlbaranDetailPage({ params }: { params: { id: stri
         </table>
 
         {order?.notes && (
-          <div className="border-t border-gray-100 pt-4">
+          <div className="border-t border-gray-100 pt-4 mb-6">
             <p className="text-xs text-gray-400 uppercase font-medium mb-1">Notas</p>
             <p className="text-sm text-gray-600">{order.notes}</p>
           </div>
@@ -113,13 +109,6 @@ export default async function AlbaranDetailPage({ params }: { params: { id: stri
           <p>Firma y sello</p>
         </div>
       </div>
-
-      <style>{`
-        @media print {
-          body > *:not(.print-root) { display: none; }
-          .print\\:hidden { display: none !important; }
-        }
-      `}</style>
     </div>
   )
 }
