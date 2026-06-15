@@ -15,7 +15,8 @@ export default async function AdminProductosPage() {
 
   const [{ data: products }, { data: categories }] = await Promise.all([
     sb.from('products')
-      .select('id, name, description, price, unit, min_order_quantity, order_increment, is_active, category_id, product_categories(name)')
+      .select('id, name, description, price, unit, min_order_quantity, order_increment, is_active, category_id, image_url, product_categories(name)')
+      .is('deleted_at', null)
       .order('name'),
     sb.from('product_categories').select('id, name, color, order_index').order('order_index').order('name'),
   ])

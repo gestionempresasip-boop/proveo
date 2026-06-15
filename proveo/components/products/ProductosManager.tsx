@@ -86,6 +86,12 @@ function ProductFields({ product, categories }: { product?: Product; categories:
           className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]" />
       </div>
       <div>
+        <label className="text-xs text-gray-500 font-medium block mb-1">URL de imagen</label>
+        <input name="image_url" type="url" defaultValue={(product as any)?.image_url ?? ''} placeholder="https://... (pega una URL de imagen)"
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]" />
+        <p className="text-xs text-gray-400 mt-0.5">Pega un enlace a la foto del producto (JPG, PNG, WebP)</p>
+      </div>
+      <div>
         <label className="text-xs text-gray-500 font-medium block mb-1">Categoría</label>
         <select name="category_id" defaultValue={product?.category_id ?? ''}
           className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]">

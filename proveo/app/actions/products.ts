@@ -12,13 +12,13 @@ export async function createProduct(formData: FormData) {
   const unit = formData.get('unit') as string
   const category_id = formData.get('category_id') as string || null
   const description = formData.get('description') as string || null
+  const image_url = (formData.get('image_url') as string)?.trim() || null
 
   const { error } = await sb.from('products').insert({
-    name,
-    price,
-    unit,
+    name, price, unit,
     category_id: category_id || null,
     description,
+    image_url: image_url || null,
     is_active: true,
     visibility: 'todos',
   })
@@ -36,15 +36,15 @@ export async function updateProduct(productId: string, formData: FormData) {
   const unit = formData.get('unit') as string
   const category_id = formData.get('category_id') as string || null
   const description = formData.get('description') as string || null
+  const image_url = (formData.get('image_url') as string)?.trim() || null
   const min_order_quantity = Number(formData.get('min_order_quantity')) || 1
   const order_increment = Number(formData.get('order_increment')) || 1
 
   const { error } = await sb.from('products').update({
-    name,
-    price,
-    unit,
+    name, price, unit,
     category_id: category_id || null,
     description,
+    image_url: image_url || null,
     min_order_quantity,
     order_increment,
   }).eq('id', productId)
