@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition, useMemo } from 'react'
-import { Package, Pencil, Trash2, Eye, EyeOff, Plus, X, Check, ChevronDown, ChevronRight, Sparkles, Tag, Euro } from 'lucide-react'
+import { Package, Pencil, Trash2, Eye, EyeOff, Plus, X, Check, ChevronDown, ChevronRight, Sparkles, Tag, Euro, Search } from 'lucide-react'
 import {
   toggleProductActive, softDeleteProduct, updateProduct, createProduct,
   createCategory, deleteCategory, updateCategory, seedDefaultCategories,
@@ -650,12 +650,17 @@ export function ProductosManager({
   categories: Category[]
   isNave?: boolean
 }) {
-  const [tab, setTab]                 = useState<'productos' | 'categorias'>('productos')
+  const [tab, setTab]                 = useState<'productos' | 'buscar' | 'categorias'>('productos')
   const [editProduct, setEditProduct] = useState<Product | null>(null)
   const [nuevoDefaultCat, setNuevoDefaultCat] = useState<string | undefined>()
   const [showNuevo, setShowNuevo]     = useState(false)
   const [search, setSearch]           = useState('')
   const [filterActive, setFilterActive] = useState<'todos' | 'activos' | 'ocultos'>('todos')
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+
+  // Search tab state (independent from Productos tab filters)
+  const [buscarQuery, setBuscarQuery]       = useState('')
+  const [buscarCategory, setBuscarCategory] = useState<string | null>(null)
 
   const categoriesById = useMemo(() =>
     Object.fromEntries(categories.map(c => [c.id, c])),
@@ -689,14 +694,17 @@ export function ProductosManager({
         uncategorized.push(p)
       }
     }
-    const groups: Array<{ id: string; name: string; color: string | null; products: Product[] }> = categories
+    let groups: Array<{ id: string; name: string; color: string | null; products: Product[] }> = categories
       .filter(c => map[c.id]?.length > 0 || !search)
       .map(c => ({ id: c.id, name: c.name, color: c.color, products: map[c.id] ?? [] }))
     if (uncategorized.length > 0) {
       groups.push({ id: '__none__', name: 'Sin categoría', color: '#9CA3AF', products: uncategorized })
     }
+    if (selectedCategory) {
+      groups = groups.filter(g => g.id === selectedCategory)
+    }
     return groups
-  }, [filtered, categories, categoriesById, search])
+  }, [filtered, categories, categoriesById, search, selectedCategory])
 
   const activeCount = products.filter(p => p.is_active).length
   const hiddenCount = products.filter(p => !p.is_active).length
@@ -705,6 +713,18 @@ export function ProductosManager({
     setNuevoDefaultCat(catId === '__none__' ? undefined : catId)
     setShowNuevo(true)
   }
+
+  // ── Search tab: flat list filtered by name/description + optional category ──
+  const buscarResults = useMemo(() => {
+    const q = buscarQuery.trim().toLowerCase()
+    return products.filter(p => {
+      const matchQuery = !q || p.name.toLowerCase().includes(q) || (p.description?.toLowerCase().includes(q) ?? false)
+      const matchCat = !buscarCategory || (buscarCategory === '__none__' ? !p.category_id : p.category_id === buscarCategory)
+      return matchQuery && matchCat
+    })
+  }, [products, buscarQuery, buscarCategory])
+
+  const uncategorizedCount = products.filter(p => !p.category_id).length
 
   return (
     <>
@@ -742,11 +762,14 @@ export function ProductosManager({
 
         {/* Tabs */}
         <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
-          {([['productos','Productos'],['categorias','Categorías']] as const).map(([k,l]) => (
+          {([['productos','Productos'],['buscar','Buscar'],['categorias','Categorías']] as const).map(([k,l]) => (
             <button key={k} onClick={() => setTab(k)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
                 tab === k ? 'bg-white text-[#1C1C1E] shadow-sm' : 'text-gray-500 hover:text-gray-700'
-              }`}>{l}</button>
+              }`}>
+              {k === 'buscar' && <Search className="w-3.5 h-3.5" />}
+              {l}
+            </button>
           ))}
         </div>
 
@@ -782,16 +805,30 @@ export function ProductosManager({
 
             {categories.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
+                {selectedCategory && (
+                  <button
+                    onClick={() => setSelectedCategory(null)}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-[#1B4332] text-white transition-colors"
+                  >
+                    <X className="w-3 h-3" /> Quitar filtro
+                  </button>
+                )}
                 {categories.map(c => {
-                  const count = grouped.find(g => g.id === c.id)?.products.length ?? 0
-                  if (count === 0 && !search) return null
+                  const count = productCountByCat[c.id] ?? 0
+                  if (count === 0) return null
+                  const isSelected = selectedCategory === c.id
                   return (
                     <button key={c.id}
-                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border border-gray-200 hover:border-gray-300 bg-white transition-colors"
-                      style={{ borderLeftColor: catColor(c.color), borderLeftWidth: 3 }}
+                      onClick={() => setSelectedCategory(isSelected ? null : c.id)}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                        isSelected
+                          ? 'border-transparent bg-[#1B4332] text-white'
+                          : 'border-gray-200 hover:border-gray-300 bg-white text-[#1C1C1E]'
+                      }`}
+                      style={!isSelected ? { borderLeftColor: catColor(c.color), borderLeftWidth: 3 } : undefined}
                     >
                       {c.name}
-                      <span className="bg-gray-100 px-1.5 py-0.5 rounded-full text-gray-500">{count}</span>
+                      <span className={`px-1.5 py-0.5 rounded-full ${isSelected ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}>{count}</span>
                     </button>
                   )
                 })}
@@ -824,6 +861,96 @@ export function ProductosManager({
               Los productos <strong>Ocultos</strong> no aparecen en el catálogo de restaurantes, pero su historial de inventario se conserva.
             </p>
           </>
+        )}
+
+        {/* ── Buscar tab ────────────────────────────────────────────────── */}
+        {tab === 'buscar' && (
+          <div className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
+              <input
+                type="text"
+                autoFocus
+                placeholder="Buscar producto por nombre o descripción..."
+                value={buscarQuery}
+                onChange={e => setBuscarQuery(e.target.value)}
+                className="w-full border border-gray-200 rounded-xl pl-10 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]"
+              />
+            </div>
+
+            <div>
+              <p className="text-xs text-gray-400 font-medium mb-2">Filtrar por categoría</p>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  onClick={() => setBuscarCategory(null)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                    buscarCategory === null
+                      ? 'border-transparent bg-[#1B4332] text-white'
+                      : 'border-gray-200 hover:border-gray-300 bg-white text-[#1C1C1E]'
+                  }`}
+                >
+                  Todas
+                  <span className={`px-1.5 py-0.5 rounded-full ${buscarCategory === null ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}>{products.length}</span>
+                </button>
+                {categories.map(c => {
+                  const count = productCountByCat[c.id] ?? 0
+                  if (count === 0) return null
+                  const isSelected = buscarCategory === c.id
+                  return (
+                    <button key={c.id}
+                      onClick={() => setBuscarCategory(isSelected ? null : c.id)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                        isSelected
+                          ? 'border-transparent bg-[#1B4332] text-white'
+                          : 'border-gray-200 hover:border-gray-300 bg-white text-[#1C1C1E]'
+                      }`}
+                      style={!isSelected ? { borderLeftColor: catColor(c.color), borderLeftWidth: 3 } : undefined}
+                    >
+                      <ColorDot color={isSelected ? '#ffffff' : c.color} />
+                      {c.name}
+                      <span className={`px-1.5 py-0.5 rounded-full ${isSelected ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}>{count}</span>
+                    </button>
+                  )
+                })}
+                {uncategorizedCount > 0 && (
+                  <button
+                    onClick={() => setBuscarCategory(buscarCategory === '__none__' ? null : '__none__')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                      buscarCategory === '__none__'
+                        ? 'border-transparent bg-[#1B4332] text-white'
+                        : 'border-gray-200 hover:border-gray-300 bg-white text-[#1C1C1E]'
+                    }`}
+                  >
+                    Sin categoría
+                    <span className={`px-1.5 py-0.5 rounded-full ${buscarCategory === '__none__' ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}>{uncategorizedCount}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-500">{buscarResults.length} producto{buscarResults.length !== 1 ? 's' : ''} encontrado{buscarResults.length !== 1 ? 's' : ''}</p>
+              {(buscarQuery || buscarCategory) && (
+                <button
+                  onClick={() => { setBuscarQuery(''); setBuscarCategory(null) }}
+                  className="text-xs text-gray-400 hover:text-[#1B4332] flex items-center gap-1"
+                >
+                  <X className="w-3 h-3" /> Limpiar filtros
+                </button>
+              )}
+            </div>
+
+            {buscarResults.length > 0 ? (
+              <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+                <ProductsTable products={buscarResults} categories={categories} isNave={isNave} onEdit={setEditProduct} />
+              </div>
+            ) : (
+              <div className="text-center py-16 text-gray-400 bg-white rounded-xl border border-gray-100">
+                <Search className="w-10 h-10 mx-auto mb-3 text-gray-200" />
+                <p>No hay productos que coincidan con la búsqueda</p>
+              </div>
+            )}
+          </div>
         )}
 
         {/* ── Categorías tab ─────────────────────────────────────────────── */}
