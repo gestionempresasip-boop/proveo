@@ -25,5 +25,59 @@ export async function upsertInventory(
     )
   }
 
+  // Log snapshot for history (graceful — table may not exist yet)
+  try {
+    const { data: product } = await sb
+      .from('products')
+      .select('name, unit')
+      .eq('id', productId)
+      .single()
+    const { data: org } = await sb
+      .from('organizations')
+      .select('name')
+      .eq('id', organizationId)
+      .single()
+    if (product && org) {
+      await sb.from('inventory_log').insert({
+        product_id: productId,
+        product_name: product.name,
+        product_unit: product.unit,
+        organization_id: organizationId,
+        organization_name: org.name,
+        stock_value: currentStock,
+        min_stock: minStock,
+      })
+    }
+  } catch {
+    // inventory_log table may not exist yet — safe to ignore
+  }
+
   revalidatePath('/inventario')
+}
+
+export async function getInventoryHistory(
+  organizationId: string,
+  dateFrom?: string,
+  dateTo?: string,
+) {
+  const supabase = await createClient()
+  const sb = supabase as any
+
+  let query = sb
+    .from('inventory_log')
+    .select('*')
+    .eq('organization_id', organizationId)
+    .order('recorded_at', { ascending: false })
+    .limit(500)
+
+  if (dateFrom) query = query.gte('recorded_at', dateFrom)
+  if (dateTo) {
+    const end = new Date(dateTo)
+    end.setDate(end.getDate() + 1)
+    query = query.lt('recorded_at', end.toISOString())
+  }
+
+  const { data, error } = await query
+  if (error) return []
+  return data ?? []
 }

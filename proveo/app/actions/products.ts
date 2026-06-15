@@ -61,3 +61,13 @@ export async function toggleProductActive(productId: string, isActive: boolean) 
     .eq('id', productId)
   revalidatePath('/admin/productos')
 }
+
+export async function softDeleteProduct(productId: string) {
+  const supabase = await createClient()
+  await (supabase as any)
+    .from('products')
+    .update({ deleted_at: new Date().toISOString(), is_active: false })
+    .eq('id', productId)
+  revalidatePath('/admin/productos')
+  revalidatePath('/inventario')
+}

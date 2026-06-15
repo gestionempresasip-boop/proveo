@@ -10,11 +10,12 @@ export default async function InventarioPage() {
 
   const isNave = profile.organizations.type === 'nave'
 
-  // Cargar TODOS los productos activos con su categoría
+  // Cargar TODOS los productos activos (sin deleted_at) con su categoría
   const { data: products } = await sb
     .from('products')
     .select('id, name, unit, product_categories(name)')
     .eq('is_active', true)
+    .is('deleted_at', null)
     .order('name')
 
   // Cargar las entradas de inventario existentes
@@ -50,8 +51,8 @@ export default async function InventarioPage() {
         <h1 className="text-2xl font-bold text-[#1C1C1E]">Inventario</h1>
         <p className="text-gray-500 mt-1">
           {isNave
-            ? 'Controla cuánto tienes de cada producto en el obrador. Edita el stock y pulsa Guardar.'
-            : 'Controla cuánto tienes de cada producto en tu restaurante. Edita el stock y pulsa Guardar.'}
+            ? 'Controla cuánto tienes de cada producto en el obrador.'
+            : 'Controla cuánto tienes de cada producto en tu restaurante.'}
         </p>
       </div>
 

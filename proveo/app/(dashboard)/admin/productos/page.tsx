@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Package } from 'lucide-react'
 import { NuevoProductoModal } from '@/components/products/NuevoProductoModal'
 import { EditProductoModal } from '@/components/products/EditProductoModal'
+import { DeleteProductoButton } from '@/components/products/DeleteProductoButton'
 import { toggleProductActive } from '@/app/actions/products'
 
 export default async function AdminProductosPage() {
@@ -17,7 +18,7 @@ export default async function AdminProductosPage() {
   const sb = supabase as any
 
   const [{ data: products }, { data: categories }] = await Promise.all([
-    sb.from('products').select('*, product_categories(name)').order('name'),
+    sb.from('products').select('*, product_categories(name)').is('deleted_at', null).order('name'),
     sb.from('product_categories').select('id, name').order('name'),
   ])
 
@@ -41,6 +42,7 @@ export default async function AdminProductosPage() {
               <th className="text-left px-4 py-3 text-gray-500 font-medium">Unidad</th>
               <th className="text-left px-4 py-3 text-gray-500 font-medium">Mín. pedido</th>
               <th className="text-left px-4 py-3 text-gray-500 font-medium">Estado</th>
+              <th className="px-4 py-3"></th>
               <th className="px-4 py-3"></th>
             </tr>
           </thead>
@@ -91,6 +93,9 @@ export default async function AdminProductosPage() {
                     }}
                     categories={categories ?? []}
                   />
+                </td>
+                <td className="px-4 py-3 text-right">
+                  <DeleteProductoButton productId={p.id} productName={p.name} />
                 </td>
               </tr>
             ))}
