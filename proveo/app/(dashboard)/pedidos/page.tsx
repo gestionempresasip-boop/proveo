@@ -38,7 +38,7 @@ export default async function PedidosPage() {
   const { data: orders } = await query
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-[#1C1C1E]">
           {isNave ? 'Pedidos entrantes' : 'Mis pedidos'}
@@ -93,7 +93,7 @@ export default async function PedidosPage() {
                   </div>
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                   {order.order_items?.map((item: any, i: number) => (
                     <div key={i} className="text-xs bg-gray-50 rounded-lg px-3 py-2">
                       <span className="font-medium text-[#1C1C1E]">{item.products?.name}</span>

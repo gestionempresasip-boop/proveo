@@ -309,7 +309,8 @@ export function ProductosManager({ products, categories }: { products: Product[]
 
         {/* Tabla */}
         <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[600px]">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
                 <th className="text-left px-4 py-3 text-gray-500 font-medium">Producto</th>
@@ -360,6 +361,7 @@ export function ProductosManager({ products, categories }: { products: Product[]
               <p>No hay productos</p>
             </div>
           )}
+          </div>
         </div>
 
         <p className="text-xs text-gray-400">

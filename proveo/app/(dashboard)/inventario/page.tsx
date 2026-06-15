@@ -46,7 +46,7 @@ export default async function InventarioPage() {
   }))
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-[#1C1C1E]">Inventario</h1>
         <p className="text-gray-500 mt-1">

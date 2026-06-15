@@ -22,7 +22,7 @@ export default async function AlbaranesPage() {
   const validNotes = (notes ?? []).filter((n: any) => n.orders)
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-[#1C1C1E]">Albaranes</h1>
         <p className="text-gray-500 mt-1">
@@ -44,7 +44,8 @@ export default async function AlbaranesPage() {
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[500px]">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
                 <th className="text-left px-4 py-3 text-gray-500 font-medium">Albarán</th>
@@ -94,6 +95,7 @@ export default async function AlbaranesPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

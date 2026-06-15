@@ -102,7 +102,7 @@ function InventoryRowItem({
       <td className="px-4 py-3">
         <StockStatus current={currentNum} min={minNum} />
       </td>
-      <td className="px-4 py-3 text-xs text-gray-300">
+      <td className="px-4 py-3 text-xs text-gray-300 hidden sm:table-cell">
         {row.last_updated
           ? new Date(row.last_updated).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
           : '—'}
@@ -375,7 +375,8 @@ export function InventarioTable({
                 </button>
 
                 {isOpen && (
-                  <table className="w-full text-sm">
+                  <div className="overflow-x-auto">
+                  <table className="w-full text-sm min-w-[600px]">
                     <thead className="border-b border-gray-100">
                       <tr>
                         <th className="text-left px-4 py-2 text-xs text-gray-400 font-medium">Producto</th>
@@ -383,7 +384,7 @@ export function InventarioTable({
                         <th className="text-left px-4 py-2 text-xs text-gray-400 font-medium">Stock actual</th>
                         <th className="text-left px-4 py-2 text-xs text-gray-400 font-medium">Mínimo (alerta)</th>
                         <th className="text-left px-4 py-2 text-xs text-gray-400 font-medium">Estado</th>
-                        <th className="text-left px-4 py-2 text-xs text-gray-400 font-medium">Actualizado</th>
+                        <th className="text-left px-4 py-2 text-xs text-gray-400 font-medium hidden sm:table-cell">Actualizado</th>
                         <th className="px-4 py-2"></th>
                       </tr>
                     </thead>
@@ -393,6 +394,7 @@ export function InventarioTable({
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 )}
               </div>
             )
