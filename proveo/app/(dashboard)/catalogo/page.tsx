@@ -141,9 +141,18 @@ export default function CatalogoPage() {
                     {quantity} {product.unit} × {unitPrice.toFixed(2)}€
                   </p>
                 </div>
-                <span className="font-semibold text-[#1B4332] shrink-0">
-                  {(quantity * unitPrice).toFixed(2)}€
-                </span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="font-semibold text-[#1B4332]">
+                    {(quantity * unitPrice).toFixed(2)}€
+                  </span>
+                  <button
+                    onClick={() => handleQuantityChange(product.id, 0)}
+                    className="text-gray-300 hover:text-red-500 transition-colors"
+                    title="Eliminar del pedido"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             )
           })}
