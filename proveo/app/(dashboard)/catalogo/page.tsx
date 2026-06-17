@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { ProductCard } from '@/components/products/ProductCard'
 import { Badge } from '@/components/ui/badge'
-import { ShoppingCart, Loader2, Check, X, ChevronUp } from 'lucide-react'
+import { ShoppingCart, Loader2, Check, X, ChevronUp, Search } from 'lucide-react'
 import type { Product, ProductCategory } from '@/types/database'
 import { useRouter } from 'next/navigation'
 
@@ -26,6 +26,7 @@ export default function CatalogoPage() {
   const [categories, setCategories] = useState<ProductCategory[]>([])
   const [cart, setCart] = useState<Record<string, number>>({})
   const [selectedCategory, setSelectedCategory] = useState<string>('todos')
+  const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -61,9 +62,12 @@ export default function CatalogoPage() {
   const cartTotal = cartItems.reduce((sum, item) => sum + item.quantity * priceWithIva(item.product), 0)
   const cartCount = cartItems.length
 
-  const filteredProducts = selectedCategory === 'todos'
-    ? products
-    : products.filter(p => (p as any).category_id === selectedCategory)
+  const filteredProducts = products.filter(p => {
+    const q = searchQuery.trim().toLowerCase()
+    const matchSearch = !q || p.name.toLowerCase().includes(q) || (p.description?.toLowerCase().includes(q) ?? false)
+    const matchCat = selectedCategory === 'todos' || (p as any).category_id === selectedCategory
+    return matchSearch && matchCat
+  })
 
   // Count per category for badge
   const countByCat = categories.reduce<Record<string, number>>((acc, c) => {
@@ -179,12 +183,37 @@ export default function CatalogoPage() {
       {/* ── Page header ─────────────────────────────────────────────────── */}
       <div className="px-4 sm:px-6 pt-4 pb-3">
         <h1 className="text-xl sm:text-2xl font-bold text-[#1C1C1E]">Catálogo de productos</h1>
-        <p className="text-gray-500 mt-0.5 text-sm">{products.length} productos disponibles · selecciona y haz tu pedido</p>
+        <p className="text-gray-500 mt-0.5 text-sm">
+          {searchQuery
+            ? `${filteredProducts.length} resultado${filteredProducts.length !== 1 ? 's' : ''} para "${searchQuery}"`
+            : `${products.length} productos disponibles · selecciona y haz tu pedido`}
+        </p>
       </div>
 
-      {/* ── Category filter — sticky, spans FULL width ───────────────────
-          Sits outside the products/cart flex so it never competes with cart */}
-      <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-sm border-b border-gray-100 px-4 sm:px-6 py-2">
+      {/* ── Search + Category filter — sticky ────────────────────────── */}
+      <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-sm border-b border-gray-100 px-4 sm:px-6 pt-3 pb-2 space-y-2">
+
+        {/* Search bar */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Buscar producto..."
+            className="w-full pl-9 pr-9 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332] focus:border-transparent placeholder-gray-400"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
+        {/* Category pills */}
         <div className="flex gap-2 overflow-x-auto scrollbar-hide">
           <button
             onClick={() => setSelectedCategory('todos')}
@@ -228,7 +257,16 @@ export default function CatalogoPage() {
           <div className="flex-1 min-w-0 pb-28 lg:pb-6">
             {filteredProducts.length === 0 ? (
               <div className="text-center py-20 text-gray-400">
-                <p className="text-lg">No hay productos en esta categoría</p>
+                <Search className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                <p className="text-lg font-medium">Sin resultados</p>
+                <p className="text-sm mt-1">
+                  {searchQuery ? `No hay productos que coincidan con "${searchQuery}"` : 'No hay productos en esta categoría'}
+                </p>
+                {searchQuery && (
+                  <button onClick={() => setSearchQuery('')} className="mt-4 text-[#1B4332] text-sm font-medium underline">
+                    Limpiar búsqueda
+                  </button>
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
