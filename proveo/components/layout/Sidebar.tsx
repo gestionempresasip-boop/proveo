@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 import type { ProfileWithOrg } from '@/types/database'
 import {
   ShoppingCart, Package, ClipboardList,
-  FileText, BarChart3, Settings, LogOut,
+  FileText, Settings, LogOut,
   ChefHat, Menu, X
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -22,58 +22,15 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { href: '/dashboard', label: 'Inicio', icon: <BarChart3 className="h-5 w-5" /> },
-  { href: '/catalogo', label: 'Hacer Pedido', icon: <ShoppingCart className="h-5 w-5" />, orgTypes: ['restaurante'] },
-  { href: '/pedidos', label: 'Mis Pedidos', icon: <ClipboardList className="h-5 w-5" />, orgTypes: ['restaurante'] },
-  { href: '/pedidos', label: 'Pedidos Entrantes', icon: <ClipboardList className="h-5 w-5" />, orgTypes: ['nave'] },
-  { href: '/albaranes', label: 'Albaranes', icon: <FileText className="h-5 w-5" /> },
-  { href: '/admin/productos', label: 'Gestión Productos', icon: <Package className="h-5 w-5" />, roles: ['admin', 'nave_manager'] },
-  { href: '/admin/usuarios', label: 'Usuarios', icon: <Settings className="h-5 w-5" />, roles: ['admin'] },
+  { href: '/catalogo',        label: 'Hacer Pedido',      icon: <ShoppingCart className="h-4.5 w-4.5" />, orgTypes: ['restaurante'] },
+  { href: '/pedidos',         label: 'Mis Pedidos',       icon: <ClipboardList className="h-4.5 w-4.5" />, orgTypes: ['restaurante'] },
+  { href: '/pedidos',         label: 'Pedidos',           icon: <ClipboardList className="h-4.5 w-4.5" />, orgTypes: ['nave'] },
+  { href: '/albaranes',       label: 'Albaranes',         icon: <FileText className="h-4.5 w-4.5" /> },
+  { href: '/admin/productos', label: 'Productos',         icon: <Package className="h-4.5 w-4.5" />, roles: ['admin', 'nave_manager'] },
+  { href: '/admin/usuarios',  label: 'Usuarios',          icon: <Settings className="h-4.5 w-4.5" />, roles: ['admin'] },
 ]
 
-interface SidebarProps {
-  profile: ProfileWithOrg
-}
-
-function NavLinks({
-  items,
-  pathname,
-  onNavigate,
-  collapsed = false,
-}: {
-  items: NavItem[]
-  pathname: string
-  onNavigate?: () => void
-  collapsed?: boolean
-}) {
-  return (
-    <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-      {items.map((item) => {
-        const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
-        return (
-          <Link
-            key={item.href + item.label}
-            href={item.href}
-            onClick={onNavigate}
-            title={collapsed ? item.label : undefined}
-            className={cn(
-              'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all',
-              collapsed ? 'justify-center' : '',
-              isActive
-                ? 'bg-[#F59E0B] text-white'
-                : 'text-[#95d5b2] hover:bg-[#2d6a4f] hover:text-white'
-            )}
-          >
-            {item.icon}
-            {!collapsed && <span>{item.label}</span>}
-          </Link>
-        )
-      })}
-    </nav>
-  )
-}
-
-export function Sidebar({ profile }: SidebarProps) {
+export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
@@ -86,112 +43,120 @@ export function Sidebar({ profile }: SidebarProps) {
   })
 
   const isNave = profile.organizations.type === 'nave'
+  const orgLabel = isNave ? 'Nave Obrador' : profile.organizations.name
 
   async function handleLogout() {
     await supabase.auth.signOut()
     router.push('/login')
   }
 
-  const orgLabel = isNave ? 'Nave Obrador' : profile.organizations.name
+  const navLinks = (onNavigate?: () => void) => (
+    <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+      {visibleItems.map(item => {
+        const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+        return (
+          <Link
+            key={item.href + item.label}
+            href={item.href}
+            onClick={onNavigate}
+            className={cn(
+              'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150',
+              isActive
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-400 hover:text-white hover:bg-white/8'
+            )}
+          >
+            <span className={cn('shrink-0', isActive ? 'text-amber-500' : '')}>
+              {item.icon}
+            </span>
+            <span>{item.label}</span>
+            {isActive && (
+              <span className="ml-auto w-1.5 h-1.5 rounded-full bg-amber-400" />
+            )}
+          </Link>
+        )
+      })}
+    </nav>
+  )
 
-  // ── Shared header block ─────────────────────────────────────────────────
   const logoBlock = (
-    <div className="p-4 border-b border-[#2d6a4f] flex items-center gap-3">
-      <div className="w-9 h-9 rounded-xl bg-[#F59E0B] flex items-center justify-center shrink-0">
-        <ChefHat className="h-5 w-5 text-white" />
+    <div className="px-4 py-5 flex items-center gap-3">
+      <div className="w-8 h-8 rounded-lg bg-amber-400 flex items-center justify-center shrink-0">
+        <ChefHat className="h-4 w-4 text-white" />
       </div>
-      <div className="overflow-hidden">
-        <h1 className="text-white font-bold text-lg leading-none">Proveo</h1>
-        <p className="text-[#74c69d] text-xs mt-0.5 truncate">{orgLabel}</p>
+      <div>
+        <span className="text-white font-bold text-base tracking-tight">Proveo</span>
+        <p className="text-gray-500 text-xs truncate">{orgLabel}</p>
       </div>
     </div>
   )
 
   const userBlock = (
-    <div className="px-4 py-3 border-b border-[#2d6a4f]">
-      <p className="text-[#95d5b2] text-xs uppercase tracking-wider font-medium mb-1">Usuario</p>
-      <p className="text-white text-sm font-medium truncate">{profile.full_name ?? 'Sin nombre'}</p>
-      <span className="inline-block text-xs bg-[#2d6a4f] text-[#95d5b2] px-2 py-0.5 rounded-full mt-1 capitalize">
+    <div className="px-4 py-3 mx-3 mb-2 rounded-lg bg-white/5">
+      <p className="text-white text-sm font-medium truncate leading-tight">
+        {profile.full_name ?? 'Usuario'}
+      </p>
+      <p className="text-gray-500 text-xs mt-0.5 capitalize">
         {profile.role.replace('_', ' ')}
-      </span>
+      </p>
     </div>
   )
 
-  const logoutBtn = (label = true) => (
-    <div className="p-3 border-t border-[#2d6a4f]">
+  const logoutBtn = (onNavigate?: () => void) => (
+    <div className="px-3 pb-4">
       <button
-        onClick={handleLogout}
-        title={!label ? 'Cerrar sesión' : undefined}
-        className={cn(
-          'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-[#95d5b2] hover:bg-red-900/30 hover:text-red-300 transition-all w-full',
-          !label && 'justify-center'
-        )}
+        onClick={() => { onNavigate?.(); handleLogout() }}
+        className="flex items-center gap-3 px-3 py-2.5 w-full rounded-lg text-sm font-medium text-gray-500 hover:text-red-400 hover:bg-white/5 transition-all"
       >
-        <LogOut className="h-5 w-5 shrink-0" />
-        {label && <span>Cerrar sesión</span>}
+        <LogOut className="h-4 w-4 shrink-0" />
+        <span>Cerrar sesión</span>
       </button>
     </div>
   )
 
   return (
     <>
-      {/* ── MOBILE + TABLET: top bar (<lg) ──────────────────────────── */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-[#1B4332] h-14 flex items-center px-4 gap-3 border-b border-[#2d6a4f]">
-        <button
-          onClick={() => setDrawerOpen(true)}
-          className="text-[#95d5b2] hover:text-white p-1 -ml-1"
-        >
-          <Menu className="h-6 w-6" />
+      {/* Mobile top bar */}
+      <header className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-gray-900 h-13 flex items-center px-4 gap-3 border-b border-white/8">
+        <button onClick={() => setDrawerOpen(true)} className="text-gray-400 hover:text-white p-1 -ml-1">
+          <Menu className="h-5 w-5" />
         </button>
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-[#F59E0B] flex items-center justify-center">
-            <ChefHat className="h-4 w-4 text-white" />
+          <div className="w-6 h-6 rounded-md bg-amber-400 flex items-center justify-center">
+            <ChefHat className="h-3.5 w-3.5 text-white" />
           </div>
-          <span className="text-white font-bold text-base">Proveo</span>
+          <span className="text-white font-bold text-sm">Proveo</span>
         </div>
-        <span className="text-[#74c69d] text-xs truncate flex-1 text-right">{orgLabel}</span>
+        <span className="text-gray-500 text-xs truncate flex-1 text-right">{orgLabel}</span>
       </header>
 
-      {/* ── MOBILE: drawer overlay ───────────────────────────────────── */}
+      {/* Mobile drawer */}
       {drawerOpen && (
-        <div
-          className="lg:hidden fixed inset-0 z-50 flex"
-          onClick={() => setDrawerOpen(false)}
-        >
-          {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/50" />
-          {/* Drawer */}
+        <div className="lg:hidden fixed inset-0 z-50 flex" onClick={() => setDrawerOpen(false)}>
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
           <aside
-            className="relative w-72 max-w-[85vw] bg-[#1B4332] flex flex-col h-full shadow-2xl"
+            className="relative w-64 bg-gray-900 flex flex-col h-full shadow-2xl border-r border-white/8"
             onClick={e => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between p-4 border-b border-[#2d6a4f]">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-[#F59E0B] flex items-center justify-center">
-                  <ChefHat className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-white font-bold text-lg leading-none">Proveo</h1>
-                  <p className="text-[#74c69d] text-xs mt-0.5">{orgLabel}</p>
-                </div>
-              </div>
-              <button onClick={() => setDrawerOpen(false)} className="text-[#95d5b2] hover:text-white">
-                <X className="h-5 w-5" />
+            <div className="flex items-center justify-between pr-3">
+              {logoBlock}
+              <button onClick={() => setDrawerOpen(false)} className="text-gray-400 hover:text-white p-1">
+                <X className="h-4 w-4" />
               </button>
             </div>
-            {userBlock}
-            <NavLinks items={visibleItems} pathname={pathname} onNavigate={() => setDrawerOpen(false)} />
-            {logoutBtn(true)}
+            <div className="border-t border-white/8 pt-3">{userBlock}</div>
+            {navLinks(() => setDrawerOpen(false))}
+            <div className="border-t border-white/8">{logoutBtn(() => setDrawerOpen(false))}</div>
           </aside>
         </div>
       )}
 
-      {/* ── DESKTOP only: full sidebar (lg+) ────────────────────────── */}
-      <aside className="hidden lg:flex w-64 min-h-screen bg-[#1B4332] flex-col shrink-0">
+      {/* Desktop sidebar */}
+      <aside className="hidden lg:flex w-56 min-h-screen bg-gray-900 flex-col border-r border-white/8 shrink-0">
         {logoBlock}
-        {userBlock}
-        <NavLinks items={visibleItems} pathname={pathname} />
-        {logoutBtn(true)}
+        <div className="border-t border-white/8 pt-3">{userBlock}</div>
+        {navLinks()}
+        <div className="border-t border-white/8">{logoutBtn()}</div>
       </aside>
     </>
   )
