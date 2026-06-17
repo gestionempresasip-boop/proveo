@@ -2,12 +2,12 @@
 
 import { useState, useTransition, useMemo } from 'react'
 import Link from 'next/link'
-import { updateOrderStatus, generateDeliveryNote } from '@/app/actions/orders'
+import { updateOrderStatus, generateDeliveryNote, deleteOrder } from '@/app/actions/orders'
 import type { OrderStatus } from '@/app/actions/orders'
 import {
   Calendar, Filter, ChevronDown, MessageCircle, Printer,
   Download, FileText, Clock, CheckCircle2, Send, AlertCircle,
-  ChevronUp, Package
+  ChevronUp, Package, Trash2
 } from 'lucide-react'
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -51,8 +51,9 @@ type Restaurant = { id: string; name: string }
 
 // ── Action buttons per order ─────────────────────────────────────────────────
 
-function OrderActions({ order }: { order: Order }) {
+function OrderActions({ order, onDeleted }: { order: Order; onDeleted: (id: string) => void }) {
   const [loading, setLoading] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [noteId, setNoteId] = useState<string | null>(order.delivery_notes?.[0]?.id ?? null)
   const [noteNumber, setNoteNumber] = useState<number | null>(order.delivery_notes?.[0]?.note_number ?? null)
   const [, startTransition] = useTransition()
@@ -168,13 +169,41 @@ function OrderActions({ order }: { order: Order }) {
           Imprimir
         </Link>
       )}
+
+      {/* Eliminar */}
+      {!confirmDelete ? (
+        <button
+          onClick={() => setConfirmDelete(true)}
+          className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-xl border border-red-200 text-red-500 hover:bg-red-50 transition-colors ml-auto"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+          Eliminar
+        </button>
+      ) : (
+        <div className="flex items-center gap-2 ml-auto">
+          <span className="text-xs text-red-600 font-medium">¿Seguro?</span>
+          <button
+            onClick={async () => { setLoading(true); await deleteOrder(order.id); onDeleted(order.id) }}
+            disabled={loading}
+            className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+          >
+            {loading ? 'Eliminando...' : 'Sí, eliminar'}
+          </button>
+          <button
+            onClick={() => setConfirmDelete(false)}
+            className="text-xs font-medium px-3 py-1.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+          >
+            Cancelar
+          </button>
+        </div>
+      )}
     </div>
   )
 }
 
 // ── Order card ───────────────────────────────────────────────────────────────
 
-function OrderCard({ order }: { order: Order }) {
+function OrderCard({ order, onDeleted }: { order: Order; onDeleted: (id: string) => void }) {
   const [expanded, setExpanded] = useState(false)
   const status = normalizeStatus(order.status)
   const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.pendiente
@@ -225,7 +254,7 @@ function OrderCard({ order }: { order: Order }) {
               </div>
             ))}
           </div>
-          <OrderActions order={order} />
+          <OrderActions order={order} onDeleted={onDeleted} />
         </div>
       )}
     </div>
@@ -237,10 +266,13 @@ function OrderCard({ order }: { order: Order }) {
 type DateFilter = 'hoy' | 'semana' | 'mes' | 'custom'
 type StatusFilter = 'todos' | 'pendiente' | 'hecho' | 'enviado'
 
-export function PedidosNaveClient({ orders, restaurants }: { orders: Order[]; restaurants: Restaurant[] }) {
+export function PedidosNaveClient({ orders: initialOrders, restaurants }: { orders: Order[]; restaurants: Restaurant[] }) {
+  const [orders, setOrders] = useState<Order[]>(initialOrders)
   const [dateFilter, setDateFilter] = useState<DateFilter>('hoy')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('todos')
   const [restFilter, setRestFilter] = useState('todos')
+
+  function handleDeleted(id: string) { setOrders(prev => prev.filter(o => o.id !== id)) }
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [showFilters, setShowFilters] = useState(false)
@@ -389,7 +421,7 @@ export function PedidosNaveClient({ orders, restaurants }: { orders: Order[]; re
             Pendientes de días anteriores ({pastPending.length})
           </h2>
           <div className="space-y-3">
-            {pastPending.map(o => <OrderCard key={o.id} order={o} />)}
+            {pastPending.map(o => <OrderCard key={o.id} order={o} onDeleted={handleDeleted} />)}
           </div>
         </section>
       )}
@@ -410,7 +442,7 @@ export function PedidosNaveClient({ orders, restaurants }: { orders: Order[]; re
           </div>
         ) : (
           <div className="space-y-3">
-            {todayOrders.map(o => <OrderCard key={o.id} order={o} />)}
+            {todayOrders.map(o => <OrderCard key={o.id} order={o} onDeleted={handleDeleted} />)}
           </div>
         )}
       </section>

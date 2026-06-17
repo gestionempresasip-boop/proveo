@@ -70,3 +70,28 @@ export async function generateDeliveryNote(orderId: string) {
   revalidatePath('/albaranes')
   return note.id
 }
+
+export async function deleteOrder(orderId: string) {
+  const supabase = await createClient()
+  const sb = supabase as any
+
+  // Remove linked delivery notes first
+  const { data: notes } = await sb.from('delivery_notes').select('id').eq('order_id', orderId)
+  if (notes?.length) {
+    await sb.from('delivery_note_items').delete().in('delivery_note_id', notes.map((n: any) => n.id))
+    await sb.from('delivery_notes').delete().eq('order_id', orderId)
+  }
+  await sb.from('order_items').delete().eq('order_id', orderId)
+  await sb.from('orders').delete().eq('id', orderId)
+
+  revalidatePath('/pedidos')
+  revalidatePath('/albaranes')
+}
+
+export async function deleteDeliveryNote(noteId: string) {
+  const supabase = await createClient()
+  const sb = supabase as any
+  await sb.from('delivery_note_items').delete().eq('delivery_note_id', noteId)
+  await sb.from('delivery_notes').delete().eq('id', noteId)
+  revalidatePath('/albaranes')
+}
