@@ -6,8 +6,8 @@ import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import type { ProfileWithOrg } from '@/types/database'
 import {
-  ShoppingCart, Package, ClipboardList, BookOpen,
-  FileText, BarChart3, Settings, LogOut, Warehouse,
+  ShoppingCart, Package, ClipboardList,
+  FileText, BarChart3, Settings, LogOut,
   ChefHat, Menu, X
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -26,10 +26,7 @@ const navItems: NavItem[] = [
   { href: '/catalogo', label: 'Hacer Pedido', icon: <ShoppingCart className="h-5 w-5" />, orgTypes: ['restaurante'] },
   { href: '/pedidos', label: 'Mis Pedidos', icon: <ClipboardList className="h-5 w-5" />, orgTypes: ['restaurante'] },
   { href: '/pedidos', label: 'Pedidos Entrantes', icon: <ClipboardList className="h-5 w-5" />, orgTypes: ['nave'] },
-  { href: '/inventario', label: 'Inventario', icon: <Warehouse className="h-5 w-5" /> },
-  { href: '/escandallos', label: 'Escandallos', icon: <BookOpen className="h-5 w-5" /> },
   { href: '/albaranes', label: 'Albaranes', icon: <FileText className="h-5 w-5" /> },
-  { href: '/estadisticas', label: 'Estadísticas', icon: <BarChart3 className="h-5 w-5" />, roles: ['admin', 'nave_manager'] },
   { href: '/admin/productos', label: 'Gestión Productos', icon: <Package className="h-5 w-5" />, roles: ['admin', 'nave_manager'] },
   { href: '/admin/usuarios', label: 'Usuarios', icon: <Settings className="h-5 w-5" />, roles: ['admin'] },
 ]
