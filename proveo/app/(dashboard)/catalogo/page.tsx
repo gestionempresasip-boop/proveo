@@ -214,7 +214,7 @@ export default function CatalogoPage() {
         </div>
 
         {/* Category pills */}
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setSelectedCategory('todos')}
             className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all whitespace-nowrap ${
