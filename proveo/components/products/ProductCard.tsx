@@ -4,6 +4,7 @@ import Image from 'next/image'
 import { Plus, Minus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Product } from '@/types/database'
+import { useState, useEffect } from 'react'
 
 interface ProductCardProps {
   product: Product
@@ -18,7 +19,6 @@ const unitLabels: Record<string, string> = {
   unidad: 'ud', caja: 'caja', bandeja: 'bandeja',
 }
 
-// Emoji placeholder based on category name
 function categoryEmoji(name?: string | null): string {
   if (!name) return '📦'
   const n = name.toLowerCase()
@@ -37,10 +37,8 @@ function categoryEmoji(name?: string | null): string {
   return '📦'
 }
 
-// Generate a subtle gradient background based on the category color
 function placeholderStyle(color?: string | null): { background: string } {
   if (!color) return { background: 'linear-gradient(135deg, #d1fae5, #a7f3d0)' }
-  // Convert hex to light/very light tones for bg
   return { background: `linear-gradient(135deg, ${color}18, ${color}30)` }
 }
 
@@ -50,16 +48,38 @@ export function ProductCard({
   const hasQuantity = quantity > 0
   const increment = Number(product.order_increment) || 1
   const minQty = Number(product.min_order_quantity) || 1
+  const unit = unitLabels[product.unit] ?? product.unit
+
+  const [inputValue, setInputValue] = useState(quantity > 0 ? String(quantity) : '')
+
+  // Sync input when quantity changes externally (e.g. removed from cart)
+  useEffect(() => {
+    setInputValue(quantity > 0 ? String(quantity) : '')
+  }, [quantity])
 
   function increase() {
     const next = quantity === 0 ? minQty : quantity + increment
-    onQuantityChange(product.id, Math.round(next * 1000) / 1000)
+    const rounded = Math.round(next * 1000) / 1000
+    onQuantityChange(product.id, rounded)
   }
 
   function decrease() {
     if (quantity <= 0) return
     const next = quantity - increment
-    onQuantityChange(product.id, next < minQty ? 0 : Math.round(next * 1000) / 1000)
+    const rounded = next < minQty ? 0 : Math.round(next * 1000) / 1000
+    onQuantityChange(product.id, rounded)
+  }
+
+  function commitInput(value: string) {
+    const num = parseFloat(value.replace(',', '.'))
+    if (isNaN(num) || num <= 0) {
+      onQuantityChange(product.id, 0)
+      setInputValue('')
+    } else {
+      const rounded = Math.round(num * 1000) / 1000
+      onQuantityChange(product.id, rounded)
+      setInputValue(String(rounded))
+    }
   }
 
   return (
@@ -96,10 +116,9 @@ export function ProductCard({
           </div>
         )}
 
-        {/* Selected quantity badge */}
         {hasQuantity && (
           <div className="absolute top-2 right-2 bg-[#F59E0B] text-white text-xs font-bold px-2 py-1 rounded-full shadow-sm">
-            {quantity} {unitLabels[product.unit] ?? product.unit}
+            {quantity} {unit}
           </div>
         )}
       </div>
@@ -117,7 +136,7 @@ export function ProductCard({
           <span className="text-[#1B4332] font-bold text-base">
             {(Number(product.price) * (1 + (Number((product as any).iva_rate) || 0))).toFixed(2)}€
           </span>
-          <span className="text-gray-400 text-xs ml-1">/ {unitLabels[product.unit] ?? product.unit}</span>
+          <span className="text-gray-400 text-xs ml-1">/ {unit}</span>
         </div>
 
         {/* ── Quantity selector ───────────────────────────────────────── */}
@@ -135,10 +154,24 @@ export function ProductCard({
             <Minus className="h-3.5 w-3.5" />
           </button>
 
-          <div className="flex-1 text-center">
-            <span className={cn('text-sm font-semibold tabular-nums', hasQuantity ? 'text-[#1B4332]' : 'text-gray-300')}>
-              {quantity > 0 ? `${quantity} ${unitLabels[product.unit] ?? product.unit}` : '—'}
-            </span>
+          <div className="flex-1 flex flex-col items-center">
+            <input
+              type="number"
+              inputMode="decimal"
+              min="0"
+              value={inputValue}
+              placeholder="—"
+              onChange={e => setInputValue(e.target.value)}
+              onBlur={e => commitInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { commitInput(inputValue); (e.target as HTMLInputElement).blur() } }}
+              className={cn(
+                'w-full text-center text-sm font-semibold tabular-nums bg-transparent border-0 outline-none focus:ring-1 focus:ring-[#1B4332] rounded-lg py-0.5',
+                hasQuantity ? 'text-[#1B4332]' : 'text-gray-400 placeholder-gray-300'
+              )}
+            />
+            {hasQuantity && (
+              <span className="text-[10px] text-gray-400 leading-none">{unit}</span>
+            )}
           </div>
 
           <button
