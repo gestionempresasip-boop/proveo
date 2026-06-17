@@ -133,25 +133,25 @@ export function ProductCard({
         )}
 
         <div className="mt-2">
-          <span className="text-[#1B4332] font-bold text-base">
+          <span className="text-gray-900 font-bold text-base">
             {(Number(product.price) * (1 + (Number((product as any).iva_rate) || 0))).toFixed(2)}€
           </span>
           <span className="text-gray-400 text-xs ml-1">/ {unit}</span>
         </div>
 
         {/* ── Quantity selector ───────────────────────────────────────── */}
-        <div className="flex items-center gap-1.5 mt-3">
+        <div className="flex items-center gap-2 mt-3">
           <button
             onClick={decrease}
             disabled={!hasQuantity}
             className={cn(
-              'w-8 h-8 rounded-xl flex items-center justify-center transition-all shrink-0',
+              'w-11 h-11 rounded-xl flex items-center justify-center transition-all shrink-0 active:scale-95',
               hasQuantity
-                ? 'bg-[#1B4332] text-white hover:bg-[#163828] active:scale-95'
+                ? 'bg-gray-900 text-white'
                 : 'bg-gray-100 text-gray-300 cursor-not-allowed'
             )}
           >
-            <Minus className="h-3.5 w-3.5" />
+            <Minus className="h-4 w-4" />
           </button>
 
           <div className="flex-1 flex flex-col items-center">
@@ -165,8 +165,8 @@ export function ProductCard({
               onBlur={e => commitInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') { commitInput(inputValue); (e.target as HTMLInputElement).blur() } }}
               className={cn(
-                'w-full text-center text-sm font-semibold tabular-nums bg-transparent border-0 outline-none focus:ring-1 focus:ring-[#1B4332] rounded-lg py-0.5',
-                hasQuantity ? 'text-[#1B4332]' : 'text-gray-400 placeholder-gray-300'
+                'w-full text-center text-sm font-semibold tabular-nums bg-transparent border-0 outline-none focus:ring-1 focus:ring-gray-900 rounded-lg py-1',
+                hasQuantity ? 'text-gray-900' : 'text-gray-400 placeholder-gray-300'
               )}
             />
             {hasQuantity && (
@@ -176,9 +176,9 @@ export function ProductCard({
 
           <button
             onClick={increase}
-            className="w-8 h-8 rounded-xl bg-[#1B4332] text-white flex items-center justify-center hover:bg-[#163828] active:scale-95 transition-all shrink-0"
+            className="w-11 h-11 rounded-xl bg-gray-900 text-white flex items-center justify-center active:scale-95 transition-all shrink-0"
           >
-            <Plus className="h-3.5 w-3.5" />
+            <Plus className="h-4 w-4" />
           </button>
         </div>
       </div>

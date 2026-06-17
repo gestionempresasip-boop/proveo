@@ -300,7 +300,7 @@ export default function CatalogoPage() {
               Only visible on lg+. Fixed width so it NEVER overlaps grid. */}
           <div className="hidden lg:block w-72 shrink-0 self-start sticky top-4">
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-              <div className="px-4 py-3 bg-[#1B4332] flex items-center gap-2 text-white">
+              <div className="px-4 py-3 bg-gray-900 flex items-center gap-2 text-white">
                 <ShoppingCart className="h-5 w-5 shrink-0" />
                 <span className="font-semibold flex-1">Mi pedido</span>
                 {cartCount > 0 && (
@@ -313,18 +313,18 @@ export default function CatalogoPage() {
         </div>
       </div>
 
-      {/* ── Mobile/tablet: drawer + bottom bar (< lg) ────────────────── */}
+      {/* ── Tablet/Mobile: drawer — se abre por encima de la tab bar ── */}
       {cartOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex flex-col justify-end">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setCartOpen(false)} />
-          <div className="relative bg-white rounded-t-3xl shadow-2xl max-h-[82vh] flex flex-col">
-            <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-100 bg-[#1B4332] rounded-t-3xl">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setCartOpen(false)} />
+          <div className="relative bg-white rounded-t-3xl shadow-2xl max-h-[75vh] flex flex-col mb-[60px]">
+            <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-gray-100 bg-gray-900 rounded-t-3xl">
               <div className="flex items-center gap-2 text-white">
                 <ShoppingCart className="h-5 w-5" />
                 <span className="font-semibold">Mi pedido</span>
-                {cartCount > 0 && <Badge className="ml-2 bg-[#F59E0B] text-white border-0">{cartCount}</Badge>}
+                {cartCount > 0 && <Badge className="ml-2 bg-amber-400 text-white border-0">{cartCount}</Badge>}
               </div>
-              <button onClick={() => setCartOpen(false)} className="text-white/80 hover:text-white p-1">
+              <button onClick={() => setCartOpen(false)} className="text-white/70 hover:text-white p-1">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -333,15 +333,15 @@ export default function CatalogoPage() {
         </div>
       )}
 
-      {/* Bottom bar — only when cart has items, never overlaps content (content has pb-28) */}
+      {/* Botón flotante del carrito — encima de la tab bar */}
       {cartCount > 0 && (
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 p-3 bg-white border-t border-gray-200 shadow-lg">
+        <div className="lg:hidden fixed bottom-[60px] left-0 right-0 z-50 px-4 pb-3">
           <button
             onClick={() => setCartOpen(true)}
-            className="w-full flex items-center justify-between bg-[#1B4332] text-white px-5 py-3.5 rounded-2xl font-semibold active:scale-[0.98] transition-transform"
+            className="w-full flex items-center justify-between bg-gray-900 text-white px-5 py-4 rounded-2xl font-semibold active:scale-[0.98] transition-transform shadow-xl"
           >
             <div className="flex items-center gap-3">
-              <span className="bg-[#F59E0B] text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center shrink-0">
+              <span className="bg-amber-400 text-white text-xs font-bold w-7 h-7 rounded-full flex items-center justify-center shrink-0">
                 {cartCount}
               </span>
               <span>Ver pedido</span>
