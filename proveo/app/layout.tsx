@@ -16,6 +16,9 @@ export const metadata: Metadata = {
   title: "Proveo — Gestión de restaurantes",
   description: "Gestión de productos, pedidos e inventario para grupos de restauración",
   viewport: "width=device-width, initial-scale=1, maximum-scale=1",
+  other: {
+    google: "notranslate",
+  },
 };
 
 export default function RootLayout({
@@ -25,8 +28,9 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      lang="es"
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased notranslate`}
+      translate="no"
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
