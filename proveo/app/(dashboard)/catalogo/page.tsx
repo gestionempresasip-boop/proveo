@@ -122,15 +122,15 @@ export default function CatalogoPage() {
     )
   }
 
-  // ── Shared cart body ───────────────────────────────────────────────────────
-  const cartBody = (
+  // ── Shared cart body: lista de productos (se desplaza) ──────────────────
+  const cartItemsList = (
     <div className="p-4">
       {cartItems.length === 0 ? (
         <p className="text-gray-400 text-sm text-center py-6">
           Pulsa + en cualquier producto para añadirlo
         </p>
       ) : (
-        <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+        <div className="space-y-2">
           {cartItems.map(({ product, quantity }) => {
             const unitPrice = priceWithIva(product)
             return (
@@ -158,32 +158,33 @@ export default function CatalogoPage() {
           })}
         </div>
       )}
-
-      {cartItems.length > 0 && (
-        <>
-          <div className="border-t border-gray-100 mt-3 pt-3 flex justify-between font-bold text-[#1C1C1E]">
-            <span>Total</span>
-            <span className="text-[#1B4332]">{cartTotal.toFixed(2)}€</span>
-          </div>
-          <textarea
-            placeholder="Notas o instrucciones (opcional)"
-            value={notes}
-            onChange={e => setNotes(e.target.value)}
-            className="w-full mt-3 text-sm p-2.5 border border-gray-200 rounded-xl resize-none h-16 focus:outline-none focus:ring-2 focus:ring-[#1B4332]"
-          />
-          <button
-            onClick={submitOrder}
-            disabled={submitting}
-            className="w-full mt-3 bg-[#F59E0B] hover:bg-[#d97706] disabled:opacity-60 text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
-          >
-            {submitting
-              ? <><Loader2 className="h-4 w-4 animate-spin" />Enviando...</>
-              : 'Enviar pedido a la nave'}
-          </button>
-        </>
-      )}
     </div>
   )
+
+  // ── Pie del carrito: total, notas y botón — siempre visible ─────────────
+  const cartFooter = cartItems.length > 0 ? (
+    <div className="p-4 pt-3 border-t border-gray-100 shrink-0 bg-white">
+      <div className="flex justify-between font-bold text-[#1C1C1E]">
+        <span>Total</span>
+        <span className="text-[#1B4332]">{cartTotal.toFixed(2)}€</span>
+      </div>
+      <textarea
+        placeholder="Notas o instrucciones (opcional)"
+        value={notes}
+        onChange={e => setNotes(e.target.value)}
+        className="w-full mt-3 text-sm p-2.5 border border-gray-200 rounded-xl resize-none h-16 focus:outline-none focus:ring-2 focus:ring-[#1B4332]"
+      />
+      <button
+        onClick={submitOrder}
+        disabled={submitting}
+        className="w-full mt-3 bg-[#F59E0B] hover:bg-[#d97706] disabled:opacity-60 text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
+      >
+        {submitting
+          ? <><Loader2 className="h-4 w-4 animate-spin" />Enviando...</>
+          : 'Enviar pedido a la nave'}
+      </button>
+    </div>
+  ) : null
 
   return (
     // Extra bottom padding on mobile so content clears the fixed cart bar
@@ -298,16 +299,17 @@ export default function CatalogoPage() {
 
           {/* ── Desktop cart sidebar ─────────────────────────────────────
               Only visible on lg+. Fixed width so it NEVER overlaps grid. */}
-          <div className="hidden lg:block w-72 shrink-0 self-start sticky top-4">
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-              <div className="px-4 py-3 bg-gray-900 flex items-center gap-2 text-white">
+          <div className="hidden lg:flex w-72 shrink-0 self-start sticky top-4 max-h-[calc(100vh-2rem)]">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col w-full max-h-full">
+              <div className="px-4 py-3 bg-gray-900 flex items-center gap-2 text-white shrink-0">
                 <ShoppingCart className="h-5 w-5 shrink-0" />
                 <span className="font-semibold flex-1">Mi pedido</span>
                 {cartCount > 0 && (
                   <Badge className="bg-[#F59E0B] text-white border-0 shrink-0">{cartCount}</Badge>
                 )}
               </div>
-              {cartBody}
+              <div className="overflow-y-auto flex-1 min-h-0">{cartItemsList}</div>
+              {cartFooter}
             </div>
           </div>
         </div>
@@ -328,7 +330,8 @@ export default function CatalogoPage() {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="overflow-y-auto flex-1">{cartBody}</div>
+            <div className="overflow-y-auto flex-1 min-h-0">{cartItemsList}</div>
+            {cartFooter}
           </div>
         </div>
       )}
