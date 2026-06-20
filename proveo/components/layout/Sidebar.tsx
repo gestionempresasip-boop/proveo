@@ -61,7 +61,7 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
   // ── Desktop sidebar (lg+) ────────────────────────────────────────────────
   return (
     <>
-      <aside className="hidden lg:flex w-56 min-h-screen bg-gray-900 flex-col border-r border-white/8 shrink-0">
+      <aside className="hidden lg:flex w-56 min-h-screen bg-gray-900 flex-col border-r border-white/8 shrink-0 print:hidden">
         {/* Logo */}
         <div className="px-5 py-5 flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-amber-400 flex items-center justify-center shrink-0">
@@ -126,7 +126,7 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
       {/* ── Tablet / Mobile: top header + bottom tab bar ────────────────── */}
       <>
         {/* Top header strip (brand + org) */}
-        <header className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-gray-900 h-12 flex items-center justify-between px-4 border-b border-white/8">
+        <header className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-gray-900 h-12 flex items-center justify-between px-4 border-b border-white/8 print:hidden">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-md bg-amber-400 flex items-center justify-center">
               <ChefHat className="h-3.5 w-3.5 text-white" />
@@ -154,7 +154,7 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
         </header>
 
         {/* Bottom tab bar */}
-        <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 flex">
+        <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 flex print:hidden">
           {visible.map(item => {
             const active = isActive(item.href)
             const Icon = item.icon
