@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
-import { Package, Clock, Trash2 } from 'lucide-react'
+import { Package, Clock, Trash2, Search, ChevronDown, X } from 'lucide-react'
 import { deleteOrder } from '@/app/actions/orders'
+import { cn } from '@/lib/utils'
 
 const STATUS_COLORS: Record<string, string> = {
   pendiente:      'bg-yellow-100 text-yellow-800 border-yellow-200',
@@ -28,6 +29,28 @@ const STATUS_LABELS: Record<string, string> = {
 type OrderItem = { id: string; quantity: number; unit: string; products: { name: string; unit: string } | null }
 type Order = { id: string; order_number: number; status: string; notes: string | null; total_price: number; created_at: string; order_items: OrderItem[] }
 
+function dayKey(dateStr: string): string {
+  const d = new Date(dateStr)
+  const tz = d.getTimezoneOffset() * 60000
+  return new Date(d.getTime() - tz).toISOString().slice(0, 10)
+}
+
+function dayLabel(dateStr: string): string {
+  const d = new Date(dateStr)
+  const today = new Date()
+  const yesterday = new Date(today)
+  yesterday.setDate(today.getDate() - 1)
+  const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString()
+
+  if (sameDay(d, today)) return 'Hoy'
+  if (sameDay(d, yesterday)) return 'Ayer'
+
+  return d.toLocaleDateString('es-ES', {
+    weekday: 'long', day: 'numeric', month: 'long',
+    year: d.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
+  })
+}
+
 function OrderRow({ order, onDeleted }: { order: Order; onDeleted: (id: string) => void }) {
   const [confirm, setConfirm] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -49,10 +72,7 @@ function OrderRow({ order, onDeleted }: { order: Order; onDeleted: (id: string) 
             <div>
               <div className="flex items-center gap-2 text-xs text-gray-400">
                 <Clock className="h-3 w-3" />
-                {new Date(order.created_at).toLocaleDateString('es-ES', {
-                  day: 'numeric', month: 'long', year: 'numeric',
-                  hour: '2-digit', minute: '2-digit',
-                })}
+                {new Date(order.created_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
               </div>
               {order.notes && (
                 <p className="text-xs text-gray-500 mt-1 italic">"{order.notes}"</p>
@@ -112,8 +132,46 @@ function OrderRow({ order, onDeleted }: { order: Order; onDeleted: (id: string) 
 
 export function PedidosRestauranteClient({ orders: initialOrders }: { orders: Order[] }) {
   const [orders, setOrders] = useState<Order[]>(initialOrders)
+  const [search, setSearch] = useState('')
+  const [dateFilter, setDateFilter] = useState('')
+  const [toggled, setToggled] = useState<Record<string, boolean>>({})
 
   function handleDeleted(id: string) { setOrders(prev => prev.filter(o => o.id !== id)) }
+
+  const filtered = useMemo(() => {
+    return orders.filter(o => {
+      if (dateFilter && dayKey(o.created_at) !== dateFilter) return false
+      if (search) {
+        const q = search.trim().toLowerCase()
+        const matchNum = String(o.order_number).includes(q)
+        const matchNotes = o.notes?.toLowerCase().includes(q) ?? false
+        const matchProduct = o.order_items?.some(it => it.products?.name?.toLowerCase().includes(q))
+        if (!matchNum && !matchNotes && !matchProduct) return false
+      }
+      return true
+    })
+  }, [orders, search, dateFilter])
+
+  const groups = useMemo(() => {
+    const map = new Map<string, Order[]>()
+    filtered.forEach(o => {
+      const key = dayKey(o.created_at)
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(o)
+    })
+    return Array.from(map.entries()).sort((a, b) => b[0].localeCompare(a[0]))
+  }, [filtered])
+
+  function isOpen(key: string, idx: number) {
+    if (key in toggled) return toggled[key]
+    return idx < 2
+  }
+
+  function toggle(key: string, idx: number) {
+    setToggled(prev => ({ ...prev, [key]: !isOpen(key, idx) }))
+  }
+
+  const hasFilters = search.trim() !== '' || dateFilter !== ''
 
   if (orders.length === 0) {
     return (
@@ -126,9 +184,75 @@ export function PedidosRestauranteClient({ orders: initialOrders }: { orders: Or
 
   return (
     <div className="space-y-4">
-      {orders.map(order => (
-        <OrderRow key={order.id} order={order} onDeleted={handleDeleted} />
-      ))}
+      {/* Filtros */}
+      <div className="flex flex-col sm:flex-row gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Buscar por nº de pedido, producto o nota..."
+            className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332] focus:border-transparent placeholder-gray-400"
+          />
+        </div>
+        <input
+          type="date"
+          value={dateFilter}
+          onChange={e => setDateFilter(e.target.value)}
+          className="px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-[#1B4332] focus:border-transparent"
+        />
+        {hasFilters && (
+          <button
+            onClick={() => { setSearch(''); setDateFilter('') }}
+            className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border border-gray-200 text-gray-500 text-sm hover:bg-gray-50 transition-colors shrink-0"
+          >
+            <X className="h-4 w-4" />
+            Limpiar
+          </button>
+        )}
+      </div>
+
+      {groups.length === 0 ? (
+        <div className="text-center py-16 text-gray-400">
+          <Search className="h-10 w-10 mx-auto mb-3 opacity-30" />
+          <p className="font-medium">Sin resultados</p>
+          <p className="text-sm mt-1">No hay pedidos que coincidan con la búsqueda</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {groups.map(([key, group], idx) => {
+            const open = isOpen(key, idx)
+            const total = group.reduce((sum, o) => sum + Number(o.total_price), 0)
+            return (
+              <div key={key} className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+                <button
+                  onClick={() => toggle(key, idx)}
+                  className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-gray-50/80 transition-colors"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="font-semibold text-[#1C1C1E] capitalize">{dayLabel(group[0].created_at)}</span>
+                    <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full font-medium">
+                      {group.length} {group.length === 1 ? 'pedido' : 'pedidos'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-bold text-[#1B4332]">{total.toFixed(2)}€</span>
+                    <ChevronDown className={cn('h-4 w-4 text-gray-400 transition-transform', open && 'rotate-180')} />
+                  </div>
+                </button>
+                {open && (
+                  <div className="px-4 pb-4 pt-1 space-y-3 border-t border-gray-100">
+                    {group.map(order => (
+                      <OrderRow key={order.id} order={order} onDeleted={handleDeleted} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
