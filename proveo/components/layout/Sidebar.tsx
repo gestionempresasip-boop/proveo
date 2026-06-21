@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 import type { ProfileWithOrg } from '@/types/database'
 import {
   ShoppingCart, Package, ClipboardList,
-  FileText, Settings, LogOut, ChefHat, RefreshCw,
+  FileText, Settings, LogOut, ChefHat, RefreshCw, BarChart3,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -36,6 +36,7 @@ const navItems: NavItem[] = [
   { href: '/pedidos',         label: 'Mis pedidos', icon: ClipboardList, orgTypes: ['restaurante'] },
   { href: '/pedidos',         label: 'Pedidos',     icon: ClipboardList, orgTypes: ['nave'] },
   { href: '/albaranes',       label: 'Albaranes',   icon: FileText },
+  { href: '/estadisticas',    label: 'Informes',    icon: BarChart3,     orgTypes: ['nave'] },
   { href: '/admin/productos', label: 'Productos',   icon: Package,       roles: ['admin', 'nave_manager'] },
   { href: '/admin/usuarios',  label: 'Usuarios',    icon: Settings,      roles: ['admin'] },
 ]

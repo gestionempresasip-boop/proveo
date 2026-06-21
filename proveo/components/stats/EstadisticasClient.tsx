@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, Fragment } from 'react'
 import { ChevronDown, Download, Minus } from 'lucide-react'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -13,15 +13,16 @@ type OrderLine = {
   item_total: number; order_total: number
 }
 type Restaurant = { id: string; name: string }
-type DateFilter = 'mes' | 'trimestre' | 'año' | 'custom'
+type DateFilter = 'dia' | 'semana' | 'mes' | 'año' | 'custom'
 type GroupBy = 'semana' | 'mes'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function startOf(unit: 'month' | 'quarter' | 'year') {
+function startOf(unit: 'day' | 'week' | 'month' | 'year') {
   const d = new Date()
+  if (unit === 'day') { d.setHours(0,0,0,0) }
+  if (unit === 'week') { d.setDate(d.getDate() - d.getDay()); d.setHours(0,0,0,0) }
   if (unit === 'month') { d.setDate(1); d.setHours(0,0,0,0) }
-  if (unit === 'quarter') { const m = Math.floor(d.getMonth()/3)*3; d.setMonth(m,1); d.setHours(0,0,0,0) }
   if (unit === 'year') { d.setMonth(0,1); d.setHours(0,0,0,0) }
   return d
 }
@@ -80,19 +81,20 @@ function exportCSV(headers: string[], rows: (string | number)[][], filename: str
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[]; restaurants: Restaurant[] }) {
-  const [dateFilter, setDateFilter] = useState<DateFilter>('año')
+  const [dateFilter, setDateFilter] = useState<DateFilter>('mes')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [groupBy, setGroupBy] = useState<GroupBy>('mes')
   const [restFilter, setRestFilter] = useState('todos')
   const [tab, setTab] = useState<'periodo' | 'productos' | 'ranking'>('periodo')
   const [prodSearch, setProdSearch] = useState('')
+  const [expandedProduct, setExpandedProduct] = useState<string | null>(null)
 
   // ── Filter ───────────────────────────────────────────────────────────────
 
   const filtered = useMemo(() => {
     const since: Record<DateFilter, Date | null> = {
-      mes: startOf('month'), trimestre: startOf('quarter'), año: startOf('year'), custom: null
+      dia: startOf('day'), semana: startOf('week'), mes: startOf('month'), año: startOf('year'), custom: null
     }
     return lines.filter(l => {
       const d = new Date(l.created_at)
@@ -159,10 +161,10 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
 
   const productoTable = useMemo(() => {
     const restNames = [...new Set(filtered.map(l => l.restaurant_name))].sort()
-    const prodMap: Record<string, { name: string; unit: string; byRest: Record<string, { qty: number; euros: number; veces: number }> }> = {}
+    const prodMap: Record<string, { id: string; name: string; unit: string; byRest: Record<string, { qty: number; euros: number; veces: number }> }> = {}
 
     filtered.forEach(l => {
-      if (!prodMap[l.product_id]) prodMap[l.product_id] = { name: l.product_name, unit: l.unit, byRest: {} }
+      if (!prodMap[l.product_id]) prodMap[l.product_id] = { id: l.product_id, name: l.product_name, unit: l.unit, byRest: {} }
       if (!prodMap[l.product_id].byRest[l.restaurant_name])
         prodMap[l.product_id].byRest[l.restaurant_name] = { qty: 0, euros: 0, veces: 0 }
       prodMap[l.product_id].byRest[l.restaurant_name].qty += l.quantity
@@ -267,7 +269,7 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
       {/* Filters */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="flex border-b border-gray-100">
-          {([['mes','Este mes'],['trimestre','Trimestre'],['año','Este año'],['custom','Personalizado']] as [DateFilter,string][]).map(([k,l]) => (
+          {([['dia','Hoy'],['semana','Esta semana'],['mes','Este mes'],['año','Este año'],['custom','Personalizado']] as [DateFilter,string][]).map(([k,l]) => (
             <button key={k} onClick={() => setDateFilter(k)}
               className={`flex-1 py-2.5 text-xs sm:text-sm font-medium transition-colors ${
                 dateFilter === k ? 'bg-[#1E2B28] text-white' : 'text-gray-500 hover:bg-gray-50'
@@ -427,7 +429,7 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
               <input type="text" placeholder="Buscar producto..." value={prodSearch}
                 onChange={e => setProdSearch(e.target.value)}
                 className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28] w-52" />
-              <p className="text-xs text-gray-400 flex-1">Cantidades pedidas por restaurante. Celdas oscuras = mayor consumo.</p>
+              <p className="text-xs text-gray-400 flex-1">Cantidades pedidas por restaurante. Celdas oscuras = mayor consumo. Pulsa un producto para ver el ranking.</p>
               <button onClick={exportProductos} className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 border border-gray-200 px-3 py-1.5 rounded-lg">
                 <Download className="w-3.5 h-3.5" /> CSV
               </button>
@@ -447,31 +449,67 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
                   <tbody>
                     {products.map(p => {
                       const totalEuros = restNames.reduce((s, r) => s + (p.byRest[r]?.euros ?? 0), 0)
+                      const isExpanded = expandedProduct === p.id
                       return (
-                        <tr key={p.name} className="border-b border-gray-50 hover:bg-gray-50/50">
-                          <td className="px-4 py-3 sticky left-0 bg-white z-10 border-r border-gray-50">
-                            <p className="font-medium text-[#1C1C1E] text-sm leading-tight">{p.name}</p>
-                          </td>
-                          {restNames.map(r => {
-                            const v = p.byRest[r]
-                            return (
-                              <td key={r} className="px-3 py-2 text-center"
-                                style={{ background: cellBg(v?.euros ?? 0, restMax[r]) }}>
-                                {v ? (
-                                  <>
-                                    <p className={`text-sm ${cellText(v.euros, restMax[r])}`}>
-                                      {v.qty % 1 === 0 ? v.qty : v.qty.toFixed(1)} {p.unit}
-                                    </p>
-                                    <p className="text-xs text-gray-400">{v.euros.toFixed(0)}€</p>
-                                  </>
-                                ) : <span className="text-gray-200 text-xs">—</span>}
+                        <Fragment key={p.id}>
+                          <tr
+                            className="border-b border-gray-50 hover:bg-gray-50/50 cursor-pointer"
+                            onClick={() => setExpandedProduct(isExpanded ? null : p.id)}
+                          >
+                            <td className="px-4 py-3 sticky left-0 bg-white z-10 border-r border-gray-50">
+                              <p className={`font-medium text-sm leading-tight ${isExpanded ? 'text-[#1E2B28]' : 'text-[#1C1C1E]'}`}>{p.name}</p>
+                            </td>
+                            {restNames.map(r => {
+                              const v = p.byRest[r]
+                              return (
+                                <td key={r} className="px-3 py-2 text-center"
+                                  style={{ background: cellBg(v?.euros ?? 0, restMax[r]) }}>
+                                  {v ? (
+                                    <>
+                                      <p className={`text-sm ${cellText(v.euros, restMax[r])}`}>
+                                        {v.qty % 1 === 0 ? v.qty : v.qty.toFixed(1)} {p.unit}
+                                      </p>
+                                      <p className="text-xs text-gray-400">{v.euros.toFixed(0)}€</p>
+                                    </>
+                                  ) : <span className="text-gray-200 text-xs">—</span>}
+                                </td>
+                              )
+                            })}
+                            <td className="px-4 py-3 text-right">
+                              <p className="font-semibold text-[#1E2B28] text-sm">{totalEuros.toFixed(0)}€</p>
+                            </td>
+                          </tr>
+                          {isExpanded && (
+                            <tr className="bg-[#1E2B28]/[0.03] border-b border-gray-100">
+                              <td colSpan={restNames.length + 2} className="px-4 py-4">
+                                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                                  Ranking de "{p.name}" por restaurante
+                                </p>
+                                <div className="space-y-1.5 max-w-xl">
+                                  {restNames
+                                    .filter(r => p.byRest[r])
+                                    .sort((a, b) => (p.byRest[b]?.qty ?? 0) - (p.byRest[a]?.qty ?? 0))
+                                    .map((r, i) => {
+                                      const v = p.byRest[r]!
+                                      const maxQty = Math.max(...restNames.map(x => p.byRest[x]?.qty ?? 0))
+                                      return (
+                                        <div key={r} className="flex items-center gap-3">
+                                          <span className="w-5 h-5 rounded-full bg-white text-[10px] font-bold text-gray-500 flex items-center justify-center shrink-0 border border-gray-200">{i + 1}</span>
+                                          <span className="text-sm text-[#1C1C1E] w-32 shrink-0 truncate">{r}</span>
+                                          <div className="flex-1 h-2 bg-white rounded-full overflow-hidden border border-gray-100">
+                                            <div className="h-full bg-[#A8793A] rounded-full" style={{ width: `${(v.qty / maxQty) * 100}%` }} />
+                                          </div>
+                                          <span className="text-sm font-semibold text-[#1E2B28] w-20 text-right shrink-0">
+                                            {v.qty % 1 === 0 ? v.qty : v.qty.toFixed(1)} {p.unit}
+                                          </span>
+                                        </div>
+                                      )
+                                    })}
+                                </div>
                               </td>
-                            )
-                          })}
-                          <td className="px-4 py-3 text-right">
-                            <p className="font-semibold text-[#1E2B28] text-sm">{totalEuros.toFixed(0)}€</p>
-                          </td>
-                        </tr>
+                            </tr>
+                          )}
+                        </Fragment>
                       )
                     })}
                   </tbody>

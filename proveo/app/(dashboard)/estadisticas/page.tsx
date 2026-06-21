@@ -1,10 +1,12 @@
 import { createClient } from '@/lib/supabase/server'
 import { getAuthProfile } from '@/lib/supabase/helpers'
 import { EstadisticasClient } from '@/components/stats/EstadisticasClient'
+import { redirect } from 'next/navigation'
 
 export default async function EstadisticasPage() {
   const supabase = await createClient()
   const profile = await getAuthProfile()
+  if (profile.organizations.type !== 'nave') redirect('/dashboard')
   const sb = supabase as any
 
   // Traer todos los pedidos con sus líneas y restaurante
