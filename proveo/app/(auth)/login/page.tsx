@@ -90,9 +90,13 @@ export default function LoginPage() {
                 }
               `}
             >
-              <div className="relative w-full h-12">
-                <Image src={place.logo} alt={place.name} fill className="object-contain" />
-              </div>
+              <Image
+                src={place.logo}
+                alt={place.name}
+                width={160}
+                height={48}
+                className="w-full h-12 object-contain"
+              />
               <span className="text-[#1C1C1E]">{place.name}</span>
             </button>
           ))}
@@ -113,10 +117,14 @@ export default function LoginPage() {
         </button>
 
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-24 h-16 mb-4">
-            <div className="relative w-full h-full">
-              <Image src={selected.logo} alt={selected.name} fill className="object-contain" />
-            </div>
+          <div className="inline-flex items-center justify-center mb-4">
+            <Image
+              src={selected.logo}
+              alt={selected.name}
+              width={200}
+              height={64}
+              className="w-24 h-16 object-contain"
+            />
           </div>
           <h2 className="text-xl font-bold text-[#1C1C1E]">{selected.name}</h2>
           <p className="text-gray-400 text-sm mt-1">Introduce tu PIN</p>
