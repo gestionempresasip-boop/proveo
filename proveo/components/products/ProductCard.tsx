@@ -132,13 +132,6 @@ export function ProductCard({
           <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{product.description}</p>
         )}
 
-        <div className="mt-2">
-          <span className="text-gray-900 font-bold text-base">
-            {(Number(product.price) * (1 + (Number((product as any).iva_rate) || 0))).toFixed(2)}€
-          </span>
-          <span className="text-gray-400 text-xs ml-1">/ {unit}</span>
-        </div>
-
         {/* ── Quantity selector ───────────────────────────────────────── */}
         <div className="flex items-center gap-2 mt-3">
           <button

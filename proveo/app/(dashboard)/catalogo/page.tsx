@@ -131,31 +131,23 @@ export default function CatalogoPage() {
         </p>
       ) : (
         <div className="space-y-2">
-          {cartItems.map(({ product, quantity }) => {
-            const unitPrice = priceWithIva(product)
-            return (
-              <div key={product.id} className="flex items-start justify-between gap-2 text-sm">
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-[#1C1C1E] leading-tight">{product.name}</p>
-                  <p className="text-gray-400 text-xs mt-0.5">
-                    {quantity} {product.unit} × {unitPrice.toFixed(2)}€
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="font-semibold text-[#1B4332]">
-                    {(quantity * unitPrice).toFixed(2)}€
-                  </span>
-                  <button
-                    onClick={() => handleQuantityChange(product.id, 0)}
-                    className="text-gray-300 hover:text-red-500 transition-colors"
-                    title="Eliminar del pedido"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
+          {cartItems.map(({ product, quantity }) => (
+            <div key={product.id} className="flex items-start justify-between gap-2 text-sm">
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-[#1C1C1E] leading-tight">{product.name}</p>
+                <p className="text-gray-400 text-xs mt-0.5">
+                  {quantity} {product.unit}
+                </p>
               </div>
-            )
-          })}
+              <button
+                onClick={() => handleQuantityChange(product.id, 0)}
+                className="text-gray-300 hover:text-red-500 transition-colors shrink-0"
+                title="Eliminar del pedido"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
         </div>
       )}
     </div>
@@ -164,10 +156,6 @@ export default function CatalogoPage() {
   // ── Pie del carrito: total, notas y botón — siempre visible ─────────────
   const cartFooter = cartItems.length > 0 ? (
     <div className="p-4 pt-3 border-t border-gray-100 shrink-0 bg-white">
-      <div className="flex justify-between font-bold text-[#1C1C1E]">
-        <span>Total</span>
-        <span className="text-[#1B4332]">{cartTotal.toFixed(2)}€</span>
-      </div>
       <textarea
         placeholder="Notas o instrucciones (opcional)"
         value={notes}
@@ -349,10 +337,7 @@ export default function CatalogoPage() {
               </span>
               <span>Ver pedido</span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="font-bold">{cartTotal.toFixed(2)}€</span>
-              <ChevronUp className="h-4 w-4" />
-            </div>
+            <ChevronUp className="h-4 w-4" />
           </button>
         </div>
       )}

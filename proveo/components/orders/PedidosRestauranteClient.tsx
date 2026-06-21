@@ -83,7 +83,6 @@ function OrderRow({ order, onDeleted }: { order: Order; onDeleted: (id: string) 
             <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${STATUS_COLORS[order.status] ?? ''}`}>
               {STATUS_LABELS[order.status] ?? order.status}
             </span>
-            <span className="font-bold text-[#1B4332]">{Number(order.total_price).toFixed(2)}€</span>
           </div>
         </div>
 
@@ -223,7 +222,6 @@ export function PedidosRestauranteClient({ orders: initialOrders }: { orders: Or
         <div className="space-y-3">
           {groups.map(([key, group], idx) => {
             const open = isOpen(key, idx)
-            const total = group.reduce((sum, o) => sum + Number(o.total_price), 0)
             return (
               <div key={key} className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
                 <button
@@ -236,10 +234,7 @@ export function PedidosRestauranteClient({ orders: initialOrders }: { orders: Or
                       {group.length} {group.length === 1 ? 'pedido' : 'pedidos'}
                     </span>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-bold text-[#1B4332]">{total.toFixed(2)}€</span>
-                    <ChevronDown className={cn('h-4 w-4 text-gray-400 transition-transform', open && 'rotate-180')} />
-                  </div>
+                  <ChevronDown className={cn('h-4 w-4 text-gray-400 transition-transform shrink-0', open && 'rotate-180')} />
                 </button>
                 {open && (
                   <div className="px-4 pb-4 pt-1 space-y-3 border-t border-gray-100">
