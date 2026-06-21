@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useMemo, Fragment } from 'react'
-import { ChevronDown, Download, Minus } from 'lucide-react'
+import { useState, useMemo, useRef, Fragment } from 'react'
+import { ChevronDown, ChevronLeft, ChevronRight, Download, Minus } from 'lucide-react'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -76,6 +76,51 @@ function exportCSV(headers: string[], rows: (string | number)[][], filename: str
   const csv = [headers.join(','), ...rows.map(r => r.map(c => typeof c === 'string' && c.includes(',') ? `"${c}"` : c).join(','))].join('\n')
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }))
   a.download = filename; a.click()
+}
+
+// Wrapper para tablas anchas: scroll horizontal con la rueda del ratón (sin Shift)
+// y flechas de navegación visibles en escritorio.
+function HScroll({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+
+  function onWheel(e: React.WheelEvent<HTMLDivElement>) {
+    const el = ref.current
+    if (!el || el.scrollWidth <= el.clientWidth) return
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+      e.preventDefault()
+      el.scrollLeft += e.deltaY
+    }
+  }
+
+  function scrollBy(amount: number) {
+    ref.current?.scrollBy({ left: amount, behavior: 'smooth' })
+  }
+
+  return (
+    <div className="relative group">
+      <div
+        ref={ref}
+        onWheel={onWheel}
+        className="overflow-x-auto [scrollbar-width:thin] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-gray-100"
+      >
+        {children}
+      </div>
+      <button
+        onClick={() => scrollBy(-280)}
+        className="hidden lg:flex absolute left-1 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white border border-gray-200 shadow-md items-center justify-center text-gray-500 hover:text-[#1E2B28] opacity-0 group-hover:opacity-100 transition-opacity"
+        aria-label="Desplazar a la izquierda"
+      >
+        <ChevronLeft className="w-4 h-4" />
+      </button>
+      <button
+        onClick={() => scrollBy(280)}
+        className="hidden lg:flex absolute right-1 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white border border-gray-200 shadow-md items-center justify-center text-gray-500 hover:text-[#1E2B28] opacity-0 group-hover:opacity-100 transition-opacity"
+        aria-label="Desplazar a la derecha"
+      >
+        <ChevronRight className="w-4 h-4" />
+      </button>
+    </div>
+  )
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────
@@ -353,7 +398,7 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
               </button>
             </div>
             <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-              <div className="overflow-x-auto">
+              <HScroll>
                 <table className="w-full text-sm" style={{ minWidth: Math.max(600, periods.length * 120 + 180) }}>
                   <thead>
                     <tr className="border-b border-gray-100 bg-gray-50">
@@ -405,7 +450,7 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
                     </tr>
                   </tfoot>
                 </table>
-              </div>
+              </HScroll>
               {restNames.length === 0 && <p className="text-center py-12 text-gray-400">Sin datos para este período</p>}
             </div>
             {/* Leyenda */}
@@ -435,7 +480,7 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
               </button>
             </div>
             <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-              <div className="overflow-x-auto">
+              <HScroll>
                 <table className="w-full text-sm" style={{ minWidth: Math.max(600, restNames.length * 140 + 200) }}>
                   <thead>
                     <tr className="border-b border-gray-100 bg-gray-50">
@@ -514,7 +559,7 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
                     })}
                   </tbody>
                 </table>
-              </div>
+              </HScroll>
               {products.length === 0 && <p className="text-center py-12 text-gray-400">Sin datos para este período</p>}
             </div>
             <div className="flex items-center gap-3 text-xs text-gray-400 px-1">
@@ -594,7 +639,7 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
               <h2 className="font-semibold text-[#1C1C1E]">Media por pedido y gasto acumulado</h2>
               <p className="text-xs text-gray-400 mt-0.5">Cuánto gasta de media cada restaurante en cada pedido</p>
             </div>
-            <div className="overflow-x-auto">
+            <HScroll>
               <table className="w-full text-sm min-w-[500px]">
                 <thead className="bg-gray-50 border-b border-gray-100">
                   <tr>
@@ -627,7 +672,7 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
                 </tbody>
               </table>
               {ranking.rests.length === 0 && <p className="text-center py-10 text-gray-400">Sin datos</p>}
-            </div>
+            </HScroll>
           </div>
         </div>
       )}
