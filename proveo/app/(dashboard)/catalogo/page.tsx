@@ -349,7 +349,7 @@ export default function CatalogoPage() {
       )}
 
       {/* Botón flotante del carrito — encima de la tab bar */}
-      {cartCount > 0 && (
+      {cartCount > 0 && !cartOpen && (
         <div className="lg:hidden fixed bottom-[60px] left-0 right-0 z-50 px-4 pb-3">
           <button
             onClick={() => setCartOpen(true)}
