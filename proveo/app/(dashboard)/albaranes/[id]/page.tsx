@@ -43,7 +43,7 @@ export default async function AlbaranDetailPage({ params }: { params: Promise<{ 
         {/* Cabecera */}
         <div className="flex justify-between items-start mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-[#1B4332]">Proveo</h1>
+            <h1 className="text-3xl font-bold text-[#1E2B28]">Proveo</h1>
             <p className="text-sm text-gray-400 mt-1">Nave Obrador Central</p>
           </div>
           <div className="text-right">
@@ -68,7 +68,7 @@ export default async function AlbaranDetailPage({ params }: { params: Promise<{ 
         {/* Líneas */}
         <table className="w-full text-sm mb-8">
           <thead>
-            <tr className="border-b-2 border-[#1B4332]">
+            <tr className="border-b-2 border-[#1E2B28]">
               <th className="text-left py-2 font-semibold text-[#1C1C1E]">Producto</th>
               <th className="text-right py-2 font-semibold text-[#1C1C1E]">Pedido</th>
               <th className="text-right py-2 font-semibold text-[#1C1C1E]">Enviado</th>
@@ -90,7 +90,7 @@ export default async function AlbaranDetailPage({ params }: { params: Promise<{ 
           <tfoot>
             <tr>
               <td colSpan={4} className="text-right pt-4 font-bold text-[#1C1C1E]">TOTAL</td>
-              <td className="text-right pt-4 font-bold text-xl text-[#1B4332]">
+              <td className="text-right pt-4 font-bold text-xl text-[#1E2B28]">
                 {Number(order?.total_price ?? 0).toFixed(2)} €
               </td>
             </tr>

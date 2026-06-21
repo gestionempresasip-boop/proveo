@@ -31,7 +31,7 @@ function NoteRow({ note, isNave, onDeleted }: { note: Note; isNave: boolean; onD
     <tr className="hover:bg-gray-50">
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
-          <FileText className="w-4 h-4 text-[#1B4332] shrink-0" />
+          <FileText className="w-4 h-4 text-[#1E2B28] shrink-0" />
           <span className="font-medium text-[#1C1C1E]">#{note.note_number}</span>
           <span className="text-gray-400 text-xs">Pedido #{note.orders?.order_number}</span>
         </div>
@@ -46,14 +46,14 @@ function NoteRow({ note, isNave, onDeleted }: { note: Note; isNave: boolean; onD
           day: 'numeric', month: 'short', year: 'numeric'
         })}
       </td>
-      <td className="px-4 py-3 text-right font-bold text-[#1B4332]">
+      <td className="px-4 py-3 text-right font-bold text-[#1E2B28]">
         {Number(note.orders?.total_price ?? 0).toFixed(2)} €
       </td>
       <td className="px-4 py-3 text-right">
         <div className="flex items-center justify-end gap-2">
           <Link
             href={`/albaranes/${note.id}`}
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-[#1B4332] hover:underline"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-[#1E2B28] hover:underline"
           >
             <Printer className="w-3.5 h-3.5" />
             Ver / Imprimir

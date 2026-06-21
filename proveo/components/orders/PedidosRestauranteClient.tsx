@@ -66,7 +66,7 @@ function OrderRow({ order, onDeleted }: { order: Order; onDeleted: (id: string) 
       <CardContent className="p-4 sm:p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 bg-[#1B4332] rounded-xl flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 bg-[#1E2B28] rounded-xl flex items-center justify-center shrink-0">
               <span className="text-white text-xs font-bold">#{order.order_number}</span>
             </div>
             <div>
@@ -192,14 +192,14 @@ export function PedidosRestauranteClient({ orders: initialOrders }: { orders: Or
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Buscar por nº de pedido, producto o nota..."
-            className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332] focus:border-transparent placeholder-gray-400"
+            className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28] focus:border-transparent placeholder-gray-400"
           />
         </div>
         <input
           type="date"
           value={dateFilter}
           onChange={e => setDateFilter(e.target.value)}
-          className="px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-[#1B4332] focus:border-transparent"
+          className="px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-[#1E2B28] focus:border-transparent"
         />
         {hasFilters && (
           <button

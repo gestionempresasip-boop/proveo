@@ -57,7 +57,7 @@ export default async function AdminUsuariosPage() {
               <tr key={u.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3 font-medium text-[#1C1C1E]">
                   <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-full bg-[#1B4332] text-white flex items-center justify-center text-xs font-bold shrink-0">
+                    <div className="w-7 h-7 rounded-full bg-[#1E2B28] text-white flex items-center justify-center text-xs font-bold shrink-0">
                       {u.full_name?.[0] ?? '?'}
                     </div>
                     {u.full_name ?? 'Sin nombre'}

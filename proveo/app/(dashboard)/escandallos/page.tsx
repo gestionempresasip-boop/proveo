@@ -58,7 +58,7 @@ export default async function EscandалlosPage() {
                 <CardContent className="p-5">
                   <div className="flex items-start gap-3">
                     <div className="w-12 h-12 bg-[#d8f3dc] rounded-xl flex items-center justify-center flex-shrink-0">
-                      <BookOpen className="h-6 w-6 text-[#1B4332]" />
+                      <BookOpen className="h-6 w-6 text-[#1E2B28]" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-[#1C1C1E] truncate">{recipe.name}</h3>
@@ -69,7 +69,7 @@ export default async function EscandалlosPage() {
                   <div className="mt-4 grid grid-cols-2 gap-3">
                     <div className="bg-gray-50 rounded-xl p-3">
                       <p className="text-xs text-gray-400 uppercase tracking-wide">Coste/ración</p>
-                      <p className="text-lg font-bold text-[#1B4332] mt-0.5">{costPerServing.toFixed(2)}€</p>
+                      <p className="text-lg font-bold text-[#1E2B28] mt-0.5">{costPerServing.toFixed(2)}€</p>
                     </div>
                     {recipe.sale_price && (
                       <div className="bg-gray-50 rounded-xl p-3">

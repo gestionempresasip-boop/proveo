@@ -35,7 +35,7 @@ export function EditProductoModal({ product, categories }: { product: Product; c
     <>
       <button
         onClick={() => setOpen(true)}
-        className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-[#1B4332] transition-colors"
+        className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-[#1E2B28] transition-colors"
         title="Editar producto"
       >
         <Pencil className="w-4 h-4" />
@@ -56,7 +56,7 @@ export function EditProductoModal({ product, categories }: { product: Product; c
                 <label className="text-sm font-medium text-gray-700">Nombre *</label>
                 <input
                   name="name" required defaultValue={product.name}
-                  className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]"
+                  className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
                 />
               </div>
 
@@ -66,14 +66,14 @@ export function EditProductoModal({ product, categories }: { product: Product; c
                   <input
                     name="price" type="number" step="0.01" min="0" required
                     defaultValue={product.price}
-                    className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]"
+                    className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
                   />
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-700">Unidad *</label>
                   <select
                     name="unit" required defaultValue={product.unit}
-                    className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]"
+                    className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
                   >
                     {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                   </select>
@@ -86,7 +86,7 @@ export function EditProductoModal({ product, categories }: { product: Product; c
                   <input
                     name="min_order_quantity" type="number" step="0.001" min="0"
                     defaultValue={product.min_order_quantity ?? 1}
-                    className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]"
+                    className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
                   />
                 </div>
                 <div>
@@ -94,7 +94,7 @@ export function EditProductoModal({ product, categories }: { product: Product; c
                   <input
                     name="order_increment" type="number" step="0.001" min="0"
                     defaultValue={product.order_increment ?? 1}
-                    className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]"
+                    className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
                   />
                 </div>
               </div>
@@ -105,7 +105,7 @@ export function EditProductoModal({ product, categories }: { product: Product; c
                   <select
                     name="category_id"
                     defaultValue={product.category_id ?? ''}
-                    className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]"
+                    className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
                   >
                     <option value="">Sin categoría</option>
                     {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -117,7 +117,7 @@ export function EditProductoModal({ product, categories }: { product: Product; c
                 <label className="text-sm font-medium text-gray-700">Descripción</label>
                 <textarea
                   name="description" rows={2} defaultValue={product.description ?? ''}
-                  className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332] resize-none"
+                  className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28] resize-none"
                   placeholder="Opcional"
                 />
               </div>
@@ -128,7 +128,7 @@ export function EditProductoModal({ product, categories }: { product: Product; c
                   Cancelar
                 </button>
                 <button type="submit" disabled={loading}
-                  className="flex-1 bg-[#1B4332] text-white text-sm font-medium py-2 rounded-lg hover:bg-[#163828] disabled:opacity-50">
+                  className="flex-1 bg-[#1E2B28] text-white text-sm font-medium py-2 rounded-lg hover:bg-[#141F1C] disabled:opacity-50">
                   {loading ? 'Guardando...' : 'Guardar cambios'}
                 </button>
               </div>

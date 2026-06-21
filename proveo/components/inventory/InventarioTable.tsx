@@ -79,8 +79,8 @@ function InventoryRowItem({
             step="0.001"
             value={stock}
             onChange={e => { setStock(e.target.value); setSaved(false) }}
-            className={`w-24 border rounded-lg px-2 py-1 text-sm text-center font-semibold focus:outline-none focus:ring-2 focus:ring-[#1B4332] ${
-              isEmpty ? 'border-red-300 text-red-600' : isLow ? 'border-orange-300 text-orange-600' : 'border-gray-200 text-[#1B4332]'
+            className={`w-24 border rounded-lg px-2 py-1 text-sm text-center font-semibold focus:outline-none focus:ring-2 focus:ring-[#1E2B28] ${
+              isEmpty ? 'border-red-300 text-red-600' : isLow ? 'border-orange-300 text-orange-600' : 'border-gray-200 text-[#1E2B28]'
             }`}
           />
           <span className="text-xs text-gray-400">{row.product_unit}</span>
@@ -94,7 +94,7 @@ function InventoryRowItem({
             step="0.001"
             value={min}
             onChange={e => { setMin(e.target.value); setSaved(false) }}
-            className="w-24 border border-gray-200 rounded-lg px-2 py-1 text-sm text-center text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1B4332]"
+            className="w-24 border border-gray-200 rounded-lg px-2 py-1 text-sm text-center text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
           />
           <span className="text-xs text-gray-400">{row.product_unit}</span>
         </div>
@@ -116,7 +116,7 @@ function InventoryRowItem({
             disabled={saving || !dirty}
             className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
               dirty
-                ? 'bg-[#1B4332] text-white hover:bg-[#163828]'
+                ? 'bg-[#1E2B28] text-white hover:bg-[#141F1C]'
                 : 'text-gray-300 cursor-default'
             }`}
           >
@@ -176,7 +176,7 @@ function HistorialTab({ organizationId }: { organizationId: string }) {
               type="date"
               value={dateFrom}
               onChange={e => setDateFrom(e.target.value)}
-              className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]"
+              className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
             />
           </div>
           <div>
@@ -185,13 +185,13 @@ function HistorialTab({ organizationId }: { organizationId: string }) {
               type="date"
               value={dateTo}
               onChange={e => setDateTo(e.target.value)}
-              className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]"
+              className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
             />
           </div>
           <button
             onClick={handleSearch}
             disabled={isPending}
-            className="bg-[#1B4332] text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#163828] transition-colors disabled:opacity-60"
+            className="bg-[#1E2B28] text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#141F1C] transition-colors disabled:opacity-60"
           >
             {isPending ? 'Cargando...' : 'Ver historial'}
           </button>
@@ -239,7 +239,7 @@ function HistorialTab({ organizationId }: { organizationId: string }) {
                 <tr key={l.id} className="hover:bg-gray-50">
                   <td className="px-4 py-2.5 font-medium text-[#1C1C1E]">{l.product_name}</td>
                   <td className="px-4 py-2.5 text-gray-400">{l.product_unit}</td>
-                  <td className="px-4 py-2.5 text-right font-semibold text-[#1B4332]">
+                  <td className="px-4 py-2.5 text-right font-semibold text-[#1E2B28]">
                     {Number(l.stock_value).toLocaleString('es-ES', { maximumFractionDigits: 3 })}
                   </td>
                   <td className="px-4 py-2.5 text-right text-gray-400">
@@ -328,7 +328,7 @@ export function InventarioTable({
           <div className="grid grid-cols-3 gap-3">
             <button
               onClick={() => setFilter('todos')}
-              className={`rounded-xl p-4 text-left transition-all ${filter === 'todos' ? 'bg-[#1B4332] text-white' : 'bg-white border border-gray-100 hover:border-[#1B4332]'}`}
+              className={`rounded-xl p-4 text-left transition-all ${filter === 'todos' ? 'bg-[#1E2B28] text-white' : 'bg-white border border-gray-100 hover:border-[#1E2B28]'}`}
             >
               <p className={`text-2xl font-bold ${filter === 'todos' ? 'text-white' : 'text-[#1C1C1E]'}`}>{rows.length}</p>
               <p className={`text-xs mt-0.5 ${filter === 'todos' ? 'text-green-200' : 'text-gray-500'}`}>Total productos</p>
@@ -355,7 +355,7 @@ export function InventarioTable({
             placeholder="Buscar producto..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]"
+            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
           />
 
           {/* Tabla agrupada por categoría */}

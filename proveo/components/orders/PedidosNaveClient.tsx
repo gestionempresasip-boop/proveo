@@ -28,7 +28,7 @@ const STATUS_CONFIG = {
 
 const NEXT: Record<string, { label: string; next: OrderStatus; color: string }> = {
   pendiente: { label: 'Marcar como hecho',    next: 'hecho',   color: 'bg-blue-600 hover:bg-blue-700 text-white' },
-  hecho:     { label: 'Marcar como enviado',  next: 'enviado', color: 'bg-[#1B4332] hover:bg-[#163828] text-white' },
+  hecho:     { label: 'Marcar como enviado',  next: 'enviado', color: 'bg-[#1E2B28] hover:bg-[#141F1C] text-white' },
 }
 
 function startOfDay(d: Date) { const x = new Date(d); x.setHours(0,0,0,0); return x }
@@ -51,7 +51,7 @@ type Restaurant = { id: string; name: string }
 
 // ── Action buttons per order ─────────────────────────────────────────────────
 
-function OrderActions({ order, onDeleted }: { order: Order; onDeleted: (id: string) => void }) {
+function OrderActions({ order, onDeleted, onStatusChange }: { order: Order; onDeleted: (id: string) => void; onStatusChange: (id: string, status: OrderStatus) => void }) {
   const [loading, setLoading] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [noteId, setNoteId] = useState<string | null>(order.delivery_notes?.[0]?.id ?? null)
@@ -61,11 +61,10 @@ function OrderActions({ order, onDeleted }: { order: Order; onDeleted: (id: stri
   const status = normalizeStatus(order.status)
   const nextAction = NEXT[status]
 
-  async function handleStatus() {
+  function handleStatus() {
     if (!nextAction) return
-    setLoading(true)
-    await updateOrderStatus(order.id, nextAction.next)
-    setLoading(false)
+    onStatusChange(order.id, nextAction.next)
+    updateOrderStatus(order.id, nextAction.next)
   }
 
   async function handleGenNote() {
@@ -124,7 +123,7 @@ function OrderActions({ order, onDeleted }: { order: Order; onDeleted: (id: stri
       {noteId ? (
         <Link
           href={`/albaranes/${noteId}`}
-          className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-xl border border-[#1B4332] text-[#1B4332] hover:bg-green-50 transition-colors"
+          className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-xl border border-[#1E2B28] text-[#1E2B28] hover:bg-green-50 transition-colors"
         >
           <FileText className="w-3.5 h-3.5" />
           {noteNumber ? `Albarán #${noteNumber}` : 'Ver albarán'}
@@ -203,7 +202,7 @@ function OrderActions({ order, onDeleted }: { order: Order; onDeleted: (id: stri
 
 // ── Order card ───────────────────────────────────────────────────────────────
 
-function OrderCard({ order, onDeleted }: { order: Order; onDeleted: (id: string) => void }) {
+function OrderCard({ order, onDeleted, onStatusChange }: { order: Order; onDeleted: (id: string) => void; onStatusChange: (id: string, status: OrderStatus) => void }) {
   const [expanded, setExpanded] = useState(false)
   const status = normalizeStatus(order.status)
   const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.pendiente
@@ -218,7 +217,7 @@ function OrderCard({ order, onDeleted }: { order: Order; onDeleted: (id: string)
         className="w-full text-left p-4 flex items-start gap-3"
         onClick={() => setExpanded(v => !v)}
       >
-        <div className="w-10 h-10 bg-[#1B4332] rounded-xl flex items-center justify-center shrink-0 mt-0.5">
+        <div className="w-10 h-10 bg-[#1E2B28] rounded-xl flex items-center justify-center shrink-0 mt-0.5">
           <span className="text-white text-xs font-bold">#{order.order_number}</span>
         </div>
         <div className="flex-1 min-w-0">
@@ -234,7 +233,7 @@ function OrderCard({ order, onDeleted }: { order: Order; onDeleted: (id: string)
               {' · '}
               {order.order_items.length} producto{order.order_items.length !== 1 ? 's' : ''}
             </span>
-            <span className="font-semibold text-[#1B4332] text-sm ml-auto">{Number(order.total_price).toFixed(2)}€</span>
+            <span className="font-semibold text-[#1E2B28] text-sm ml-auto">{Number(order.total_price).toFixed(2)}€</span>
           </div>
           {order.notes && <p className="text-xs text-gray-400 italic mt-1 truncate">"{order.notes}"</p>}
         </div>
@@ -254,7 +253,7 @@ function OrderCard({ order, onDeleted }: { order: Order; onDeleted: (id: string)
               </div>
             ))}
           </div>
-          <OrderActions order={order} onDeleted={onDeleted} />
+          <OrderActions order={order} onDeleted={onDeleted} onStatusChange={onStatusChange} />
         </div>
       )}
     </div>
@@ -273,6 +272,9 @@ export function PedidosNaveClient({ orders: initialOrders, restaurants }: { orde
   const [restFilter, setRestFilter] = useState('todos')
 
   function handleDeleted(id: string) { setOrders(prev => prev.filter(o => o.id !== id)) }
+  function handleStatusChange(id: string, status: OrderStatus) {
+    setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o))
+  }
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [showFilters, setShowFilters] = useState(false)
@@ -354,7 +356,7 @@ export function PedidosNaveClient({ orders: initialOrders, restaurants }: { orde
               key={k}
               onClick={() => setDateFilter(k)}
               className={`flex-1 py-3 text-xs sm:text-sm font-medium transition-colors ${
-                dateFilter === k ? 'bg-[#1B4332] text-white' : 'text-gray-500 hover:bg-gray-50'
+                dateFilter === k ? 'bg-[#1E2B28] text-white' : 'text-gray-500 hover:bg-gray-50'
               }`}
             >
               {l}
@@ -368,12 +370,12 @@ export function PedidosNaveClient({ orders: initialOrders, restaurants }: { orde
             <div className="flex-1 min-w-[140px]">
               <label className="text-xs text-gray-400 block mb-1">Desde</label>
               <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]" />
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
             </div>
             <div className="flex-1 min-w-[140px]">
               <label className="text-xs text-gray-400 block mb-1">Hasta</label>
               <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]" />
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
             </div>
           </div>
         )}
@@ -386,7 +388,7 @@ export function PedidosNaveClient({ orders: initialOrders, restaurants }: { orde
               <select
                 value={restFilter}
                 onChange={e => setRestFilter(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332] appearance-none pr-8"
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28] appearance-none pr-8"
               >
                 <option value="todos">Todos los restaurantes</option>
                 {restaurants.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
@@ -400,7 +402,7 @@ export function PedidosNaveClient({ orders: initialOrders, restaurants }: { orde
               <select
                 value={statusFilter}
                 onChange={e => setStatusFilter(e.target.value as StatusFilter)}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332] appearance-none pr-8"
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28] appearance-none pr-8"
               >
                 <option value="todos">Todos los estados</option>
                 <option value="pendiente">Pendiente</option>
@@ -421,7 +423,7 @@ export function PedidosNaveClient({ orders: initialOrders, restaurants }: { orde
             Pendientes de días anteriores ({pastPending.length})
           </h2>
           <div className="space-y-3">
-            {pastPending.map(o => <OrderCard key={o.id} order={o} onDeleted={handleDeleted} />)}
+            {pastPending.map(o => <OrderCard key={o.id} order={o} onDeleted={handleDeleted} onStatusChange={handleStatusChange} />)}
           </div>
         </section>
       )}
@@ -430,7 +432,7 @@ export function PedidosNaveClient({ orders: initialOrders, restaurants }: { orde
       <section>
         {dateFilter === 'hoy' && (
           <h2 className="text-sm font-semibold text-[#1C1C1E] flex items-center gap-2 mb-3">
-            <Calendar className="w-4 h-4 text-[#1B4332]" />
+            <Calendar className="w-4 h-4 text-[#1E2B28]" />
             Pedidos de hoy ({todayOrders.length})
           </h2>
         )}
@@ -442,7 +444,7 @@ export function PedidosNaveClient({ orders: initialOrders, restaurants }: { orde
           </div>
         ) : (
           <div className="space-y-3">
-            {todayOrders.map(o => <OrderCard key={o.id} order={o} onDeleted={handleDeleted} />)}
+            {todayOrders.map(o => <OrderCard key={o.id} order={o} onDeleted={handleDeleted} onStatusChange={handleStatusChange} />)}
           </div>
         )}
       </section>

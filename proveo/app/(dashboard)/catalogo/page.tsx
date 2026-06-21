@@ -4,9 +4,10 @@ import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { ProductCard } from '@/components/products/ProductCard'
 import { Badge } from '@/components/ui/badge'
-import { ShoppingCart, Loader2, Check, X, ChevronUp, Search } from 'lucide-react'
+import { ShoppingCart, Loader2, Check, X, ChevronUp, ChevronDown, Search } from 'lucide-react'
 import type { Product, ProductCategory } from '@/types/database'
 import { useRouter } from 'next/navigation'
+import { cn } from '@/lib/utils'
 
 type CartItem = { product: Product; quantity: number }
 
@@ -32,6 +33,7 @@ export default function CatalogoPage() {
   const [submitted, setSubmitted] = useState(false)
   const [notes, setNotes] = useState('')
   const [cartOpen, setCartOpen] = useState(false)
+  const [categoryMenuOpen, setCategoryMenuOpen] = useState(false)
   const supabase = createClient()
   const router = useRouter()
 
@@ -75,6 +77,11 @@ export default function CatalogoPage() {
     return acc
   }, {})
 
+  const visibleCategories = categories.filter(c => countByCat[c.id] > 0)
+  const selectedCatObj = visibleCategories.find(c => c.id === selectedCategory)
+  const selectedCatLabel = selectedCategory === 'todos' ? 'Todas las categorías' : (selectedCatObj?.name ?? 'Todas las categorías')
+  const selectedCatCount = selectedCategory === 'todos' ? products.length : (countByCat[selectedCategory] ?? 0)
+
   async function submitOrder() {
     if (cartItems.length === 0) return
     setSubmitting(true)
@@ -105,7 +112,7 @@ export default function CatalogoPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <Loader2 className="h-8 w-8 animate-spin text-[#1B4332]" />
+        <Loader2 className="h-8 w-8 animate-spin text-[#1E2B28]" />
       </div>
     )
   }
@@ -160,12 +167,12 @@ export default function CatalogoPage() {
         placeholder="Notas o instrucciones (opcional)"
         value={notes}
         onChange={e => setNotes(e.target.value)}
-        className="w-full mt-3 text-sm p-2.5 border border-gray-200 rounded-xl resize-none h-16 focus:outline-none focus:ring-2 focus:ring-[#1B4332]"
+        className="w-full mt-3 text-sm p-2.5 border border-gray-200 rounded-xl resize-none h-16 focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
       />
       <button
         onClick={submitOrder}
         disabled={submitting}
-        className="w-full mt-3 bg-[#F59E0B] hover:bg-[#d97706] disabled:opacity-60 text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
+        className="w-full mt-3 bg-[#A8793A] hover:bg-[#8C6430] disabled:opacity-60 text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
       >
         {submitting
           ? <><Loader2 className="h-4 w-4 animate-spin" />Enviando...</>
@@ -199,7 +206,7 @@ export default function CatalogoPage() {
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             placeholder="Buscar producto..."
-            className="w-full pl-9 pr-9 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332] focus:border-transparent placeholder-gray-400"
+            className="w-full pl-9 pr-9 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28] focus:border-transparent placeholder-gray-400"
           />
           {searchQuery && (
             <button
@@ -211,38 +218,55 @@ export default function CatalogoPage() {
           )}
         </div>
 
-        {/* Category pills */}
-        <div className="flex flex-wrap gap-2">
+        {/* Category dropdown */}
+        <div className="relative">
           <button
-            onClick={() => setSelectedCategory('todos')}
-            className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all whitespace-nowrap ${
-              selectedCategory === 'todos'
-                ? 'bg-[#1B4332] text-white'
-                : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
-            }`}
+            onClick={() => setCategoryMenuOpen(v => !v)}
+            className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:border-gray-300 transition-colors"
           >
-            Todos
-            <span className={`text-xs px-1.5 py-0.5 rounded-full ${selectedCategory === 'todos' ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}>
-              {products.length}
-            </span>
-          </button>
-          {categories.filter(c => countByCat[c.id] > 0).map(cat => (
-            <button
-              key={cat.id}
-              onClick={() => setSelectedCategory(cat.id)}
-              className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all whitespace-nowrap ${
-                selectedCategory === cat.id
-                  ? 'bg-[#1B4332] text-white'
-                  : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
-              }`}
-            >
-              <CatDot color={(cat as any).color} />
-              {cat.name}
-              <span className={`text-xs px-1.5 py-0.5 rounded-full ${selectedCategory === cat.id ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}>
-                {countByCat[cat.id]}
+            <span className="flex items-center gap-2 truncate">
+              {selectedCategory !== 'todos' && <CatDot color={(selectedCatObj as any)?.color} />}
+              <span className="truncate">{selectedCatLabel}</span>
+              <span className="text-xs px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 shrink-0">
+                {selectedCatCount}
               </span>
-            </button>
-          ))}
+            </span>
+            <ChevronDown className={cn('h-4 w-4 text-gray-400 transition-transform shrink-0', categoryMenuOpen && 'rotate-180')} />
+          </button>
+
+          {categoryMenuOpen && (
+            <>
+              <div className="fixed inset-0 z-30" onClick={() => setCategoryMenuOpen(false)} />
+              <div className="absolute left-0 right-0 mt-2 z-40 bg-white rounded-xl border border-gray-100 shadow-lg max-h-80 overflow-y-auto py-1.5">
+                <button
+                  onClick={() => { setSelectedCategory('todos'); setCategoryMenuOpen(false) }}
+                  className={cn(
+                    'w-full flex items-center justify-between gap-2 px-3.5 py-2.5 text-sm transition-colors',
+                    selectedCategory === 'todos' ? 'bg-[#1E2B28]/[0.06] text-[#1E2B28] font-semibold' : 'text-gray-600 hover:bg-gray-50'
+                  )}
+                >
+                  <span>Todas las categorías</span>
+                  <span className="text-xs text-gray-400">{products.length}</span>
+                </button>
+                {visibleCategories.map(cat => (
+                  <button
+                    key={cat.id}
+                    onClick={() => { setSelectedCategory(cat.id); setCategoryMenuOpen(false) }}
+                    className={cn(
+                      'w-full flex items-center justify-between gap-2 px-3.5 py-2.5 text-sm transition-colors',
+                      selectedCategory === cat.id ? 'bg-[#1E2B28]/[0.06] text-[#1E2B28] font-semibold' : 'text-gray-600 hover:bg-gray-50'
+                    )}
+                  >
+                    <span className="flex items-center gap-2 truncate">
+                      <CatDot color={(cat as any).color} />
+                      <span className="truncate">{cat.name}</span>
+                    </span>
+                    <span className="text-xs text-gray-400 shrink-0">{countByCat[cat.id]}</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -261,7 +285,7 @@ export default function CatalogoPage() {
                   {searchQuery ? `No hay productos que coincidan con "${searchQuery}"` : 'No hay productos en esta categoría'}
                 </p>
                 {searchQuery && (
-                  <button onClick={() => setSearchQuery('')} className="mt-4 text-[#1B4332] text-sm font-medium underline">
+                  <button onClick={() => setSearchQuery('')} className="mt-4 text-[#1E2B28] text-sm font-medium underline">
                     Limpiar búsqueda
                   </button>
                 )}
@@ -289,11 +313,11 @@ export default function CatalogoPage() {
               Only visible on lg+. Fixed width so it NEVER overlaps grid. */}
           <div className="hidden lg:flex w-72 shrink-0 self-start sticky top-4 max-h-[calc(100vh-2rem)]">
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col w-full max-h-full">
-              <div className="px-4 py-3 bg-gray-900 flex items-center gap-2 text-white shrink-0">
+              <div className="px-4 py-3 bg-[#1E2B28] flex items-center gap-2 text-white shrink-0">
                 <ShoppingCart className="h-5 w-5 shrink-0" />
                 <span className="font-semibold flex-1">Mi pedido</span>
                 {cartCount > 0 && (
-                  <Badge className="bg-[#F59E0B] text-white border-0 shrink-0">{cartCount}</Badge>
+                  <Badge className="bg-[#A8793A] text-white border-0 shrink-0">{cartCount}</Badge>
                 )}
               </div>
               <div className="overflow-y-auto flex-1 min-h-0">{cartItemsList}</div>
@@ -308,11 +332,11 @@ export default function CatalogoPage() {
         <div className="lg:hidden fixed inset-0 z-50 flex flex-col justify-end">
           <div className="absolute inset-0 bg-black/50" onClick={() => setCartOpen(false)} />
           <div className="relative bg-white rounded-t-3xl shadow-2xl max-h-[75vh] flex flex-col mb-[60px]">
-            <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-gray-100 bg-gray-900 rounded-t-3xl">
+            <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-gray-100 bg-[#1E2B28] rounded-t-3xl">
               <div className="flex items-center gap-2 text-white">
                 <ShoppingCart className="h-5 w-5" />
                 <span className="font-semibold">Mi pedido</span>
-                {cartCount > 0 && <Badge className="ml-2 bg-amber-400 text-white border-0">{cartCount}</Badge>}
+                {cartCount > 0 && <Badge className="ml-2 bg-[#A8793A] text-white border-0">{cartCount}</Badge>}
               </div>
               <button onClick={() => setCartOpen(false)} className="text-white/70 hover:text-white p-1">
                 <X className="h-5 w-5" />
@@ -329,10 +353,10 @@ export default function CatalogoPage() {
         <div className="lg:hidden fixed bottom-[60px] left-0 right-0 z-50 px-4 pb-3">
           <button
             onClick={() => setCartOpen(true)}
-            className="w-full flex items-center justify-between bg-gray-900 text-white px-5 py-4 rounded-2xl font-semibold active:scale-[0.98] transition-transform shadow-xl"
+            className="w-full flex items-center justify-between bg-[#1E2B28] text-white px-5 py-4 rounded-2xl font-semibold active:scale-[0.98] transition-transform shadow-xl"
           >
             <div className="flex items-center gap-3">
-              <span className="bg-amber-400 text-white text-xs font-bold w-7 h-7 rounded-full flex items-center justify-center shrink-0">
+              <span className="bg-[#A8793A] text-white text-xs font-bold w-7 h-7 rounded-full flex items-center justify-center shrink-0">
                 {cartCount}
               </span>
               <span>Ver pedido</span>

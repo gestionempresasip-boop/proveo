@@ -59,7 +59,7 @@ export function NuevaRecetaModal({ products }: { products: Product[] }) {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 bg-[#1B4332] hover:bg-[#163828] text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+        className="flex items-center gap-2 bg-[#1E2B28] hover:bg-[#141F1C] text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
       >
         <Plus className="w-4 h-4" />
         Nueva receta
@@ -79,30 +79,30 @@ export function NuevaRecetaModal({ products }: { products: Product[] }) {
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2">
                   <label className="text-sm font-medium text-gray-700">Nombre *</label>
-                  <input name="name" required className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]" placeholder="Ej. Croquetas de jamón" />
+                  <input name="name" required className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" placeholder="Ej. Croquetas de jamón" />
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-700">Categoría</label>
-                  <input name="category" className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]" placeholder="Ej. Entrantes" />
+                  <input name="category" className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" placeholder="Ej. Entrantes" />
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-700">Raciones</label>
-                  <input name="servings" type="number" min="1" defaultValue="1" className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]" />
+                  <input name="servings" type="number" min="1" defaultValue="1" className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-700">Precio venta (€)</label>
-                  <input name="sale_price" type="number" step="0.01" min="0" className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]" placeholder="0.00" />
+                  <input name="sale_price" type="number" step="0.01" min="0" className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" placeholder="0.00" />
                 </div>
                 <div className="col-span-2">
                   <label className="text-sm font-medium text-gray-700">Descripción</label>
-                  <textarea name="description" rows={2} className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332] resize-none" placeholder="Opcional" />
+                  <textarea name="description" rows={2} className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28] resize-none" placeholder="Opcional" />
                 </div>
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-sm font-medium text-gray-700">Ingredientes</label>
-                  <button type="button" onClick={addIngredient} className="text-xs text-[#1B4332] hover:underline flex items-center gap-1">
+                  <button type="button" onClick={addIngredient} className="text-xs text-[#1E2B28] hover:underline flex items-center gap-1">
                     <Plus className="w-3 h-3" /> Añadir
                   </button>
                 </div>
@@ -112,7 +112,7 @@ export function NuevaRecetaModal({ products }: { products: Product[] }) {
                       <select
                         value={ing.product_id}
                         onChange={e => updateIngredient(i, 'product_id', e.target.value)}
-                        className="flex-1 border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]"
+                        className="flex-1 border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
                       >
                         <option value="">Producto...</option>
                         {products.map(p => (
@@ -125,7 +125,7 @@ export function NuevaRecetaModal({ products }: { products: Product[] }) {
                         min="0"
                         value={ing.quantity}
                         onChange={e => updateIngredient(i, 'quantity', e.target.value)}
-                        className="w-20 border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]"
+                        className="w-20 border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
                         placeholder="Cant."
                       />
                       <span className="text-xs text-gray-400 w-10 text-center">{ing.unit}</span>
@@ -141,7 +141,7 @@ export function NuevaRecetaModal({ products }: { products: Product[] }) {
                 <button type="button" onClick={() => setOpen(false)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">
                   Cancelar
                 </button>
-                <button type="submit" disabled={loading} className="flex-1 bg-[#1B4332] text-white text-sm font-medium py-2 rounded-lg hover:bg-[#163828] disabled:opacity-50">
+                <button type="submit" disabled={loading} className="flex-1 bg-[#1E2B28] text-white text-sm font-medium py-2 rounded-lg hover:bg-[#141F1C] disabled:opacity-50">
                   {loading ? 'Guardando...' : 'Crear receta'}
                 </button>
               </div>

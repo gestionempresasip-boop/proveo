@@ -86,7 +86,7 @@ export function ProductCard({
     <div className={cn(
       'relative bg-white rounded-2xl overflow-hidden shadow-sm border-2 transition-all duration-200 flex flex-col',
       hasQuantity
-        ? 'border-[#F59E0B] shadow-[0_4px_20px_rgba(245,158,11,0.2)]'
+        ? 'border-[#A8793A] shadow-[0_4px_20px_rgba(245,158,11,0.2)]'
         : 'border-transparent hover:border-gray-200 hover:shadow-md'
     )}>
       {/* ── Image area ──────────────────────────────────────────────── */}
@@ -109,7 +109,7 @@ export function ProductCard({
             </span>
             {categoryName && (
               <span className="text-[10px] font-medium uppercase tracking-wide opacity-50"
-                style={{ color: categoryColor ?? '#1B4332' }}>
+                style={{ color: categoryColor ?? '#1E2B28' }}>
                 {categoryName}
               </span>
             )}
@@ -117,7 +117,7 @@ export function ProductCard({
         )}
 
         {hasQuantity && (
-          <div className="absolute top-2 right-2 bg-[#F59E0B] text-white text-xs font-bold px-2 py-1 rounded-full shadow-sm">
+          <div className="absolute top-2 right-2 bg-[#A8793A] text-white text-xs font-bold px-2 py-1 rounded-full shadow-sm">
             {quantity} {unit}
           </div>
         )}
@@ -140,7 +140,7 @@ export function ProductCard({
             className={cn(
               'w-11 h-11 rounded-xl flex items-center justify-center transition-all shrink-0 active:scale-95',
               hasQuantity
-                ? 'bg-gray-900 text-white'
+                ? 'bg-[#1E2B28] text-white'
                 : 'bg-gray-100 text-gray-300 cursor-not-allowed'
             )}
           >
@@ -158,7 +158,7 @@ export function ProductCard({
               onBlur={e => commitInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') { commitInput(inputValue); (e.target as HTMLInputElement).blur() } }}
               className={cn(
-                'w-full text-center text-sm font-semibold tabular-nums bg-transparent border-0 outline-none focus:ring-1 focus:ring-gray-900 rounded-lg py-1',
+                'w-full text-center text-sm font-semibold tabular-nums bg-transparent border-0 outline-none focus:ring-1 focus:ring-[#1E2B28] rounded-lg py-1',
                 hasQuantity ? 'text-gray-900' : 'text-gray-400 placeholder-gray-300'
               )}
             />
@@ -169,7 +169,7 @@ export function ProductCard({
 
           <button
             onClick={increase}
-            className="w-11 h-11 rounded-xl bg-gray-900 text-white flex items-center justify-center active:scale-95 transition-all shrink-0"
+            className="w-11 h-11 rounded-xl bg-[#1E2B28] text-white flex items-center justify-center active:scale-95 transition-all shrink-0"
           >
             <Plus className="h-4 w-4" />
           </button>

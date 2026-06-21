@@ -73,7 +73,7 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
   // ── Desktop sidebar (lg+) ────────────────────────────────────────────────
   return (
     <>
-      <aside className="hidden lg:flex w-56 min-h-screen bg-gray-900 flex-col border-r border-white/8 shrink-0 print:hidden">
+      <aside className="hidden lg:flex w-56 min-h-screen bg-[#1E2B28] flex-col border-r border-white/8 shrink-0 print:hidden">
         {/* Logo */}
         <div className="px-5 py-5 flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center shrink-0 overflow-hidden">
@@ -121,9 +121,9 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
                   active ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/8'
                 )}
               >
-                <Icon className={cn('h-4 w-4 shrink-0', active && 'text-amber-500')} />
+                <Icon className={cn('h-4 w-4 shrink-0', active && 'text-[#A8793A]')} />
                 <span>{item.label}</span>
-                {active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-amber-400" />}
+                {active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#A8793A]" />}
               </Link>
             )
           })}
@@ -144,7 +144,7 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
       {/* ── Tablet / Mobile: top header + bottom tab bar ────────────────── */}
       <>
         {/* Top header strip (brand + org) */}
-        <header className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-gray-900 h-12 flex items-center justify-between px-4 border-b border-white/8 print:hidden">
+        <header className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-[#1E2B28] h-12 flex items-center justify-between px-4 border-b border-white/8 print:hidden">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-md bg-white flex items-center justify-center overflow-hidden">
               {orgLogo ? (
@@ -188,7 +188,7 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
                 href={item.href}
                 className={cn(
                   'flex-1 flex flex-col items-center justify-center gap-1 py-2.5 transition-colors min-h-[60px]',
-                  active ? 'text-amber-500' : 'text-gray-400 hover:text-gray-600'
+                  active ? 'text-[#A8793A]' : 'text-gray-400 hover:text-gray-600'
                 )}
               >
                 <Icon className="h-5 w-5 shrink-0" />

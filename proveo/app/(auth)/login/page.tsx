@@ -71,7 +71,7 @@ export default function LoginPage() {
     return (
       <div className="min-h-screen bg-[#FAFAF8] flex flex-col items-center justify-center px-4 py-12">
         <div className="mb-10 text-center">
-          <h1 className="text-3xl font-bold text-[#1B4332] tracking-tight">Proveo</h1>
+          <h1 className="text-3xl font-bold text-[#1E2B28] tracking-tight">Proveo</h1>
           <p className="text-gray-400 mt-1 text-sm">Selecciona tu restaurante</p>
         </div>
 
@@ -85,8 +85,8 @@ export default function LoginPage() {
                 rounded-2xl border-2 p-4 font-semibold text-sm
                 transition-all duration-150 active:scale-95 shadow-sm bg-white
                 ${place.type === 'nave'
-                  ? 'col-span-2 border-[#F59E0B]'
-                  : 'border-gray-100 hover:border-[#1B4332] hover:shadow-md'
+                  ? 'col-span-2 border-[#A8793A]'
+                  : 'border-gray-100 hover:border-[#1E2B28] hover:shadow-md'
                 }
               `}
             >
@@ -129,7 +129,7 @@ export default function LoginPage() {
               key={i}
               className={`w-4 h-4 rounded-full border-2 transition-all duration-150 ${
                 pin.length > i
-                  ? 'bg-[#1B4332] border-[#1B4332] scale-110'
+                  ? 'bg-[#1E2B28] border-[#1E2B28] scale-110'
                   : 'bg-transparent border-gray-300'
               }`}
             />
@@ -161,7 +161,7 @@ export default function LoginPage() {
                 key={i}
                 onClick={() => handleKey(key)}
                 disabled={loading || pin.length >= 4}
-                className="flex items-center justify-center h-16 rounded-2xl bg-white border border-gray-100 hover:border-[#1B4332] hover:shadow-md active:scale-95 transition-all text-xl font-semibold text-[#1C1C1E] shadow-sm disabled:opacity-40"
+                className="flex items-center justify-center h-16 rounded-2xl bg-white border border-gray-100 hover:border-[#1E2B28] hover:shadow-md active:scale-95 transition-all text-xl font-semibold text-[#1C1C1E] shadow-sm disabled:opacity-40"
               >
                 {key}
               </button>

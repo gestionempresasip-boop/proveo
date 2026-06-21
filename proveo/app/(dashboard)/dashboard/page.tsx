@@ -106,7 +106,7 @@ export default async function DashboardPage() {
         {quickActions.map(action => (
           <Link key={action.href} href={action.href}>
             <div className="bg-white rounded-2xl border border-gray-100 p-5 flex items-center gap-4 hover:border-gray-300 hover:shadow-sm transition-all group">
-              <div className="w-11 h-11 rounded-xl bg-gray-900 flex items-center justify-center shrink-0 group-hover:bg-amber-400 transition-colors">
+              <div className="w-11 h-11 rounded-xl bg-[#1E2B28] flex items-center justify-center shrink-0 group-hover:bg-[#A8793A] transition-colors">
                 <span className="text-white">{action.icon}</span>
               </div>
               <div className="flex-1 min-w-0">

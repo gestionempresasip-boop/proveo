@@ -12,7 +12,7 @@ function normalize(s: string): string {
 
 const NEXT: Record<string, { label: string; next: OrderStatus; color: string }> = {
   pendiente: { label: 'Marcar como hecho',   next: 'hecho',   color: 'bg-blue-600 hover:bg-blue-700' },
-  hecho:     { label: 'Marcar como enviado', next: 'enviado', color: 'bg-[#1B4332] hover:bg-[#163828]' },
+  hecho:     { label: 'Marcar como enviado', next: 'enviado', color: 'bg-[#1E2B28] hover:bg-[#141F1C]' },
 }
 
 export function OrderStatusButtons({ orderId, currentStatus }: { orderId: string; currentStatus: string }) {

@@ -57,7 +57,7 @@ function cellBg(value: number, max: number): string {
 
 function cellText(value: number, max: number): string {
   if (!max || !value) return 'text-gray-400'
-  return value / max > 0.6 ? 'text-[#1B4332] font-semibold' : 'text-gray-700'
+  return value / max > 0.6 ? 'text-[#1E2B28] font-semibold' : 'text-gray-700'
 }
 
 // Trend vs previous period
@@ -270,7 +270,7 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
           {([['mes','Este mes'],['trimestre','Trimestre'],['año','Este año'],['custom','Personalizado']] as [DateFilter,string][]).map(([k,l]) => (
             <button key={k} onClick={() => setDateFilter(k)}
               className={`flex-1 py-2.5 text-xs sm:text-sm font-medium transition-colors ${
-                dateFilter === k ? 'bg-[#1B4332] text-white' : 'text-gray-500 hover:bg-gray-50'
+                dateFilter === k ? 'bg-[#1E2B28] text-white' : 'text-gray-500 hover:bg-gray-50'
               }`}>{l}</button>
           ))}
         </div>
@@ -280,12 +280,12 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
               <div className="flex-1 min-w-[130px]">
                 <label className="text-xs text-gray-400 block mb-1">Desde</label>
                 <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]" />
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
               </div>
               <div className="flex-1 min-w-[130px]">
                 <label className="text-xs text-gray-400 block mb-1">Hasta</label>
                 <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]" />
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
               </div>
             </>
           )}
@@ -293,7 +293,7 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
             <label className="text-xs text-gray-400 block mb-1">Agrupar por</label>
             <div className="relative">
               <select value={groupBy} onChange={e => setGroupBy(e.target.value as GroupBy)}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332] appearance-none pr-8">
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28] appearance-none pr-8">
                 <option value="mes">Mes</option>
                 <option value="semana">Semana</option>
               </select>
@@ -304,7 +304,7 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
             <label className="text-xs text-gray-400 block mb-1">Restaurante</label>
             <div className="relative">
               <select value={restFilter} onChange={e => setRestFilter(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332] appearance-none pr-8">
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28] appearance-none pr-8">
                 <option value="todos">Todos</option>
                 {restaurants.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
               </select>
@@ -398,7 +398,7 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
                         </td>
                       ))}
                       <td className="px-4 py-3 text-right">
-                        <p className="text-sm font-bold text-[#1B4332]">{grandTotal.toFixed(0)}€</p>
+                        <p className="text-sm font-bold text-[#1E2B28]">{grandTotal.toFixed(0)}€</p>
                       </td>
                     </tr>
                   </tfoot>
@@ -426,7 +426,7 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
             <div className="flex flex-wrap items-center gap-3">
               <input type="text" placeholder="Buscar producto..." value={prodSearch}
                 onChange={e => setProdSearch(e.target.value)}
-                className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332] w-52" />
+                className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28] w-52" />
               <p className="text-xs text-gray-400 flex-1">Cantidades pedidas por restaurante. Celdas oscuras = mayor consumo.</p>
               <button onClick={exportProductos} className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 border border-gray-200 px-3 py-1.5 rounded-lg">
                 <Download className="w-3.5 h-3.5" /> CSV
@@ -469,7 +469,7 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
                             )
                           })}
                           <td className="px-4 py-3 text-right">
-                            <p className="font-semibold text-[#1B4332] text-sm">{totalEuros.toFixed(0)}€</p>
+                            <p className="font-semibold text-[#1E2B28] text-sm">{totalEuros.toFixed(0)}€</p>
                           </td>
                         </tr>
                       )
@@ -506,11 +506,11 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-[#1C1C1E] text-sm">{r.name}</p>
                     <div className="h-1.5 bg-gray-100 rounded-full mt-1.5 overflow-hidden">
-                      <div className="h-full bg-[#1B4332] rounded-full transition-all" style={{ width: `${(r.euros / ranking.maxRest) * 100}%` }} />
+                      <div className="h-full bg-[#1E2B28] rounded-full transition-all" style={{ width: `${(r.euros / ranking.maxRest) * 100}%` }} />
                     </div>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="font-bold text-[#1B4332] text-sm">{r.euros.toFixed(0)}€</p>
+                    <p className="font-bold text-[#1E2B28] text-sm">{r.euros.toFixed(0)}€</p>
                     <p className="text-xs text-gray-400">{r.pedidos.size} ped.</p>
                   </div>
                 </div>
@@ -533,7 +533,7 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
                     <p className="font-medium text-[#1C1C1E] text-sm truncate">{p.name}</p>
                     <div className="flex items-center gap-2 mt-1">
                       <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-[#F59E0B] rounded-full" style={{ width: `${(p.euros / ranking.maxProd) * 100}%` }} />
+                        <div className="h-full bg-[#A8793A] rounded-full" style={{ width: `${(p.euros / ranking.maxProd) * 100}%` }} />
                       </div>
                       {ranking.prodLeader[p.name] && (
                         <span className="text-xs text-gray-400 shrink-0 truncate max-w-[80px]">↑ {ranking.prodLeader[p.name]}</span>
@@ -541,7 +541,7 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
                     </div>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="font-bold text-[#1B4332] text-sm">{p.euros.toFixed(0)}€</p>
+                    <p className="font-bold text-[#1E2B28] text-sm">{p.euros.toFixed(0)}€</p>
                     <p className="text-xs text-gray-400">{p.qty % 1 === 0 ? p.qty : p.qty.toFixed(1)} {p.unit}</p>
                   </div>
                 </div>
@@ -572,12 +572,12 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
                     <tr key={r.name} className="hover:bg-gray-50">
                       <td className="px-5 py-3 font-medium text-[#1C1C1E]">{r.name}</td>
                       <td className="px-5 py-3 text-right text-gray-600">{r.pedidos.size}</td>
-                      <td className="px-5 py-3 text-right font-semibold text-[#1B4332]">{r.euros.toFixed(2)}€</td>
+                      <td className="px-5 py-3 text-right font-semibold text-[#1E2B28]">{r.euros.toFixed(2)}€</td>
                       <td className="px-5 py-3 text-right text-gray-600">{(r.euros / r.pedidos.size).toFixed(2)}€</td>
                       <td className="px-5 py-3 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                            <div className="h-full bg-[#1B4332] rounded-full" style={{ width: `${(r.euros / ranking.maxRest) * 100}%` }} />
+                            <div className="h-full bg-[#1E2B28] rounded-full" style={{ width: `${(r.euros / ranking.maxRest) * 100}%` }} />
                           </div>
                           <span className="text-xs text-gray-500 w-10 text-right">
                             {((r.euros / (ranking.rests.reduce((s,x) => s + x.euros, 0) || 1)) * 100).toFixed(0)}%

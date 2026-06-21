@@ -169,7 +169,7 @@ function PricingCalculator({
         </div>
         <div className="flex justify-between items-baseline border-t border-amber-100 pt-1.5">
           <span className="text-sm font-semibold text-[#1C1C1E]">Precio final (con IVA)</span>
-          <span className="text-xl font-bold text-[#1B4332] tabular-nums">{priceConIva.toFixed(2)} €</span>
+          <span className="text-xl font-bold text-[#1E2B28] tabular-nums">{priceConIva.toFixed(2)} €</span>
         </div>
         <p className="text-xs text-gray-400 pt-0.5">Este es el precio que verán los restaurantes</p>
       </div>
@@ -193,22 +193,22 @@ function ProductFields({
       <div>
         <label className="text-xs text-gray-500 font-medium block mb-1">Nombre *</label>
         <input name="name" defaultValue={product?.name} required placeholder="Ej: Aceite de oliva virgen"
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]" />
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
       </div>
       <div>
         <label className="text-xs text-gray-500 font-medium block mb-1">Descripción</label>
         <input name="description" defaultValue={product?.description ?? ''} placeholder="Opcional"
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]" />
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
       </div>
       <div>
         <label className="text-xs text-gray-500 font-medium block mb-1">URL de imagen</label>
         <input name="image_url" type="url" defaultValue={product?.image_url ?? ''} placeholder="https://... (pega una URL de imagen)"
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]" />
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
       </div>
       <div>
         <label className="text-xs text-gray-500 font-medium block mb-1">Categoría</label>
         <select name="category_id" defaultValue={product?.category_id ?? ''}
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]">
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]">
           <option value="">Sin categoría</option>
           {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
@@ -223,7 +223,7 @@ function ProductFields({
           <input name="price" type="number" step="0.0001" min="0"
             defaultValue={product?.price ?? 0}
             required={!isNave}
-            className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332] ${
+            className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28] ${
               isNave ? 'border-gray-100 bg-gray-50 text-gray-400' : 'border-gray-200'
             }`} />
           {isNave && <p className="text-xs text-gray-400 mt-0.5">Se calcula automáticamente arriba</p>}
@@ -231,7 +231,7 @@ function ProductFields({
         <div>
           <label className="text-xs text-gray-500 font-medium block mb-1">Unidad *</label>
           <select name="unit" defaultValue={product?.unit ?? 'kg'}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]">
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]">
             {UNITS.map(u => <option key={u}>{u}</option>)}
           </select>
         </div>
@@ -240,12 +240,12 @@ function ProductFields({
         <div>
           <label className="text-xs text-gray-500 font-medium block mb-1">Cant. mínima</label>
           <input name="min_order_quantity" type="number" step="0.001" min="0" defaultValue={product?.min_order_quantity ?? 1}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]" />
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
         </div>
         <div>
           <label className="text-xs text-gray-500 font-medium block mb-1">Incremento</label>
           <input name="order_increment" type="number" step="0.001" min="0" defaultValue={product?.order_increment ?? 1}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]" />
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
         </div>
       </div>
     </div>
@@ -285,7 +285,7 @@ function EditModal({
           <ProductFields product={product} categories={categories} isNave={isNave} />
           <div className="flex gap-2">
             <button type="button" onClick={onClose} className="flex-1 border border-gray-200 text-gray-600 rounded-lg py-2 text-sm font-medium hover:bg-gray-50">Cancelar</button>
-            <button type="submit" disabled={pending || done} className="flex-1 bg-[#1B4332] text-white rounded-lg py-2 text-sm font-medium hover:bg-[#163828] disabled:opacity-60">
+            <button type="submit" disabled={pending || done} className="flex-1 bg-[#1E2B28] text-white rounded-lg py-2 text-sm font-medium hover:bg-[#141F1C] disabled:opacity-60">
               {done ? '✓ Guardado' : pending ? 'Guardando...' : 'Guardar'}
             </button>
           </div>
@@ -328,17 +328,17 @@ function NuevoModal({
             <div>
               <label className="text-xs text-gray-500 font-medium block mb-1">Nombre *</label>
               <input name="name" required placeholder="Ej: Aceite de oliva virgen"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]" />
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
             </div>
             <div>
               <label className="text-xs text-gray-500 font-medium block mb-1">Descripción</label>
               <input name="description" placeholder="Opcional"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]" />
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
             </div>
             <div>
               <label className="text-xs text-gray-500 font-medium block mb-1">Categoría</label>
               <select name="category_id" defaultValue={catForSelect}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]">
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]">
                 <option value="">Sin categoría</option>
                 {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
@@ -350,14 +350,14 @@ function NuevoModal({
                 </label>
                 <input name="price" type="number" step="0.0001" min="0" defaultValue="0"
                   required={!isNave}
-                  className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332] ${
+                  className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28] ${
                     isNave ? 'border-gray-100 bg-gray-50 text-gray-400' : 'border-gray-200'
                   }`} />
                 {isNave && <p className="text-xs text-gray-400 mt-0.5">Se calcula arriba</p>}
               </div>
               <div>
                 <label className="text-xs text-gray-500 font-medium block mb-1">Unidad *</label>
-                <select name="unit" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]">
+                <select name="unit" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]">
                   {UNITS.map(u => <option key={u}>{u}</option>)}
                 </select>
               </div>
@@ -366,19 +366,19 @@ function NuevoModal({
               <div>
                 <label className="text-xs text-gray-500 font-medium block mb-1">Cant. mínima</label>
                 <input name="min_order_quantity" type="number" step="0.001" min="0" defaultValue="1"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]" />
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
               </div>
               <div>
                 <label className="text-xs text-gray-500 font-medium block mb-1">Incremento</label>
                 <input name="order_increment" type="number" step="0.001" min="0" defaultValue="1"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]" />
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
               </div>
             </div>
           </div>
 
           <div className="flex gap-2 pt-1">
             <button type="button" onClick={onClose} className="flex-1 border border-gray-200 text-gray-600 rounded-lg py-2 text-sm font-medium hover:bg-gray-50">Cancelar</button>
-            <button type="submit" disabled={pending || done} className="flex-1 bg-[#1B4332] text-white rounded-lg py-2 text-sm font-medium hover:bg-[#163828] disabled:opacity-60">
+            <button type="submit" disabled={pending || done} className="flex-1 bg-[#1E2B28] text-white rounded-lg py-2 text-sm font-medium hover:bg-[#141F1C] disabled:opacity-60">
               {done ? '✓ Creado' : pending ? 'Creando...' : 'Crear producto'}
             </button>
           </div>
@@ -447,21 +447,21 @@ function ProductsTable({
                       {Number(p.price).toFixed(2)} €
                     </td>
                     <td className="px-3 py-3 text-right">
-                      <div className="text-sm font-bold text-[#1B4332] tabular-nums">
+                      <div className="text-sm font-bold text-[#1E2B28] tabular-nums">
                         {pFinal.toFixed(2)} €
                       </div>
                       {ivaPct > 0 && <div className="text-xs text-gray-400">IVA {ivaPct}%</div>}
                     </td>
                   </>
                 ) : (
-                  <td className="px-4 py-3 text-right font-semibold text-[#1B4332]">{Number(p.price).toFixed(2)} €</td>
+                  <td className="px-4 py-3 text-right font-semibold text-[#1E2B28]">{Number(p.price).toFixed(2)} €</td>
                 )}
                 <td className="px-3 py-3 text-gray-500 text-xs">{p.unit}</td>
                 <td className="px-3 py-3 text-center"><ToggleActiveButton product={p} /></td>
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-end gap-1">
                     <button onClick={() => onEdit(p)} title="Editar"
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-[#1B4332] hover:bg-green-50 transition-colors">
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-[#1E2B28] hover:bg-green-50 transition-colors">
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
                     <DeleteButton product={p} />
@@ -504,7 +504,7 @@ function CategorySection({
         </div>
         <button
           onClick={e => { e.stopPropagation(); onAddProduct(categoryId) }}
-          className="flex items-center gap-1 text-xs text-[#1B4332] hover:bg-green-50 px-2 py-1 rounded-lg transition-colors font-medium"
+          className="flex items-center gap-1 text-xs text-[#1E2B28] hover:bg-green-50 px-2 py-1 rounded-lg transition-colors font-medium"
           title={`Añadir producto en ${name}`}
         >
           <Plus className="w-3.5 h-3.5" />Añadir
@@ -543,12 +543,12 @@ function CategoriasManager({ categories, productCountByCat }: { categories: Cate
         <p className="text-sm text-gray-500">{categories.length} categorías configuradas</p>
         <div className="flex gap-2">
           <button onClick={handleSeed} disabled={seedPending || seedDone}
-            className="flex items-center gap-1.5 text-xs border border-[#1B4332] text-[#1B4332] px-3 py-2 rounded-xl hover:bg-green-50 disabled:opacity-50 transition-colors font-medium">
+            className="flex items-center gap-1.5 text-xs border border-[#1E2B28] text-[#1E2B28] px-3 py-2 rounded-xl hover:bg-green-50 disabled:opacity-50 transition-colors font-medium">
             <Sparkles className="w-3.5 h-3.5" />
             {seedDone ? '✓ Insertadas' : seedPending ? 'Insertando...' : 'Categorías por defecto'}
           </button>
           <button onClick={() => setShowNew(true)}
-            className="flex items-center gap-1.5 text-xs bg-[#1B4332] text-white px-3 py-2 rounded-xl hover:bg-[#163828] transition-colors font-medium">
+            className="flex items-center gap-1.5 text-xs bg-[#1E2B28] text-white px-3 py-2 rounded-xl hover:bg-[#141F1C] transition-colors font-medium">
             <Plus className="w-3.5 h-3.5" /> Nueva categoría
           </button>
         </div>
@@ -574,7 +574,7 @@ function CategoriasManager({ categories, productCountByCat }: { categories: Cate
                   {productCountByCat[cat.id] ?? 0} productos
                 </span>
                 <button onClick={() => setEditingCat(cat)}
-                  className="p-1.5 rounded-lg text-gray-400 hover:text-[#1B4332] hover:bg-green-50 transition-colors">
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-[#1E2B28] hover:bg-green-50 transition-colors">
                   <Pencil className="w-3.5 h-3.5" />
                 </button>
                 {deletingId === cat.id ? (
@@ -613,8 +613,8 @@ function EditCatInline({ cat, onClose }: { cat: Category; onClose: () => void })
   return (
     <form onSubmit={handleSubmit} className="flex items-center gap-2 flex-1">
       <input type="color" name="color" defaultValue={cat.color ?? '#6B7280'} className="w-7 h-7 rounded cursor-pointer border border-gray-200" />
-      <input name="name" defaultValue={cat.name} required className="flex-1 border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]" />
-      <button type="submit" disabled={pending || done} className="p-1.5 rounded-lg bg-[#1B4332] text-white hover:bg-[#163828] disabled:opacity-50"><Check className="w-3.5 h-3.5" /></button>
+      <input name="name" defaultValue={cat.name} required className="flex-1 border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
+      <button type="submit" disabled={pending || done} className="p-1.5 rounded-lg bg-[#1E2B28] text-white hover:bg-[#141F1C] disabled:opacity-50"><Check className="w-3.5 h-3.5" /></button>
       <button type="button" onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100"><X className="w-3.5 h-3.5" /></button>
     </form>
   )
@@ -629,11 +629,11 @@ function NewCatForm({ onClose }: { onClose: () => void }) {
     startTransition(async () => { await createCategory(fd); setDone(true); setTimeout(onClose, 500) })
   }
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-[#1B4332] border-dashed px-4 py-3 flex items-center gap-3">
+    <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-[#1E2B28] border-dashed px-4 py-3 flex items-center gap-3">
       <input type="color" name="color" defaultValue="#6B7280" className="w-7 h-7 rounded cursor-pointer border border-gray-200" />
       <input name="name" required placeholder="Nombre de la categoría" autoFocus
-        className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]" />
-      <button type="submit" disabled={pending || done} className="bg-[#1B4332] text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-[#163828] disabled:opacity-50">
+        className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
+      <button type="submit" disabled={pending || done} className="bg-[#1E2B28] text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-[#141F1C] disabled:opacity-50">
         {done ? '✓' : pending ? '...' : 'Crear'}
       </button>
       <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
@@ -754,7 +754,7 @@ export function ProductosManager({
           </div>
           <button
             onClick={() => { setNuevoDefaultCat(undefined); setShowNuevo(true) }}
-            className="flex items-center gap-2 bg-[#1B4332] text-white text-sm font-medium px-4 py-2.5 rounded-xl hover:bg-[#163828] transition-colors"
+            className="flex items-center gap-2 bg-[#1E2B28] text-white text-sm font-medium px-4 py-2.5 rounded-xl hover:bg-[#141F1C] transition-colors"
           >
             <Plus className="w-4 h-4" /> Nuevo producto
           </button>
@@ -792,15 +792,15 @@ export function ProductosManager({
                 <button key={f.key} onClick={() => setFilterActive(f.key as typeof filterActive)}
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                     filterActive === f.key
-                      ? 'bg-[#1B4332] text-white'
-                      : 'bg-white border border-gray-200 text-gray-600 hover:border-[#1B4332]'
+                      ? 'bg-[#1E2B28] text-white'
+                      : 'bg-white border border-gray-200 text-gray-600 hover:border-[#1E2B28]'
                   }`}>
                   {f.label}
                 </button>
               ))}
               <input type="text" placeholder="Buscar producto..." value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="ml-auto border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332] w-48" />
+                className="ml-auto border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28] w-48" />
             </div>
 
             {categories.length > 0 && (
@@ -808,7 +808,7 @@ export function ProductosManager({
                 {selectedCategory && (
                   <button
                     onClick={() => setSelectedCategory(null)}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-[#1B4332] text-white transition-colors"
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-[#1E2B28] text-white transition-colors"
                   >
                     <X className="w-3 h-3" /> Quitar filtro
                   </button>
@@ -822,7 +822,7 @@ export function ProductosManager({
                       onClick={() => setSelectedCategory(isSelected ? null : c.id)}
                       className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
                         isSelected
-                          ? 'border-transparent bg-[#1B4332] text-white'
+                          ? 'border-transparent bg-[#1E2B28] text-white'
                           : 'border-gray-200 hover:border-gray-300 bg-white text-[#1C1C1E]'
                       }`}
                       style={!isSelected ? { borderLeftColor: catColor(c.color), borderLeftWidth: 3 } : undefined}
@@ -874,7 +874,7 @@ export function ProductosManager({
                 placeholder="Buscar producto por nombre o descripción..."
                 value={buscarQuery}
                 onChange={e => setBuscarQuery(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl pl-10 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]"
+                className="w-full border border-gray-200 rounded-xl pl-10 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
               />
             </div>
 
@@ -885,7 +885,7 @@ export function ProductosManager({
                   onClick={() => setBuscarCategory(null)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
                     buscarCategory === null
-                      ? 'border-transparent bg-[#1B4332] text-white'
+                      ? 'border-transparent bg-[#1E2B28] text-white'
                       : 'border-gray-200 hover:border-gray-300 bg-white text-[#1C1C1E]'
                   }`}
                 >
@@ -901,7 +901,7 @@ export function ProductosManager({
                       onClick={() => setBuscarCategory(isSelected ? null : c.id)}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
                         isSelected
-                          ? 'border-transparent bg-[#1B4332] text-white'
+                          ? 'border-transparent bg-[#1E2B28] text-white'
                           : 'border-gray-200 hover:border-gray-300 bg-white text-[#1C1C1E]'
                       }`}
                       style={!isSelected ? { borderLeftColor: catColor(c.color), borderLeftWidth: 3 } : undefined}
@@ -917,7 +917,7 @@ export function ProductosManager({
                     onClick={() => setBuscarCategory(buscarCategory === '__none__' ? null : '__none__')}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
                       buscarCategory === '__none__'
-                        ? 'border-transparent bg-[#1B4332] text-white'
+                        ? 'border-transparent bg-[#1E2B28] text-white'
                         : 'border-gray-200 hover:border-gray-300 bg-white text-[#1C1C1E]'
                     }`}
                   >
@@ -933,7 +933,7 @@ export function ProductosManager({
               {(buscarQuery || buscarCategory) && (
                 <button
                   onClick={() => { setBuscarQuery(''); setBuscarCategory(null) }}
-                  className="text-xs text-gray-400 hover:text-[#1B4332] flex items-center gap-1"
+                  className="text-xs text-gray-400 hover:text-[#1E2B28] flex items-center gap-1"
                 >
                   <X className="w-3 h-3" /> Limpiar filtros
                 </button>

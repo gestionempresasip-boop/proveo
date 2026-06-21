@@ -31,7 +31,7 @@ export function NuevoProductoModal({ categories }: { categories: Category[] }) {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 bg-[#1B4332] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#163828] transition-colors"
+        className="flex items-center gap-2 bg-[#1E2B28] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#141F1C] transition-colors"
       >
         <Plus className="w-4 h-4" />
         Nuevo producto
@@ -52,7 +52,7 @@ export function NuevoProductoModal({ categories }: { categories: Category[] }) {
                 <label className="text-sm font-medium text-gray-700">Nombre *</label>
                 <input
                   name="name" required
-                  className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]"
+                  className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
                   placeholder="Ej. Tomate cherry"
                 />
               </div>
@@ -62,7 +62,7 @@ export function NuevoProductoModal({ categories }: { categories: Category[] }) {
                   <label className="text-sm font-medium text-gray-700">Precio (€) *</label>
                   <input
                     name="price" type="number" step="0.01" min="0" required
-                    className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]"
+                    className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
                     placeholder="0.00"
                   />
                 </div>
@@ -70,7 +70,7 @@ export function NuevoProductoModal({ categories }: { categories: Category[] }) {
                   <label className="text-sm font-medium text-gray-700">Unidad *</label>
                   <select
                     name="unit" required
-                    className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]"
+                    className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
                   >
                     {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                   </select>
@@ -82,7 +82,7 @@ export function NuevoProductoModal({ categories }: { categories: Category[] }) {
                   <label className="text-sm font-medium text-gray-700">Categoría</label>
                   <select
                     name="category_id"
-                    className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]"
+                    className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
                   >
                     <option value="">Sin categoría</option>
                     {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -94,7 +94,7 @@ export function NuevoProductoModal({ categories }: { categories: Category[] }) {
                 <label className="text-sm font-medium text-gray-700">Descripción</label>
                 <textarea
                   name="description" rows={2}
-                  className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332] resize-none"
+                  className="mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28] resize-none"
                   placeholder="Opcional"
                 />
               </div>
@@ -103,7 +103,7 @@ export function NuevoProductoModal({ categories }: { categories: Category[] }) {
                 <button type="button" onClick={() => setOpen(false)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">
                   Cancelar
                 </button>
-                <button type="submit" disabled={loading} className="flex-1 bg-[#1B4332] text-white text-sm font-medium py-2 rounded-lg hover:bg-[#163828] disabled:opacity-50">
+                <button type="submit" disabled={loading} className="flex-1 bg-[#1E2B28] text-white text-sm font-medium py-2 rounded-lg hover:bg-[#141F1C] disabled:opacity-50">
                   {loading ? 'Guardando...' : 'Crear producto'}
                 </button>
               </div>
