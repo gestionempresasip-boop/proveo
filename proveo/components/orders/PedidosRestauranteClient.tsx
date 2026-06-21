@@ -2,8 +2,8 @@
 
 import { useState, useMemo } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
-import { Package, Clock, Trash2, Search, ChevronDown, X } from 'lucide-react'
-import { deleteOrder } from '@/app/actions/orders'
+import { Package, Clock, Ban, Search, ChevronDown, X } from 'lucide-react'
+import { updateOrderStatus } from '@/app/actions/orders'
 import { cn } from '@/lib/utils'
 
 const STATUS_COLORS: Record<string, string> = {
@@ -51,14 +51,15 @@ function dayLabel(dateStr: string): string {
   })
 }
 
-function OrderRow({ order, onDeleted }: { order: Order; onDeleted: (id: string) => void }) {
+function OrderRow({ order, onCanceled }: { order: Order; onCanceled: (id: string) => void }) {
   const [confirm, setConfirm] = useState(false)
   const [loading, setLoading] = useState(false)
+  const canCancel = order.status === 'pendiente'
 
-  async function handleDelete() {
+  function handleCancel() {
     setLoading(true)
-    await deleteOrder(order.id)
-    onDeleted(order.id)
+    onCanceled(order.id)
+    updateOrderStatus(order.id, 'cancelado')
   }
 
   return (
@@ -95,35 +96,37 @@ function OrderRow({ order, onDeleted }: { order: Order; onDeleted: (id: string) 
           ))}
         </div>
 
-        {/* Eliminar */}
-        <div className="mt-3 flex justify-end">
-          {!confirm ? (
-            <button
-              onClick={() => setConfirm(true)}
-              className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-xl border border-red-200 text-red-500 hover:bg-red-50 transition-colors"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              Eliminar pedido
-            </button>
-          ) : (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-red-600 font-medium">¿Seguro que quieres eliminarlo?</span>
+        {/* Cancelar */}
+        {canCancel && (
+          <div className="mt-3 flex justify-end">
+            {!confirm ? (
               <button
-                onClick={handleDelete}
-                disabled={loading}
-                className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+                onClick={() => setConfirm(true)}
+                className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-xl border border-red-200 text-red-500 hover:bg-red-50 transition-colors"
               >
-                {loading ? 'Eliminando...' : 'Sí, eliminar'}
+                <Ban className="w-3.5 h-3.5" />
+                Cancelar pedido
               </button>
-              <button
-                onClick={() => setConfirm(false)}
-                className="text-xs font-medium px-3 py-1.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
-              >
-                Cancelar
-              </button>
-            </div>
-          )}
-        </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-red-600 font-medium">¿Seguro que quieres cancelarlo?</span>
+                <button
+                  onClick={handleCancel}
+                  disabled={loading}
+                  className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+                >
+                  {loading ? 'Cancelando...' : 'Sí, cancelar'}
+                </button>
+                <button
+                  onClick={() => setConfirm(false)}
+                  className="text-xs font-medium px-3 py-1.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+                >
+                  Volver
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   )
@@ -135,7 +138,9 @@ export function PedidosRestauranteClient({ orders: initialOrders }: { orders: Or
   const [dateFilter, setDateFilter] = useState('')
   const [toggled, setToggled] = useState<Record<string, boolean>>({})
 
-  function handleDeleted(id: string) { setOrders(prev => prev.filter(o => o.id !== id)) }
+  function handleCanceled(id: string) {
+    setOrders(prev => prev.map(o => o.id === id ? { ...o, status: 'cancelado' } : o))
+  }
 
   const filtered = useMemo(() => {
     return orders.filter(o => {
@@ -239,7 +244,7 @@ export function PedidosRestauranteClient({ orders: initialOrders }: { orders: Or
                 {open && (
                   <div className="px-4 pb-4 pt-1 space-y-3 border-t border-gray-100">
                     {group.map(order => (
-                      <OrderRow key={order.id} order={order} onDeleted={handleDeleted} />
+                      <OrderRow key={order.id} order={order} onCanceled={handleCanceled} />
                     ))}
                   </div>
                 )}
