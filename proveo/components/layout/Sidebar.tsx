@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import type { ProfileWithOrg } from '@/types/database'
@@ -18,6 +19,16 @@ interface NavItem {
   icon: React.ElementType
   roles?: string[]
   orgTypes?: string[]
+}
+
+const ORG_LOGOS: Record<string, string> = {
+  'Nave Obrador Central': '/logos/depot.png',
+  'Barranco Playa': '/logos/barranco.png',
+  'Va Bene Cala': '/logos/va-bene-cala.png',
+  'Va Bene Centro': '/logos/va-bene-centro.png',
+  'Aruba': '/logos/aruba.png',
+  'Conbrassa': '/logos/conbrassa.png',
+  'Season': '/logos/season.png',
 }
 
 const navItems: NavItem[] = [
@@ -43,6 +54,7 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
 
   const isNave = profile.organizations.type === 'nave'
   const orgLabel = isNave ? 'Nave Obrador' : profile.organizations.name
+  const orgLogo = ORG_LOGOS[profile.organizations.name]
 
   async function handleLogout() {
     await supabase.auth.signOut()
@@ -64,8 +76,14 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
       <aside className="hidden lg:flex w-56 min-h-screen bg-gray-900 flex-col border-r border-white/8 shrink-0 print:hidden">
         {/* Logo */}
         <div className="px-5 py-5 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-amber-400 flex items-center justify-center shrink-0">
-            <ChefHat className="h-4 w-4 text-white" />
+          <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center shrink-0 overflow-hidden">
+            {orgLogo ? (
+              <div className="relative w-full h-full p-1">
+                <Image src={orgLogo} alt={orgLabel} fill className="object-contain" />
+              </div>
+            ) : (
+              <ChefHat className="h-4 w-4 text-gray-900" />
+            )}
           </div>
           <div>
             <span className="text-white font-bold text-base tracking-tight">Proveo</span>
@@ -128,8 +146,14 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
         {/* Top header strip (brand + org) */}
         <header className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-gray-900 h-12 flex items-center justify-between px-4 border-b border-white/8 print:hidden">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-md bg-amber-400 flex items-center justify-center">
-              <ChefHat className="h-3.5 w-3.5 text-white" />
+            <div className="w-7 h-7 rounded-md bg-white flex items-center justify-center overflow-hidden">
+              {orgLogo ? (
+                <div className="relative w-full h-full p-0.5">
+                  <Image src={orgLogo} alt={orgLabel} fill className="object-contain" />
+                </div>
+              ) : (
+                <ChefHat className="h-3.5 w-3.5 text-gray-900" />
+              )}
             </div>
             <span className="text-white font-bold text-sm tracking-tight">Proveo</span>
           </div>

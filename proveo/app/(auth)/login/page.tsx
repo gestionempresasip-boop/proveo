@@ -3,18 +3,19 @@
 export const dynamic = 'force-dynamic'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, Delete } from 'lucide-react'
 
 const PLACES = [
-  { name: 'Nave Obrador', email: 'admin@proveo.es', type: 'nave' as const },
-  { name: 'Barranco Playa', email: 'barrancoplaya@proveo.es', type: 'restaurante' as const },
-  { name: 'Va Bene Cala', email: 'vabenecala@proveo.es', type: 'restaurante' as const },
-  { name: 'Va Bene Centro', email: 'vabenecentro@proveo.es', type: 'restaurante' as const },
-  { name: 'Aruba', email: 'aruba@proveo.es', type: 'restaurante' as const },
-  { name: 'Conbrassa', email: 'conbrassa@proveo.es', type: 'restaurante' as const },
-  { name: 'Season', email: 'season@proveo.es', type: 'restaurante' as const },
+  { name: 'Nave Obrador', email: 'admin@proveo.es', type: 'nave' as const, logo: '/logos/depot.png' },
+  { name: 'Barranco Playa', email: 'barrancoplaya@proveo.es', type: 'restaurante' as const, logo: '/logos/barranco.png' },
+  { name: 'Va Bene Cala', email: 'vabenecala@proveo.es', type: 'restaurante' as const, logo: '/logos/va-bene-cala.png' },
+  { name: 'Va Bene Centro', email: 'vabenecentro@proveo.es', type: 'restaurante' as const, logo: '/logos/va-bene-centro.png' },
+  { name: 'Aruba', email: 'aruba@proveo.es', type: 'restaurante' as const, logo: '/logos/aruba.png' },
+  { name: 'Conbrassa', email: 'conbrassa@proveo.es', type: 'restaurante' as const, logo: '/logos/conbrassa.png' },
+  { name: 'Season', email: 'season@proveo.es', type: 'restaurante' as const, logo: '/logos/season.png' },
 ]
 
 const NUMPAD = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del']
@@ -70,9 +71,6 @@ export default function LoginPage() {
     return (
       <div className="min-h-screen bg-[#FAFAF8] flex flex-col items-center justify-center px-4 py-12">
         <div className="mb-10 text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#1B4332] mb-4 shadow-lg">
-            <span className="text-3xl">🍽️</span>
-          </div>
           <h1 className="text-3xl font-bold text-[#1B4332] tracking-tight">Proveo</h1>
           <p className="text-gray-400 mt-1 text-sm">Selecciona tu restaurante</p>
         </div>
@@ -84,16 +82,18 @@ export default function LoginPage() {
               onClick={() => handleSelect(place)}
               className={`
                 flex flex-col items-center justify-center gap-2
-                rounded-2xl border-2 p-5 font-semibold text-sm
-                transition-all duration-150 active:scale-95 shadow-sm
+                rounded-2xl border-2 p-4 font-semibold text-sm
+                transition-all duration-150 active:scale-95 shadow-sm bg-white
                 ${place.type === 'nave'
-                  ? 'col-span-2 bg-[#1B4332] text-white border-[#1B4332] hover:bg-[#163828]'
-                  : 'bg-white text-[#1C1C1E] border-gray-100 hover:border-[#1B4332] hover:shadow-md'
+                  ? 'col-span-2 border-[#F59E0B]'
+                  : 'border-gray-100 hover:border-[#1B4332] hover:shadow-md'
                 }
               `}
             >
-              <span className="text-2xl">{place.type === 'nave' ? '🏭' : '🍽️'}</span>
-              {place.name}
+              <div className="relative w-full h-12">
+                <Image src={place.logo} alt={place.name} fill className="object-contain" />
+              </div>
+              <span className="text-[#1C1C1E]">{place.name}</span>
             </button>
           ))}
         </div>
@@ -113,8 +113,10 @@ export default function LoginPage() {
         </button>
 
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#1B4332] mb-4 shadow-lg">
-            <span className="text-3xl">{selected.type === 'nave' ? '🏭' : '🍽️'}</span>
+          <div className="inline-flex items-center justify-center w-24 h-16 mb-4">
+            <div className="relative w-full h-full">
+              <Image src={selected.logo} alt={selected.name} fill className="object-contain" />
+            </div>
           </div>
           <h2 className="text-xl font-bold text-[#1C1C1E]">{selected.name}</h2>
           <p className="text-gray-400 text-sm mt-1">Introduce tu PIN</p>
