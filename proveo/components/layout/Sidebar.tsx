@@ -86,10 +86,17 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
               <ChefHat className="h-4 w-4 text-gray-900" />
             )}
           </div>
-          <div>
+          <div className="flex-1 min-w-0">
             <span className="text-white font-bold text-base tracking-tight">Proveo</span>
             <p className="text-gray-500 text-xs truncate">{orgLabel}</p>
           </div>
+          <button
+            onClick={handleLogout}
+            title="Cerrar sesión"
+            className="shrink-0 w-8 h-8 rounded-md flex items-center justify-center text-gray-400 hover:text-red-400 hover:bg-white/10 transition-all"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
         </div>
 
         {/* User */}
@@ -129,17 +136,6 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
             )
           })}
         </nav>
-
-        {/* Logout */}
-        <div className="px-3 pb-4 border-t border-white/8 pt-3">
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-3 px-3 py-2.5 w-full rounded-lg text-sm text-gray-500 hover:text-red-400 hover:bg-white/5 transition-all"
-          >
-            <LogOut className="h-4 w-4 shrink-0" />
-            <span>Cerrar sesión</span>
-          </button>
-        </div>
       </aside>
 
       {/* ── Tablet / Mobile: top header + bottom tab bar ────────────────── */}
