@@ -15,7 +15,7 @@ export default async function AdminProductosPage() {
 
   const [{ data: products, error: productsError }, { data: categories }, { data: links }] = await Promise.all([
     sb.from('products')
-      .select('id, name, description, price, unit, min_order_quantity, order_increment, is_active, category_id, image_url, cost_price, iva_rate, margin, pending_review, product_categories(name)')
+      .select('id, name, description, price, unit, min_order_quantity, order_increment, is_active, category_id, image_url, cost_price, iva_rate, margin, pending_review, product_categories!products_category_id_fkey(name)')
       .is('deleted_at', null)
       .order('name'),
     sb.from('product_categories').select('id, name, color, order_index').order('order_index').order('name'),

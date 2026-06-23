@@ -13,7 +13,7 @@ export default async function InventarioPage() {
   // Cargar TODOS los productos activos (sin deleted_at) con su categoría
   const { data: products } = await sb
     .from('products')
-    .select('id, name, unit, product_categories(name)')
+    .select('id, name, unit, product_categories!products_category_id_fkey(name)')
     .eq('is_active', true)
     .is('deleted_at', null)
     .order('name')

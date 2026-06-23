@@ -43,7 +43,7 @@ export default function CatalogoPage() {
   useEffect(() => {
     async function load() {
       const [{ data: prods }, { data: cats }, { data: stock }] = await Promise.all([
-        (supabase as any).from('products').select('*, product_categories(name, color)').eq('is_active', true).is('deleted_at', null).order('name'),
+        (supabase as any).from('products').select('*, product_categories!products_category_id_fkey(name, color)').eq('is_active', true).is('deleted_at', null).order('name'),
         (supabase as any).from('product_categories').select('*').order('order_index').order('name'),
         (supabase as any).from('nave_inventory').select('product_id, current_stock, last_restocked_at'),
       ])
