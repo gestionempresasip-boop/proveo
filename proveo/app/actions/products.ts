@@ -73,7 +73,7 @@ export async function updateProduct(productId: string, formData: FormData) {
     : cost_price > 0 ? cost_price * (1 + margin)
     : price_manual
 
-  const { error } = await sb.from('products').update({
+  const updates: Record<string, unknown> = {
     name, price, unit,
     category_id,
     description,
@@ -83,8 +83,12 @@ export async function updateProduct(productId: string, formData: FormData) {
     cost_price: cost_price || null,
     margin: margin || null,
     iva_rate,
-    pending_review: !(cost_price > 0),
-  }).eq('id', productId)
+  }
+  // Editar un producto solo puede SACARLO de "pendientes" (al ponerle coste),
+  // nunca volver a metérselo si ya estaba categorizado y en uso.
+  if (cost_price > 0) updates.pending_review = false
+
+  const { error } = await sb.from('products').update(updates).eq('id', productId)
 
   if (error) throw new Error(error.message)
   await syncProductCategories(sb, productId, category_ids)
