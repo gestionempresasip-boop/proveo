@@ -11,6 +11,9 @@ export async function updateOrderStatus(orderId: string, newStatus: OrderStatus)
   const supabase = await createClient()
   const sb = supabase as any
 
+  const { data: current } = await sb.from('orders').select('status').eq('id', orderId).single()
+  const wasAlreadyCancelled = current?.status === 'cancelado'
+
   const { error } = await sb
     .from('orders')
     .update({ status: newStatus, updated_at: new Date().toISOString() })
@@ -26,6 +29,16 @@ export async function updateOrderStatus(orderId: string, newStatus: OrderStatus)
 
   if (newStatus === 'enviado') {
     await generateDeliveryNote(orderId)
+  }
+
+  // Al cancelar, devolver al stock de la nave lo que este pedido tenía reservado
+  if (newStatus === 'cancelado' && !wasAlreadyCancelled) {
+    const { data: items } = await sb.from('order_items').select('product_id, quantity, rectified_quantity').eq('order_id', orderId)
+    await Promise.all(
+      (items ?? []).map((it: any) =>
+        sb.rpc('adjust_nave_stock', { p_product_id: it.product_id, p_delta: Number(it.rectified_quantity ?? it.quantity) })
+      )
+    )
   }
 
   revalidatePath('/pedidos')

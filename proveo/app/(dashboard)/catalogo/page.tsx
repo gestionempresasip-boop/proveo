@@ -101,17 +101,28 @@ export default function CatalogoPage() {
 
   async function submitOrder() {
     if (cartItems.length === 0) return
-    const overStock = cartItems.find(item => item.quantity > maxQtyFor(item.product.id))
+    const sb = supabase as any
+
+    // Revalidar stock con datos frescos justo antes de enviar (por si otro
+    // restaurante ha pedido entre que cargó la página y ahora).
+    const trackedIds = cartItems.filter(i => i.product.id in stockMap).map(i => i.product.id)
+    let freshStock: Record<string, number> = {}
+    if (trackedIds.length > 0) {
+      const { data: fresh } = await sb.from('nave_inventory').select('product_id, current_stock').in('product_id', trackedIds)
+      freshStock = Object.fromEntries((fresh ?? []).map((r: any) => [r.product_id, Number(r.current_stock)]))
+      setStockMap(prev => ({ ...prev, ...freshStock }))
+    }
+    const overStock = cartItems.find(item => item.product.id in freshStock && item.quantity > freshStock[item.product.id])
     if (overStock) {
-      setStockError(`No queda suficiente stock de "${overStock.product.name}" (quedan ${maxQtyFor(overStock.product.id)} ${overStock.product.unit})`)
-      handleQuantityChange(overStock.product.id, Math.max(0, maxQtyFor(overStock.product.id)))
+      const left = freshStock[overStock.product.id]
+      setStockError(`No queda suficiente stock de "${overStock.product.name}" (quedan ${left} ${overStock.product.unit})`)
+      handleQuantityChange(overStock.product.id, Math.max(0, left))
       return
     }
     setStockError(null)
     setSubmitting(true)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const sb = supabase as any
     const { data: profile } = await sb.from('profiles').select('organization_id').eq('id', user.id).single()
     if (!profile) return
     const { data: order, error } = await sb
@@ -128,6 +139,10 @@ export default function CatalogoPage() {
           total_price: item.quantity * unitPrice,
         }
       })
+    )
+    // Descontar del stock de la nave (atómico, seguro ante pedidos simultáneos)
+    await Promise.all(
+      cartItems.map(item => sb.rpc('adjust_nave_stock', { p_product_id: item.product.id, p_delta: -item.quantity }))
     )
     setSubmitted(true); setCart({}); setCartOpen(false)
     setTimeout(() => router.push('/pedidos'), 2000)
