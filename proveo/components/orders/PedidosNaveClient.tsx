@@ -2,12 +2,13 @@
 
 import { useState, useTransition, useMemo } from 'react'
 import Link from 'next/link'
-import { updateOrderStatus, generateDeliveryNote, deleteOrder } from '@/app/actions/orders'
+import { updateOrderStatus, generateDeliveryNote, deleteOrder, rectifyOrderItem } from '@/app/actions/orders'
 import type { OrderStatus } from '@/app/actions/orders'
+import { unitLabel } from '@/lib/units'
 import {
   Calendar, Filter, ChevronDown, MessageCircle, Printer,
   Download, FileText, Clock, CheckCircle2, Send, AlertCircle,
-  ChevronUp, Package, Trash2
+  ChevronUp, Package, Trash2, Pencil, Check, X
 } from 'lucide-react'
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -38,7 +39,10 @@ function isToday(d: Date) { const t = startOfDay(new Date()); return d >= t && d
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
-type OrderItem = { id: string; product_id: string; quantity: number; unit: string; unit_price: number; total_price: number; products: { name: string } | null }
+type OrderItem = {
+  id: string; product_id: string; quantity: number; rectified_quantity?: number | null
+  unit: string; unit_price: number; total_price: number; products: { name: string } | null
+}
 type DeliveryNote = { id: string; note_number: number }
 type Order = {
   id: string; order_number: number; status: string; notes: string | null
@@ -48,6 +52,60 @@ type Order = {
   delivery_notes: DeliveryNote[]
 }
 type Restaurant = { id: string; name: string }
+
+// ── Línea de pedido rectificable ──────────────────────────────────────────────
+
+function ItemRow({ item, onRectified }: { item: OrderItem; onRectified: (itemId: string, qty: number) => void }) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(String(item.rectified_quantity ?? item.quantity))
+  const [pending, startTransition] = useTransition()
+  const isRectified = item.rectified_quantity != null && Number(item.rectified_quantity) !== Number(item.quantity)
+
+  function save() {
+    const qty = parseFloat(value.replace(',', '.'))
+    if (isNaN(qty) || qty < 0) return
+    startTransition(async () => {
+      onRectified(item.id, qty)
+      await rectifyOrderItem(item.id, qty)
+      setEditing(false)
+    })
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-xl px-2 py-1.5 text-xs">
+        <span className="font-medium text-[#1C1C1E] truncate flex-1">{item.products?.name ?? '—'}</span>
+        <input
+          type="number" step="0.001" min="0" autoFocus value={value}
+          onChange={e => setValue(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') save() }}
+          className="w-16 border border-amber-300 rounded-lg px-1.5 py-1 text-center focus:outline-none focus:ring-2 focus:ring-amber-400"
+        />
+        <span className="text-gray-400 shrink-0">{unitLabel(item.unit)}</span>
+        <button onClick={save} disabled={pending} className="p-1 rounded text-green-600 hover:bg-green-50 shrink-0"><Check className="w-3.5 h-3.5" /></button>
+        <button onClick={() => { setEditing(false); setValue(String(item.rectified_quantity ?? item.quantity)) }} className="p-1 rounded text-gray-400 hover:bg-gray-100 shrink-0"><X className="w-3.5 h-3.5" /></button>
+      </div>
+    )
+  }
+
+  return (
+    <div className={`flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-xs ${isRectified ? 'bg-amber-50 border border-amber-200' : 'bg-gray-50'}`}>
+      <span className="font-medium text-[#1C1C1E] truncate">{item.products?.name ?? '—'}</span>
+      <div className="flex items-center gap-1.5 shrink-0">
+        {isRectified ? (
+          <span className="text-amber-700">
+            <span className="line-through text-gray-400">{item.quantity}</span> → <span className="font-semibold">{item.rectified_quantity} {unitLabel(item.unit)}</span>
+          </span>
+        ) : (
+          <span className="text-gray-500">{item.quantity} {unitLabel(item.unit)}</span>
+        )}
+        <button onClick={() => setEditing(true)} title="Rectificar cantidad" className="p-1 rounded text-gray-400 hover:text-amber-600 hover:bg-amber-50">
+          <Pencil className="w-3 h-3" />
+        </button>
+      </div>
+    </div>
+  )
+}
 
 // ── Action buttons per order ─────────────────────────────────────────────────
 
@@ -128,7 +186,7 @@ function OrderActions({ order, onDeleted, onStatusChange }: { order: Order; onDe
           <FileText className="w-3.5 h-3.5" />
           {noteNumber ? `Albarán #${noteNumber}` : 'Ver albarán'}
         </Link>
-      ) : (status === 'hecho' || status === 'enviado') ? (
+      ) : (
         <button
           onClick={handleGenNote}
           disabled={loading}
@@ -137,7 +195,7 @@ function OrderActions({ order, onDeleted, onStatusChange }: { order: Order; onDe
           <FileText className="w-3.5 h-3.5" />
           Generar albarán
         </button>
-      ) : null}
+      )}
 
       {/* WhatsApp */}
       <button
@@ -202,7 +260,13 @@ function OrderActions({ order, onDeleted, onStatusChange }: { order: Order; onDe
 
 // ── Order card ───────────────────────────────────────────────────────────────
 
-function OrderCard({ order, onDeleted, onStatusChange }: { order: Order; onDeleted: (id: string) => void; onStatusChange: (id: string, status: OrderStatus) => void }) {
+function OrderCard({
+  order, onDeleted, onStatusChange, onRectified,
+}: {
+  order: Order; onDeleted: (id: string) => void
+  onStatusChange: (id: string, status: OrderStatus) => void
+  onRectified: (orderId: string, itemId: string, qty: number) => void
+}) {
   const [expanded, setExpanded] = useState(false)
   const status = normalizeStatus(order.status)
   const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.pendiente
@@ -247,10 +311,7 @@ function OrderCard({ order, onDeleted, onStatusChange }: { order: Order; onDelet
         <div className="px-4 pb-4 border-t border-gray-50">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 mt-3">
             {order.order_items.map(item => (
-              <div key={item.id} className="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2 text-xs">
-                <span className="font-medium text-[#1C1C1E] truncate">{item.products?.name ?? '—'}</span>
-                <span className="text-gray-500 ml-2 shrink-0">{item.quantity} {item.unit}</span>
-              </div>
+              <ItemRow key={item.id} item={item} onRectified={(itemId, qty) => onRectified(order.id, itemId, qty)} />
             ))}
           </div>
           <OrderActions order={order} onDeleted={onDeleted} onStatusChange={onStatusChange} />
@@ -274,6 +335,14 @@ export function PedidosNaveClient({ orders: initialOrders, restaurants }: { orde
   function handleDeleted(id: string) { setOrders(prev => prev.filter(o => o.id !== id)) }
   function handleStatusChange(id: string, status: OrderStatus) {
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o))
+  }
+  function handleRectified(orderId: string, itemId: string, qty: number) {
+    setOrders(prev => prev.map(o => {
+      if (o.id !== orderId) return o
+      const items = o.order_items.map(it => it.id === itemId ? { ...it, rectified_quantity: qty, total_price: qty * Number(it.unit_price) } : it)
+      const total_price = items.reduce((s, it) => s + Number(it.rectified_quantity ?? it.quantity) * Number(it.unit_price), 0)
+      return { ...o, order_items: items, total_price }
+    }))
   }
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
@@ -423,7 +492,7 @@ export function PedidosNaveClient({ orders: initialOrders, restaurants }: { orde
             Pendientes de días anteriores ({pastPending.length})
           </h2>
           <div className="space-y-3">
-            {pastPending.map(o => <OrderCard key={o.id} order={o} onDeleted={handleDeleted} onStatusChange={handleStatusChange} />)}
+            {pastPending.map(o => <OrderCard key={o.id} order={o} onDeleted={handleDeleted} onStatusChange={handleStatusChange} onRectified={handleRectified} />)}
           </div>
         </section>
       )}
@@ -444,7 +513,7 @@ export function PedidosNaveClient({ orders: initialOrders, restaurants }: { orde
           </div>
         ) : (
           <div className="space-y-3">
-            {todayOrders.map(o => <OrderCard key={o.id} order={o} onDeleted={handleDeleted} onStatusChange={handleStatusChange} />)}
+            {todayOrders.map(o => <OrderCard key={o.id} order={o} onDeleted={handleDeleted} onStatusChange={handleStatusChange} onRectified={handleRectified} />)}
           </div>
         )}
       </section>

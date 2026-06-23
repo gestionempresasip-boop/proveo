@@ -55,20 +55,57 @@ export async function generateDeliveryNote(orderId: string) {
 
   if (error || !note) return null
 
-  const items = order.order_items.map((item: any) => ({
-    delivery_note_id: note.id,
-    product_id: item.product_id,
-    ordered_quantity: item.quantity,
-    delivered_quantity: item.quantity,
-    unit: item.unit,
-    unit_price: item.unit_price,
-    total_price: item.total_price,
-  }))
+  const items = order.order_items.map((item: any) => {
+    const deliveredQty = item.rectified_quantity ?? item.quantity
+    return {
+      delivery_note_id: note.id,
+      product_id: item.product_id,
+      ordered_quantity: item.quantity,
+      delivered_quantity: deliveredQty,
+      unit: item.unit,
+      unit_price: item.unit_price,
+      total_price: deliveredQty * Number(item.unit_price),
+    }
+  })
 
   if (items.length > 0) await sb.from('delivery_note_items').insert(items)
 
   revalidatePath('/albaranes')
+  revalidatePath('/pedidos')
   return note.id
+}
+
+// La nave rectifica la cantidad de una línea de pedido (ej: el restaurante
+// pidió 5 pero solo quedan 3 en stock). Se guarda la cantidad pedida
+// original (quantity) y la rectificada (rectified_quantity) por separado,
+// para que tanto la nave como el restaurante vean ambas. Si ya existe un
+// albarán generado para el pedido, se mantiene sincronizado.
+export async function rectifyOrderItem(orderItemId: string, newQuantity: number) {
+  const supabase = await createClient()
+  const sb = supabase as any
+
+  const { data: item } = await sb.from('order_items').select('*').eq('id', orderItemId).single()
+  if (!item) return
+
+  const total_price = newQuantity * Number(item.unit_price)
+  await sb.from('order_items').update({ rectified_quantity: newQuantity, total_price }).eq('id', orderItemId)
+
+  const { data: items } = await sb.from('order_items').select('quantity, rectified_quantity, unit_price').eq('order_id', item.order_id)
+  const orderTotal = (items ?? []).reduce(
+    (s: number, it: any) => s + Number(it.rectified_quantity ?? it.quantity) * Number(it.unit_price), 0
+  )
+  await sb.from('orders').update({ total_price: orderTotal }).eq('id', item.order_id)
+
+  const { data: note } = await sb.from('delivery_notes').select('id').eq('order_id', item.order_id).maybeSingle()
+  if (note) {
+    await sb.from('delivery_note_items')
+      .update({ delivered_quantity: newQuantity, total_price })
+      .eq('delivery_note_id', note.id)
+      .eq('product_id', item.product_id)
+  }
+
+  revalidatePath('/pedidos')
+  revalidatePath('/albaranes')
 }
 
 export async function deleteOrder(orderId: string) {

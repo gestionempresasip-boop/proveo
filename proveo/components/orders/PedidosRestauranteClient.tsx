@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Package, Clock, Ban, Search, ChevronDown, X } from 'lucide-react'
 import { updateOrderStatus } from '@/app/actions/orders'
 import { cn } from '@/lib/utils'
+import { unitLabel } from '@/lib/units'
 
 const STATUS_COLORS: Record<string, string> = {
   pendiente:      'bg-yellow-100 text-yellow-800 border-yellow-200',
@@ -26,7 +27,7 @@ const STATUS_LABELS: Record<string, string> = {
   cancelado:      '❌ Cancelado',
 }
 
-type OrderItem = { id: string; quantity: number; unit: string; products: { name: string; unit: string } | null }
+type OrderItem = { id: string; quantity: number; rectified_quantity?: number | null; unit: string; products: { name: string; unit: string } | null }
 type Order = { id: string; order_number: number; status: string; notes: string | null; total_price: number; created_at: string; order_items: OrderItem[] }
 
 function dayKey(dateStr: string): string {
@@ -88,12 +89,21 @@ function OrderRow({ order, onCanceled }: { order: Order; onCanceled: (id: string
         </div>
 
         <div className="mt-3 pt-3 border-t border-gray-100 grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {order.order_items?.map((item, i) => (
-            <div key={i} className="text-xs bg-gray-50 rounded-xl px-3 py-2 flex justify-between">
-              <span className="font-medium text-[#1C1C1E]">{item.products?.name}</span>
-              <span className="text-gray-400">{item.quantity} {item.unit}</span>
-            </div>
-          ))}
+          {order.order_items?.map((item, i) => {
+            const isRectified = item.rectified_quantity != null && Number(item.rectified_quantity) !== Number(item.quantity)
+            return (
+              <div key={i} className={cn('text-xs rounded-xl px-3 py-2 flex justify-between', isRectified ? 'bg-amber-50 border border-amber-200' : 'bg-gray-50')}>
+                <span className="font-medium text-[#1C1C1E]">{item.products?.name}</span>
+                {isRectified ? (
+                  <span className="text-amber-700 shrink-0 ml-2">
+                    Pedido: <span className="line-through text-gray-400">{item.quantity}</span> · Confirmado: <span className="font-semibold">{item.rectified_quantity} {unitLabel(item.unit)}</span>
+                  </span>
+                ) : (
+                  <span className="text-gray-400 shrink-0 ml-2">{item.quantity} {unitLabel(item.unit)}</span>
+                )}
+              </div>
+            )
+          })}
         </div>
 
         {/* Cancelar */}

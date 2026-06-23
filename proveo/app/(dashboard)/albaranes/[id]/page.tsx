@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { PrintButton } from './PrintButton'
+import { unitLabel } from '@/lib/units'
 
 export default async function AlbaranDetailPage({ params }: { params: Promise<{ id: string }> }) {
   await getAuthProfile()
@@ -19,7 +20,7 @@ export default async function AlbaranDetailPage({ params }: { params: Promise<{ 
       orders(order_number, total_price, notes, created_at,
         organizations(name, address, phone, email)
       ),
-      delivery_note_items(*, products(name, unit))
+      delivery_note_items(*, products(name, unit, iva_rate))
     `)
     .eq('id', id)
     .single()
@@ -29,6 +30,22 @@ export default async function AlbaranDetailPage({ params }: { params: Promise<{ 
   const order = note.orders
   const restaurant = order?.organizations
   const items = note.delivery_note_items ?? []
+
+  // Desglose por tipo de IVA: cada línea ya incluye IVA en su total_price.
+  // base = total / (1 + iva), iva_amount = total - base
+  const ivaGroups = new Map<number, { base: number; iva: number }>()
+  for (const item of items) {
+    const ivaRate = Number(item.products?.iva_rate) || 0
+    const total = Number(item.total_price)
+    const base = total / (1 + ivaRate)
+    const ivaAmount = total - base
+    const g = ivaGroups.get(ivaRate) ?? { base: 0, iva: 0 }
+    g.base += base
+    g.iva += ivaAmount
+    ivaGroups.set(ivaRate, g)
+  }
+  const baseImponible = [...ivaGroups.values()].reduce((s, g) => s + g.base, 0)
+  const totalIva = [...ivaGroups.values()].reduce((s, g) => s + g.iva, 0)
 
   return (
     <div className="p-6 max-w-3xl mx-auto print:p-0 print:max-w-none">
@@ -80,22 +97,38 @@ export default async function AlbaranDetailPage({ params }: { params: Promise<{ 
             {items.map((item: any) => (
               <tr key={item.id} className="border-b border-gray-100">
                 <td className="py-2.5">{item.products?.name}</td>
-                <td className="text-right py-2.5 text-gray-500">{item.ordered_quantity} {item.unit}</td>
-                <td className="text-right py-2.5 font-medium">{item.delivered_quantity} {item.unit}</td>
+                <td className="text-right py-2.5 text-gray-500">{item.ordered_quantity} {unitLabel(item.unit)}</td>
+                <td className="text-right py-2.5 font-medium">{item.delivered_quantity} {unitLabel(item.unit)}</td>
                 <td className="text-right py-2.5">{Number(item.unit_price).toFixed(2)} €</td>
                 <td className="text-right py-2.5 font-semibold">{Number(item.total_price).toFixed(2)} €</td>
               </tr>
             ))}
           </tbody>
-          <tfoot>
-            <tr>
-              <td colSpan={4} className="text-right pt-4 font-bold text-[#1C1C1E]">TOTAL</td>
-              <td className="text-right pt-4 font-bold text-xl text-[#1E2B28]">
-                {Number(order?.total_price ?? 0).toFixed(2)} €
-              </td>
-            </tr>
-          </tfoot>
         </table>
+
+        {/* Desglose de IVA */}
+        <div className="flex justify-end mb-8">
+          <div className="w-full max-w-xs space-y-1.5">
+            {[...ivaGroups.entries()].sort((a, b) => a[0] - b[0]).map(([rate, g]) => (
+              <div key={rate} className="flex justify-between text-sm text-gray-500">
+                <span>Base imponible (IVA {Math.round(rate * 100)}%)</span>
+                <span>{g.base.toFixed(2)} €</span>
+              </div>
+            ))}
+            <div className="flex justify-between text-sm text-gray-500 pt-1 border-t border-gray-100">
+              <span>Base imponible total</span>
+              <span>{baseImponible.toFixed(2)} €</span>
+            </div>
+            <div className="flex justify-between text-sm text-gray-500">
+              <span>IVA</span>
+              <span>{totalIva.toFixed(2)} €</span>
+            </div>
+            <div className="flex justify-between items-baseline pt-2 border-t border-[#1E2B28]">
+              <span className="font-bold text-[#1C1C1E]">TOTAL</span>
+              <span className="font-bold text-xl text-[#1E2B28]">{Number(order?.total_price ?? 0).toFixed(2)} €</span>
+            </div>
+          </div>
+        </div>
 
         {order?.notes && (
           <div className="border-t border-gray-100 pt-4 mb-6">

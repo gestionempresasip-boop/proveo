@@ -34,17 +34,30 @@ export default function CatalogoPage() {
   const [notes, setNotes] = useState('')
   const [cartOpen, setCartOpen] = useState(false)
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false)
+  const [stockMap, setStockMap] = useState<Record<string, number>>({})
+  const [stockError, setStockError] = useState<string | null>(null)
+  const [restockedMap, setRestockedMap] = useState<Record<string, boolean>>({})
   const supabase = createClient()
   const router = useRouter()
 
   useEffect(() => {
     async function load() {
-      const [{ data: prods }, { data: cats }] = await Promise.all([
+      const [{ data: prods }, { data: cats }, { data: stock }] = await Promise.all([
         (supabase as any).from('products').select('*, product_categories(name, color)').eq('is_active', true).is('deleted_at', null).order('name'),
         (supabase as any).from('product_categories').select('*').order('order_index').order('name'),
+        (supabase as any).from('nave_inventory').select('product_id, current_stock, last_restocked_at'),
       ])
       setProducts(prods ?? [])
       setCategories(cats ?? [])
+      const sMap: Record<string, number> = {}
+      const rMap: Record<string, boolean> = {}
+      const dayAgo = Date.now() - 48 * 60 * 60 * 1000
+      ;(stock ?? []).forEach((s: any) => {
+        sMap[s.product_id] = Number(s.current_stock)
+        rMap[s.product_id] = !!s.last_restocked_at && new Date(s.last_restocked_at).getTime() > dayAgo
+      })
+      setStockMap(sMap)
+      setRestockedMap(rMap)
       setLoading(false)
     }
     load()
@@ -56,6 +69,10 @@ export default function CatalogoPage() {
       return { ...prev, [productId]: quantity }
     })
   }, [])
+
+  function maxQtyFor(productId: string): number {
+    return productId in stockMap ? stockMap[productId] : Infinity
+  }
 
   const cartItems: CartItem[] = Object.entries(cart)
     .map(([id, qty]) => ({ product: products.find(p => p.id === id)!, quantity: qty }))
@@ -84,6 +101,13 @@ export default function CatalogoPage() {
 
   async function submitOrder() {
     if (cartItems.length === 0) return
+    const overStock = cartItems.find(item => item.quantity > maxQtyFor(item.product.id))
+    if (overStock) {
+      setStockError(`No queda suficiente stock de "${overStock.product.name}" (quedan ${maxQtyFor(overStock.product.id)} ${overStock.product.unit})`)
+      handleQuantityChange(overStock.product.id, Math.max(0, maxQtyFor(overStock.product.id)))
+      return
+    }
+    setStockError(null)
     setSubmitting(true)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
@@ -163,6 +187,9 @@ export default function CatalogoPage() {
   // ── Pie del carrito: total, notas y botón — siempre visible ─────────────
   const cartFooter = cartItems.length > 0 ? (
     <div className="p-4 pt-3 border-t border-gray-100 shrink-0 bg-white">
+      {stockError && (
+        <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3">{stockError}</p>
+      )}
       <textarea
         placeholder="Notas o instrucciones (opcional)"
         value={notes}
@@ -302,6 +329,8 @@ export default function CatalogoPage() {
                     onQuantityChange={handleQuantityChange}
                     categoryColor={cat?.color}
                     categoryName={cat?.name}
+                    maxStock={product.id in stockMap ? stockMap[product.id] : undefined}
+                    justRestocked={restockedMap[product.id]}
                   />
                   )
                 })}

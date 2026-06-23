@@ -14,8 +14,20 @@ export async function upsertInventory(
   const sb = supabase as any
 
   if (isNave) {
+    const { data: existing } = await sb
+      .from('nave_inventory')
+      .select('current_stock')
+      .eq('product_id', productId)
+      .maybeSingle()
+    const wasOutOfStock = !existing || Number(existing.current_stock) <= 0
+    const isRestock = wasOutOfStock && currentStock > 0
+
     await sb.from('nave_inventory').upsert(
-      { product_id: productId, current_stock: currentStock, min_stock: minStock, last_updated: new Date().toISOString() },
+      {
+        product_id: productId, current_stock: currentStock, min_stock: minStock,
+        last_updated: new Date().toISOString(),
+        ...(isRestock ? { last_restocked_at: new Date().toISOString() } : {}),
+      },
       { onConflict: 'product_id' }
     )
   } else {

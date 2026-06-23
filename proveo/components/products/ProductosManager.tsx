@@ -5,7 +5,9 @@ import { Package, Pencil, Trash2, Eye, EyeOff, Plus, X, Check, ChevronDown, Chev
 import {
   toggleProductActive, softDeleteProduct, updateProduct, createProduct,
   createCategory, deleteCategory, updateCategory, seedDefaultCategories,
+  mergeCategories, moveProductsToCategory,
 } from '@/app/actions/products'
+import { UNIT_OPTIONS, unitLabel } from '@/lib/units'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -15,16 +17,21 @@ type Product = {
   price: number; unit: string
   min_order_quantity: number; order_increment: number
   is_active: boolean; category_id: string | null
+  category_ids?: string[]
   image_url?: string | null
   cost_price?: number | null
   iva_rate?: number | null
   margin?: number | null
+  pending_review?: boolean
   product_categories: { name: string } | null
 }
 
-const UNITS = ['kg', 'g', 'l', 'ml', 'unidad', 'caja', 'bandeja']
 const IVA_OPTIONS = [
+  { value: 0,  label: '0% — Exento' },
+  { value: 2,  label: '2% — IVA reducido especial' },
   { value: 4,  label: '4% — Alimentos básicos' },
+  { value: 5,  label: '5% — IVA reducido especial' },
+  { value: 7,  label: '7% — IVA reducido especial' },
   { value: 10, label: '10% — Alimentos / hostelería' },
   { value: 21, label: '21% — Alcohol y otros' },
 ]
@@ -206,12 +213,23 @@ function ProductFields({
           className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
       </div>
       <div>
-        <label className="text-xs text-gray-500 font-medium block mb-1">Categoría</label>
-        <select name="category_id" defaultValue={product?.category_id ?? ''}
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]">
-          <option value="">Sin categoría</option>
-          {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
+        <label className="text-xs text-gray-500 font-medium block mb-1">Categorías (puedes marcar varias)</label>
+        <div className="border border-gray-200 rounded-lg p-2.5 max-h-36 overflow-y-auto space-y-1">
+          {categories.length === 0 && <p className="text-xs text-gray-400 px-1">No hay categorías creadas</p>}
+          {categories.map(c => (
+            <label key={c.id} className="flex items-center gap-2 px-1 py-1 rounded hover:bg-gray-50 cursor-pointer text-sm">
+              <input
+                type="checkbox"
+                name="category_ids"
+                value={c.id}
+                defaultChecked={product ? (product.category_ids ?? (product.category_id ? [product.category_id] : [])).includes(c.id) : false}
+                className="accent-[#1E2B28]"
+              />
+              <ColorDot color={c.color} />
+              {c.name}
+            </label>
+          ))}
+        </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         {/* When isNave the price is driven by the PricingCalculator via price_override.
@@ -232,7 +250,7 @@ function ProductFields({
           <label className="text-xs text-gray-500 font-medium block mb-1">Unidad *</label>
           <select name="unit" defaultValue={product?.unit ?? 'kg'}
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]">
-            {UNITS.map(u => <option key={u}>{u}</option>)}
+            {UNIT_OPTIONS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
           </select>
         </div>
       </div>
@@ -336,12 +354,17 @@ function NuevoModal({
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
             </div>
             <div>
-              <label className="text-xs text-gray-500 font-medium block mb-1">Categoría</label>
-              <select name="category_id" defaultValue={catForSelect}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]">
-                <option value="">Sin categoría</option>
-                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              <label className="text-xs text-gray-500 font-medium block mb-1">Categorías (puedes marcar varias)</label>
+              <div className="border border-gray-200 rounded-lg p-2.5 max-h-36 overflow-y-auto space-y-1">
+                {categories.length === 0 && <p className="text-xs text-gray-400 px-1">No hay categorías creadas</p>}
+                {categories.map(c => (
+                  <label key={c.id} className="flex items-center gap-2 px-1 py-1 rounded hover:bg-gray-50 cursor-pointer text-sm">
+                    <input type="checkbox" name="category_ids" value={c.id} defaultChecked={c.id === catForSelect} className="accent-[#1E2B28]" />
+                    <ColorDot color={c.color} />
+                    {c.name}
+                  </label>
+                ))}
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -358,7 +381,7 @@ function NuevoModal({
               <div>
                 <label className="text-xs text-gray-500 font-medium block mb-1">Unidad *</label>
                 <select name="unit" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]">
-                  {UNITS.map(u => <option key={u}>{u}</option>)}
+                  {UNIT_OPTIONS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
                 </select>
               </div>
             </div>
@@ -430,6 +453,19 @@ function ProductsTable({
                     <div>
                       <p className="font-medium text-[#1C1C1E] leading-tight">{p.name}</p>
                       {p.description && <p className="text-xs text-gray-400">{p.description}</p>}
+                      {(p.category_ids?.length ?? 0) > 1 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {p.category_ids!.map(cid => {
+                            const c = categories.find(cat => cat.id === cid)
+                            if (!c) return null
+                            return (
+                              <span key={cid} className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">
+                                <ColorDot color={c.color} />{c.name}
+                              </span>
+                            )
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </td>
@@ -456,7 +492,7 @@ function ProductsTable({
                 ) : (
                   <td className="px-4 py-3 text-right font-semibold text-[#1E2B28]">{Number(p.price).toFixed(2)} €</td>
                 )}
-                <td className="px-3 py-3 text-gray-500 text-xs">{p.unit}</td>
+                <td className="px-3 py-3 text-gray-500 text-xs">{unitLabel(p.unit)}</td>
                 <td className="px-3 py-3 text-center"><ToggleActiveButton product={p} /></td>
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-end gap-1">
@@ -486,8 +522,19 @@ function CategorySection({
   onEdit: (p: Product) => void; onAddProduct: (catId: string) => void
 }) {
   const [open, setOpen] = useState(true)
+  const [moving, setMoving] = useState(false)
+  const [movePending, startMoveTransition] = useTransition()
   const visibleCount = products.filter(p => p.is_active).length
   const hiddenCount  = products.length - visibleCount
+  const otherCategories = categories.filter(c => c.id !== categoryId)
+
+  function handleMoveAll(targetId: string) {
+    if (!targetId) return
+    startMoveTransition(async () => {
+      await moveProductsToCategory(products.map(p => p.id), targetId)
+      setMoving(false)
+    })
+  }
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
@@ -502,6 +549,29 @@ function CategorySection({
           {visibleCount > 0 && <span className="bg-green-50 text-green-600 px-2 py-0.5 rounded-full">{visibleCount} visibles</span>}
           {hiddenCount  > 0 && <span className="bg-gray-100 text-gray-400 px-2 py-0.5 rounded-full">{hiddenCount} ocultos</span>}
         </div>
+        {categoryId !== '__none__' && products.length > 0 && (
+          moving ? (
+            <select
+              autoFocus
+              onClick={e => e.stopPropagation()}
+              onChange={e => handleMoveAll(e.target.value)}
+              disabled={movePending}
+              defaultValue=""
+              className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
+            >
+              <option value="" disabled>Mover todos a...</option>
+              {otherCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          ) : (
+            <button
+              onClick={e => { e.stopPropagation(); setMoving(true) }}
+              className="text-xs text-gray-400 hover:text-[#1E2B28] hover:bg-gray-50 px-2 py-1 rounded-lg transition-colors"
+              title="Mover todos los productos de esta categoría a otra"
+            >
+              Mover todos
+            </button>
+          )
+        )}
         <button
           onClick={e => { e.stopPropagation(); onAddProduct(categoryId) }}
           className="flex items-center gap-1 text-xs text-[#1E2B28] hover:bg-green-50 px-2 py-1 rounded-lg transition-colors font-medium"
@@ -522,6 +592,50 @@ function CategorySection({
 
 // ── Category management tab ───────────────────────────────────────────────────
 
+function MergeCategoriesPanel({ categories }: { categories: Category[] }) {
+  const [fromId, setFromId] = useState('')
+  const [toId, setToId]     = useState('')
+  const [pending, startTransition] = useTransition()
+  const [done, setDone] = useState(false)
+
+  function handleMerge() {
+    if (!fromId || !toId || fromId === toId) return
+    startTransition(async () => {
+      await mergeCategories(fromId, toId)
+      setDone(true)
+      setFromId(''); setToId('')
+      setTimeout(() => setDone(false), 2000)
+    })
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 p-4 space-y-2">
+      <p className="text-sm font-medium text-[#1C1C1E]">Fusionar categorías duplicadas</p>
+      <p className="text-xs text-gray-400">Mueve todos los productos de una categoría a otra y borra la primera.</p>
+      <div className="flex flex-wrap items-center gap-2 pt-1">
+        <select value={fromId} onChange={e => setFromId(e.target.value)}
+          className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]">
+          <option value="">Categoría a eliminar...</option>
+          {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+        <span className="text-gray-400 text-sm">→</span>
+        <select value={toId} onChange={e => setToId(e.target.value)}
+          className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]">
+          <option value="">Pasar sus productos a...</option>
+          {categories.filter(c => c.id !== fromId).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+        <button
+          onClick={handleMerge}
+          disabled={!fromId || !toId || pending}
+          className="bg-[#1E2B28] text-white text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-[#141F1C] disabled:opacity-40 transition-colors"
+        >
+          {done ? '✓ Fusionadas' : pending ? 'Fusionando...' : 'Fusionar'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function CategoriasManager({ categories, productCountByCat }: { categories: Category[]; productCountByCat: Record<string, number> }) {
   const [showNew, setShowNew]         = useState(false)
   const [editingCat, setEditingCat]   = useState<Category | null>(null)
@@ -539,6 +653,7 @@ function CategoriasManager({ categories, productCountByCat }: { categories: Cate
 
   return (
     <div className="space-y-4">
+      {categories.length > 1 && <MergeCategoriesPanel categories={categories} />}
       <div className="flex items-center justify-between">
         <p className="text-sm text-gray-500">{categories.length} categorías configuradas</p>
         <div className="flex gap-2">
@@ -683,10 +798,13 @@ export function ProductosManager({
     return matchSearch
   }), [products, search, filterActive])
 
+  const pendingProducts = useMemo(() => filtered.filter(p => p.pending_review), [filtered])
+
   const grouped = useMemo(() => {
     const map: Record<string, Product[]> = {}
     const uncategorized: Product[] = []
     for (const p of filtered) {
+      if (p.pending_review) continue
       if (p.category_id && categoriesById[p.category_id]) {
         if (!map[p.category_id]) map[p.category_id] = []
         map[p.category_id].push(p)
@@ -832,6 +950,20 @@ export function ProductosManager({
                     </button>
                   )
                 })}
+              </div>
+            )}
+
+            {pendingProducts.length > 0 && (
+              <div className="bg-amber-50 border-2 border-dashed border-amber-300 rounded-xl overflow-hidden">
+                <div className="px-4 py-3 flex items-center gap-2 border-b border-amber-200 bg-amber-100/50">
+                  <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span className="font-semibold text-amber-800 text-sm flex-1">Nuevos · pendientes de coste y margen</span>
+                  <span className="text-xs text-amber-600 bg-white px-2 py-0.5 rounded-full">{pendingProducts.length}</span>
+                </div>
+                <p className="text-xs text-amber-700 px-4 pt-2">
+                  Recién creados. Quedan aquí arriba hasta que alguien les pone coste y margen — luego se categorizan automáticamente.
+                </p>
+                <ProductsTable products={pendingProducts} categories={categories} isNave={isNave} onEdit={setEditProduct} />
               </div>
             )}
 
