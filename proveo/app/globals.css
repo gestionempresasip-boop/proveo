@@ -127,7 +127,7 @@
   html {
     @apply font-sans;
     /* Texto un poco más grande en toda la app para mejor legibilidad */
-    font-size: 17px;
+    font-size: 18px;
   }
 }
 

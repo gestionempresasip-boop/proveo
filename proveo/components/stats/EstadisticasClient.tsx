@@ -58,7 +58,7 @@ function cellBg(value: number, max: number): string {
 }
 
 function cellText(value: number, max: number): string {
-  if (!max || !value) return 'text-gray-400'
+  if (!max || !value) return 'text-gray-600'
   return value / max > 0.6 ? 'text-[#1E2B28] font-semibold' : 'text-gray-700'
 }
 
@@ -66,7 +66,7 @@ function cellText(value: number, max: number): string {
 function Trend({ current, prev }: { current: number; prev: number | undefined }) {
   if (prev === undefined || prev === 0) return null
   const pct = ((current - prev) / prev) * 100
-  if (Math.abs(pct) < 5) return <Minus className="w-3 h-3 text-gray-400 inline" />
+  if (Math.abs(pct) < 5) return <Minus className="w-3 h-3 text-gray-600 inline" />
   return pct > 0
     ? <span className="text-red-500 text-xs font-medium">▲{pct.toFixed(0)}%</span>
     : <span className="text-green-600 text-xs font-medium">▼{Math.abs(pct).toFixed(0)}%</span>
@@ -108,14 +108,14 @@ function HScroll({ children }: { children: React.ReactNode }) {
       </div>
       <button
         onClick={() => scrollBy(-280)}
-        className="hidden lg:flex absolute left-1 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white border border-gray-200 shadow-md items-center justify-center text-gray-500 hover:text-[#1E2B28] opacity-0 group-hover:opacity-100 transition-opacity"
+        className="hidden lg:flex absolute left-1 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white border border-gray-200 shadow-md items-center justify-center text-gray-700 hover:text-[#1E2B28] opacity-0 group-hover:opacity-100 transition-opacity"
         aria-label="Desplazar a la izquierda"
       >
         <ChevronLeft className="w-4 h-4" />
       </button>
       <button
         onClick={() => scrollBy(280)}
-        className="hidden lg:flex absolute right-1 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white border border-gray-200 shadow-md items-center justify-center text-gray-500 hover:text-[#1E2B28] opacity-0 group-hover:opacity-100 transition-opacity"
+        className="hidden lg:flex absolute right-1 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white border border-gray-200 shadow-md items-center justify-center text-gray-700 hover:text-[#1E2B28] opacity-0 group-hover:opacity-100 transition-opacity"
         aria-label="Desplazar a la derecha"
       >
         <ChevronRight className="w-4 h-4" />
@@ -137,29 +137,29 @@ function UnitConverter() {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
       <button onClick={() => setOpen(v => !v)} className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors">
-        <span className="flex items-center gap-2 text-sm font-medium text-[#1C1C1E]">
+        <span className="flex items-center gap-2 text-sm font-medium text-black">
           <Calculator className="w-4 h-4 text-[#1E2B28]" /> Conversor de unidades
         </span>
-        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`w-4 h-4 text-gray-600 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
         <div className="px-4 pb-4 flex flex-wrap items-end gap-3">
           <div>
-            <label className="text-xs text-gray-400 block mb-1">Cantidad</label>
+            <label className="text-xs text-gray-600 block mb-1">Cantidad</label>
             <input
               type="number" step="0.01" value={qty} onChange={e => setQty(e.target.value)}
               className="w-24 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
             />
           </div>
           <div>
-            <label className="text-xs text-gray-400 block mb-1">Unidad</label>
+            <label className="text-xs text-gray-600 block mb-1">Unidad</label>
             <select value={unit} onChange={e => setUnit(e.target.value)}
               className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]">
               {CONVERTIBLE_UNITS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
             </select>
           </div>
           <div className="bg-gray-50 rounded-lg px-4 py-2.5 text-sm">
-            <span className="text-gray-400 mr-1">Equivale a</span>
+            <span className="text-gray-600 mr-1">Equivale a</span>
             <span className="font-bold text-[#1E2B28]">
               {kg != null && `${kg % 1 === 0 ? kg : kg.toFixed(2)} kg`}
               {lt != null && `${lt % 1 === 0 ? lt : lt.toFixed(2)} lt`}
@@ -355,8 +355,8 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
     <div className="p-4 sm:p-6 max-w-full mx-auto space-y-5">
       {/* Header */}
       <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-[#1C1C1E]">Estadísticas</h1>
-        <p className="text-gray-500 text-sm mt-1">Consumo comparativo por restaurante y producto</p>
+        <h1 className="text-xl sm:text-2xl font-bold text-black">Estadísticas</h1>
+        <p className="text-gray-700 text-sm mt-1">Consumo comparativo por restaurante y producto</p>
       </div>
 
       {/* Filters */}
@@ -365,7 +365,7 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
           {([['dia','Hoy'],['semana','Esta semana'],['mes','Este mes'],['año','Este año'],['custom','Personalizado']] as [DateFilter,string][]).map(([k,l]) => (
             <button key={k} onClick={() => setDateFilter(k)}
               className={`flex-1 py-2.5 text-xs sm:text-sm font-medium transition-colors ${
-                dateFilter === k ? 'bg-[#1E2B28] text-white' : 'text-gray-500 hover:bg-gray-50'
+                dateFilter === k ? 'bg-[#1E2B28] text-white' : 'text-gray-700 hover:bg-gray-50'
               }`}>{l}</button>
           ))}
         </div>
@@ -373,37 +373,37 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
           {dateFilter === 'custom' && (
             <>
               <div className="flex-1 min-w-[130px]">
-                <label className="text-xs text-gray-400 block mb-1">Desde</label>
+                <label className="text-xs text-gray-600 block mb-1">Desde</label>
                 <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
                   className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
               </div>
               <div className="flex-1 min-w-[130px]">
-                <label className="text-xs text-gray-400 block mb-1">Hasta</label>
+                <label className="text-xs text-gray-600 block mb-1">Hasta</label>
                 <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
                   className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
               </div>
             </>
           )}
           <div className="flex-1 min-w-[160px]">
-            <label className="text-xs text-gray-400 block mb-1">Agrupar por</label>
+            <label className="text-xs text-gray-600 block mb-1">Agrupar por</label>
             <div className="relative">
               <select value={groupBy} onChange={e => setGroupBy(e.target.value as GroupBy)}
                 className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28] appearance-none pr-8">
                 <option value="mes">Mes</option>
                 <option value="semana">Semana</option>
               </select>
-              <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-2.5 pointer-events-none" />
+              <ChevronDown className="w-4 h-4 text-gray-600 absolute right-2.5 top-2.5 pointer-events-none" />
             </div>
           </div>
           <div className="flex-1 min-w-[180px]">
-            <label className="text-xs text-gray-400 block mb-1">Restaurante</label>
+            <label className="text-xs text-gray-600 block mb-1">Restaurante</label>
             <div className="relative">
               <select value={restFilter} onChange={e => setRestFilter(e.target.value)}
                 className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28] appearance-none pr-8">
                 <option value="todos">Todos</option>
                 {restaurants.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
               </select>
-              <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-2.5 pointer-events-none" />
+              <ChevronDown className="w-4 h-4 text-gray-600 absolute right-2.5 top-2.5 pointer-events-none" />
             </div>
           </div>
         </div>
@@ -418,8 +418,8 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
           { label: 'Productos distintos', value: new Set(filtered.map(l => l.product_id)).size, suffix: '' },
         ].map(k => (
           <div key={k.label} className="bg-white rounded-2xl border border-gray-100 px-4 py-3">
-            <p className="text-xs text-gray-400">{k.label}</p>
-            <p className="text-xl sm:text-2xl font-bold text-[#1C1C1E] mt-0.5">{k.value}{k.suffix}</p>
+            <p className="text-xs text-gray-600">{k.label}</p>
+            <p className="text-xl sm:text-2xl font-bold text-black mt-0.5">{k.value}{k.suffix}</p>
           </div>
         ))}
       </div>
@@ -429,7 +429,7 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
         {([['periodo','Por período'],['productos','Por producto'],['ranking','Ranking']] as const).map(([k,l]) => (
           <button key={k} onClick={() => setTab(k)}
             className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
-              tab === k ? 'bg-white text-[#1C1C1E] shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              tab === k ? 'bg-white text-black shadow-sm' : 'text-gray-700 hover:text-gray-700'
             }`}>{l}</button>
         ))}
       </div>
@@ -440,8 +440,8 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
         return (
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <p className="text-xs text-gray-400">Las celdas más oscuras = mayor gasto. Mueve la tabla horizontalmente si no caben todas las columnas.</p>
-              <button onClick={exportPeriodo} className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 border border-gray-200 px-3 py-1.5 rounded-lg">
+              <p className="text-xs text-gray-600">Las celdas más oscuras = mayor gasto. Mueve la tabla horizontalmente si no caben todas las columnas.</p>
+              <button onClick={exportPeriodo} className="flex items-center gap-1.5 text-xs text-gray-700 hover:text-gray-700 border border-gray-200 px-3 py-1.5 rounded-lg">
                 <Download className="w-3.5 h-3.5" /> CSV
               </button>
             </div>
@@ -450,17 +450,17 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
                 <table className="w-full text-sm" style={{ minWidth: Math.max(600, periods.length * 120 + 180) }}>
                   <thead>
                     <tr className="border-b border-gray-100 bg-gray-50">
-                      <th className="text-left px-4 py-3 text-xs text-gray-400 font-medium sticky left-0 bg-gray-50 z-10 min-w-[140px]">Restaurante</th>
+                      <th className="text-left px-4 py-3 text-xs text-gray-600 font-medium sticky left-0 bg-gray-50 z-10 min-w-[140px]">Restaurante</th>
                       {periods.map(p => (
-                        <th key={p} className="text-center px-3 py-3 text-xs text-gray-400 font-medium whitespace-nowrap min-w-[100px]">{p}</th>
+                        <th key={p} className="text-center px-3 py-3 text-xs text-gray-600 font-medium whitespace-nowrap min-w-[100px]">{p}</th>
                       ))}
-                      <th className="text-right px-4 py-3 text-xs text-gray-500 font-semibold min-w-[100px]">TOTAL</th>
+                      <th className="text-right px-4 py-3 text-xs text-gray-700 font-semibold min-w-[100px]">TOTAL</th>
                     </tr>
                   </thead>
                   <tbody>
                     {restNames.map(r => (
                       <tr key={r} className="border-b border-gray-50 hover:bg-gray-50/50">
-                        <td className="px-4 py-3 font-medium text-[#1C1C1E] sticky left-0 bg-white z-10 border-r border-gray-50">{r}</td>
+                        <td className="px-4 py-3 font-medium text-black sticky left-0 bg-white z-10 border-r border-gray-50">{r}</td>
                         {periods.map((p, pi) => {
                           const v = cell[r]?.[p]
                           const euros = v?.euros ?? 0
@@ -471,7 +471,7 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
                               {euros > 0 ? (
                                 <>
                                   <p className={`text-sm ${cellText(euros, colMax[p])}`}>{euros.toFixed(0)}€</p>
-                                  <p className="text-xs text-gray-400">{v!.pedidos.size} ped.</p>
+                                  <p className="text-xs text-gray-600">{v!.pedidos.size} ped.</p>
                                   <Trend current={euros} prev={prevPeriod} />
                                 </>
                               ) : <span className="text-gray-200 text-xs">—</span>}
@@ -486,10 +486,10 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
                   </tbody>
                   <tfoot>
                     <tr className="border-t-2 border-gray-200 bg-gray-50">
-                      <td className="px-4 py-3 text-xs font-semibold text-gray-500 sticky left-0 bg-gray-50">TOTAL</td>
+                      <td className="px-4 py-3 text-xs font-semibold text-gray-700 sticky left-0 bg-gray-50">TOTAL</td>
                       {periods.map(p => (
                         <td key={p} className="px-3 py-3 text-center">
-                          <p className="text-sm font-bold text-[#1C1C1E]">{colTotal[p].toFixed(0)}€</p>
+                          <p className="text-sm font-bold text-black">{colTotal[p].toFixed(0)}€</p>
                         </td>
                       ))}
                       <td className="px-4 py-3 text-right">
@@ -499,10 +499,10 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
                   </tfoot>
                 </table>
               </HScroll>
-              {restNames.length === 0 && <p className="text-center py-12 text-gray-400">Sin datos para este período</p>}
+              {restNames.length === 0 && <p className="text-center py-12 text-gray-600">Sin datos para este período</p>}
             </div>
             {/* Leyenda */}
-            <div className="flex items-center gap-3 text-xs text-gray-400 px-1">
+            <div className="flex items-center gap-3 text-xs text-gray-600 px-1">
               <span>Intensidad:</span>
               {[0.1, 0.25, 0.5, 0.75, 1].map(t => (
                 <span key={t} className="w-6 h-4 rounded inline-block" style={{ background: `rgba(27,67,50,${0.07 + t * 0.38})` }} />
@@ -523,8 +523,8 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
               <input type="text" placeholder="Buscar producto..." value={prodSearch}
                 onChange={e => setProdSearch(e.target.value)}
                 className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28] w-52" />
-              <p className="text-xs text-gray-400 flex-1">Cantidades pedidas por restaurante. Celdas oscuras = mayor consumo. Pulsa un producto para ver el ranking.</p>
-              <button onClick={exportProductos} className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 border border-gray-200 px-3 py-1.5 rounded-lg">
+              <p className="text-xs text-gray-600 flex-1">Cantidades pedidas por restaurante. Celdas oscuras = mayor consumo. Pulsa un producto para ver el ranking.</p>
+              <button onClick={exportProductos} className="flex items-center gap-1.5 text-xs text-gray-700 hover:text-gray-700 border border-gray-200 px-3 py-1.5 rounded-lg">
                 <Download className="w-3.5 h-3.5" /> CSV
               </button>
             </div>
@@ -533,11 +533,11 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
                 <table className="w-full text-sm" style={{ minWidth: Math.max(600, restNames.length * 140 + 200) }}>
                   <thead>
                     <tr className="border-b border-gray-100 bg-gray-50">
-                      <th className="text-left px-4 py-3 text-xs text-gray-400 font-medium sticky left-0 bg-gray-50 z-10 min-w-[180px]">Producto</th>
+                      <th className="text-left px-4 py-3 text-xs text-gray-600 font-medium sticky left-0 bg-gray-50 z-10 min-w-[180px]">Producto</th>
                       {restNames.map(r => (
-                        <th key={r} className="text-center px-3 py-3 text-xs text-gray-400 font-medium min-w-[110px]">{r}</th>
+                        <th key={r} className="text-center px-3 py-3 text-xs text-gray-600 font-medium min-w-[110px]">{r}</th>
                       ))}
-                      <th className="text-right px-4 py-3 text-xs text-gray-500 font-semibold min-w-[90px]">Total €</th>
+                      <th className="text-right px-4 py-3 text-xs text-gray-700 font-semibold min-w-[90px]">Total €</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -551,7 +551,7 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
                             onClick={() => setExpandedProduct(isExpanded ? null : p.id)}
                           >
                             <td className="px-4 py-3 sticky left-0 bg-white z-10 border-r border-gray-50">
-                              <p className={`font-medium text-sm leading-tight ${isExpanded ? 'text-[#1E2B28]' : 'text-[#1C1C1E]'}`}>{p.name}</p>
+                              <p className={`font-medium text-sm leading-tight ${isExpanded ? 'text-[#1E2B28]' : 'text-black'}`}>{p.name}</p>
                             </td>
                             {restNames.map(r => {
                               const v = p.byRest[r]
@@ -564,9 +564,9 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
                                         {v.qty % 1 === 0 ? v.qty : v.qty.toFixed(1)} {unitLabel(p.unit)}
                                       </p>
                                       {realQuantityLabel(p.unit, v.qty) && (
-                                        <p className="text-[10px] text-gray-400">{realQuantityLabel(p.unit, v.qty)}</p>
+                                        <p className="text-[10px] text-gray-600">{realQuantityLabel(p.unit, v.qty)}</p>
                                       )}
-                                      <p className="text-xs text-gray-400">{v.euros.toFixed(0)}€</p>
+                                      <p className="text-xs text-gray-600">{v.euros.toFixed(0)}€</p>
                                     </>
                                   ) : <span className="text-gray-200 text-xs">—</span>}
                                 </td>
@@ -579,7 +579,7 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
                           {isExpanded && (
                             <tr className="bg-[#1E2B28]/[0.03] border-b border-gray-100">
                               <td colSpan={restNames.length + 2} className="px-4 py-4">
-                                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                                <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">
                                   Ranking de "{p.name}" por restaurante
                                 </p>
                                 <div className="space-y-1.5 max-w-xl">
@@ -591,15 +591,15 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
                                       const maxQty = Math.max(...restNames.map(x => p.byRest[x]?.qty ?? 0))
                                       return (
                                         <div key={r} className="flex items-center gap-3">
-                                          <span className="w-5 h-5 rounded-full bg-white text-[10px] font-bold text-gray-500 flex items-center justify-center shrink-0 border border-gray-200">{i + 1}</span>
-                                          <span className="text-sm text-[#1C1C1E] w-32 shrink-0 truncate">{r}</span>
+                                          <span className="w-5 h-5 rounded-full bg-white text-[10px] font-bold text-gray-700 flex items-center justify-center shrink-0 border border-gray-200">{i + 1}</span>
+                                          <span className="text-sm text-black w-32 shrink-0 truncate">{r}</span>
                                           <div className="flex-1 h-2 bg-white rounded-full overflow-hidden border border-gray-100">
                                             <div className="h-full bg-[#A8793A] rounded-full" style={{ width: `${(v.qty / maxQty) * 100}%` }} />
                                           </div>
                                           <span className="text-sm font-semibold text-[#1E2B28] w-20 text-right shrink-0">
                                             {v.qty % 1 === 0 ? v.qty : v.qty.toFixed(1)} {unitLabel(p.unit)}
                                             {realQuantityLabel(p.unit, v.qty) && (
-                                              <span className="block text-[10px] text-gray-400 font-normal">{realQuantityLabel(p.unit, v.qty)}</span>
+                                              <span className="block text-[10px] text-gray-600 font-normal">{realQuantityLabel(p.unit, v.qty)}</span>
                                             )}
                                           </span>
                                         </div>
@@ -615,9 +615,9 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
                   </tbody>
                 </table>
               </HScroll>
-              {products.length === 0 && <p className="text-center py-12 text-gray-400">Sin datos para este período</p>}
+              {products.length === 0 && <p className="text-center py-12 text-gray-600">Sin datos para este período</p>}
             </div>
-            <div className="flex items-center gap-3 text-xs text-gray-400 px-1">
+            <div className="flex items-center gap-3 text-xs text-gray-600 px-1">
               <span>Intensidad por columna:</span>
               {[0.1, 0.25, 0.5, 0.75, 1].map(t => (
                 <span key={t} className="w-6 h-4 rounded inline-block" style={{ background: `rgba(27,67,50,${0.07 + t * 0.38})` }} />
@@ -634,84 +634,84 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
           {/* Ranking restaurantes */}
           <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-              <h2 className="font-semibold text-[#1C1C1E]">Restaurantes por gasto</h2>
-              <span className="text-xs text-gray-400">{ranking.rests.length} restaurantes</span>
+              <h2 className="font-semibold text-black">Restaurantes por gasto</h2>
+              <span className="text-xs text-gray-600">{ranking.rests.length} restaurantes</span>
             </div>
             <div className="divide-y divide-gray-50">
               {ranking.rests.map((r, i) => (
                 <div key={r.name} className="px-5 py-3 flex items-center gap-4">
-                  <span className="w-6 h-6 rounded-full bg-gray-100 text-xs font-bold text-gray-500 flex items-center justify-center shrink-0">{i+1}</span>
+                  <span className="w-6 h-6 rounded-full bg-gray-100 text-xs font-bold text-gray-700 flex items-center justify-center shrink-0">{i+1}</span>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-[#1C1C1E] text-sm">{r.name}</p>
+                    <p className="font-medium text-black text-sm">{r.name}</p>
                     <div className="h-1.5 bg-gray-100 rounded-full mt-1.5 overflow-hidden">
                       <div className="h-full bg-[#1E2B28] rounded-full transition-all" style={{ width: `${(r.euros / ranking.maxRest) * 100}%` }} />
                     </div>
                   </div>
                   <div className="text-right shrink-0">
                     <p className="font-bold text-[#1E2B28] text-sm">{r.euros.toFixed(0)}€</p>
-                    <p className="text-xs text-gray-400">{r.pedidos.size} ped.</p>
+                    <p className="text-xs text-gray-600">{r.pedidos.size} ped.</p>
                   </div>
                 </div>
               ))}
-              {ranking.rests.length === 0 && <p className="text-center py-10 text-gray-400">Sin datos</p>}
+              {ranking.rests.length === 0 && <p className="text-center py-10 text-gray-600">Sin datos</p>}
             </div>
           </div>
 
           {/* Ranking productos */}
           <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-              <h2 className="font-semibold text-[#1C1C1E]">Productos más consumidos</h2>
-              <span className="text-xs text-gray-400">{ranking.prods.length} productos</span>
+              <h2 className="font-semibold text-black">Productos más consumidos</h2>
+              <span className="text-xs text-gray-600">{ranking.prods.length} productos</span>
             </div>
             <div className="divide-y divide-gray-50">
               {ranking.prods.slice(0, 20).map((p, i) => (
                 <div key={p.name} className="px-5 py-3 flex items-center gap-4">
-                  <span className="w-6 h-6 rounded-full bg-gray-100 text-xs font-bold text-gray-500 flex items-center justify-center shrink-0">{i+1}</span>
+                  <span className="w-6 h-6 rounded-full bg-gray-100 text-xs font-bold text-gray-700 flex items-center justify-center shrink-0">{i+1}</span>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-[#1C1C1E] text-sm truncate">{p.name}</p>
+                    <p className="font-medium text-black text-sm truncate">{p.name}</p>
                     <div className="flex items-center gap-2 mt-1">
                       <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                         <div className="h-full bg-[#A8793A] rounded-full" style={{ width: `${(p.euros / ranking.maxProd) * 100}%` }} />
                       </div>
                       {ranking.prodLeader[p.name] && (
-                        <span className="text-xs text-gray-400 shrink-0 truncate max-w-[80px]">↑ {ranking.prodLeader[p.name]}</span>
+                        <span className="text-xs text-gray-600 shrink-0 truncate max-w-[80px]">↑ {ranking.prodLeader[p.name]}</span>
                       )}
                     </div>
                   </div>
                   <div className="text-right shrink-0">
                     <p className="font-bold text-[#1E2B28] text-sm">{p.euros.toFixed(0)}€</p>
-                    <p className="text-xs text-gray-400">{p.qty % 1 === 0 ? p.qty : p.qty.toFixed(1)} {unitLabel(p.unit)}</p>
+                    <p className="text-xs text-gray-600">{p.qty % 1 === 0 ? p.qty : p.qty.toFixed(1)} {unitLabel(p.unit)}</p>
                     {realQuantityLabel(p.unit, p.qty) && (
-                      <p className="text-[10px] text-gray-300">{realQuantityLabel(p.unit, p.qty)}</p>
+                      <p className="text-[10px] text-gray-700">{realQuantityLabel(p.unit, p.qty)}</p>
                     )}
                   </div>
                 </div>
               ))}
-              {ranking.prods.length === 0 && <p className="text-center py-10 text-gray-400">Sin datos</p>}
+              {ranking.prods.length === 0 && <p className="text-center py-10 text-gray-600">Sin datos</p>}
             </div>
           </div>
 
           {/* Media por pedido × restaurante */}
           <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden lg:col-span-2">
             <div className="px-5 py-4 border-b border-gray-100">
-              <h2 className="font-semibold text-[#1C1C1E]">Media por pedido y gasto acumulado</h2>
-              <p className="text-xs text-gray-400 mt-0.5">Cuánto gasta de media cada restaurante en cada pedido</p>
+              <h2 className="font-semibold text-black">Media por pedido y gasto acumulado</h2>
+              <p className="text-xs text-gray-600 mt-0.5">Cuánto gasta de media cada restaurante en cada pedido</p>
             </div>
             <HScroll>
               <table className="w-full text-sm min-w-[500px]">
                 <thead className="bg-gray-50 border-b border-gray-100">
                   <tr>
-                    <th className="text-left px-5 py-3 text-xs text-gray-400 font-medium">Restaurante</th>
-                    <th className="text-right px-5 py-3 text-xs text-gray-400 font-medium">Pedidos</th>
-                    <th className="text-right px-5 py-3 text-xs text-gray-400 font-medium">Total acumulado</th>
-                    <th className="text-right px-5 py-3 text-xs text-gray-400 font-medium">Media / pedido</th>
-                    <th className="text-right px-5 py-3 text-xs text-gray-400 font-medium">% del total</th>
+                    <th className="text-left px-5 py-3 text-xs text-gray-600 font-medium">Restaurante</th>
+                    <th className="text-right px-5 py-3 text-xs text-gray-600 font-medium">Pedidos</th>
+                    <th className="text-right px-5 py-3 text-xs text-gray-600 font-medium">Total acumulado</th>
+                    <th className="text-right px-5 py-3 text-xs text-gray-600 font-medium">Media / pedido</th>
+                    <th className="text-right px-5 py-3 text-xs text-gray-600 font-medium">% del total</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {ranking.rests.map(r => (
                     <tr key={r.name} className="hover:bg-gray-50">
-                      <td className="px-5 py-3 font-medium text-[#1C1C1E]">{r.name}</td>
+                      <td className="px-5 py-3 font-medium text-black">{r.name}</td>
                       <td className="px-5 py-3 text-right text-gray-600">{r.pedidos.size}</td>
                       <td className="px-5 py-3 text-right font-semibold text-[#1E2B28]">{r.euros.toFixed(2)}€</td>
                       <td className="px-5 py-3 text-right text-gray-600">{(r.euros / r.pedidos.size).toFixed(2)}€</td>
@@ -720,7 +720,7 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
                           <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                             <div className="h-full bg-[#1E2B28] rounded-full" style={{ width: `${(r.euros / ranking.maxRest) * 100}%` }} />
                           </div>
-                          <span className="text-xs text-gray-500 w-10 text-right">
+                          <span className="text-xs text-gray-700 w-10 text-right">
                             {((r.euros / (ranking.rests.reduce((s,x) => s + x.euros, 0) || 1)) * 100).toFixed(0)}%
                           </span>
                         </div>
@@ -729,7 +729,7 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
                   ))}
                 </tbody>
               </table>
-              {ranking.rests.length === 0 && <p className="text-center py-10 text-gray-400">Sin datos</p>}
+              {ranking.rests.length === 0 && <p className="text-center py-10 text-gray-600">Sin datos</p>}
             </HScroll>
           </div>
         </div>

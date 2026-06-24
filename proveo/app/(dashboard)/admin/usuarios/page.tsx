@@ -23,8 +23,8 @@ export default async function AdminUsuariosPage() {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-[#1C1C1E]">Usuarios</h1>
-        <p className="text-gray-500 mt-1">{users?.length ?? 0} usuarios registrados · gestiona nombres y PINs de acceso</p>
+        <h1 className="text-2xl font-bold text-black">Usuarios</h1>
+        <p className="text-gray-700 mt-1">{users?.length ?? 0} usuarios registrados · gestiona nombres y PINs de acceso</p>
       </div>
 
       <UsuariosTable users={users ?? []} />

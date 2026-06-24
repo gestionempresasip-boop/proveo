@@ -72,7 +72,7 @@ export default function LoginPage() {
       <div className="min-h-screen bg-[#FAFAF8] flex flex-col items-center justify-center px-4 py-12">
         <div className="mb-10 text-center">
           <h1 className="text-3xl font-bold text-[#1E2B28] tracking-tight">Proveo</h1>
-          <p className="text-gray-400 mt-1 text-sm">Selecciona tu restaurante</p>
+          <p className="text-gray-600 mt-1 text-sm">Selecciona tu restaurante</p>
         </div>
 
         <div className="w-full max-w-sm grid grid-cols-2 gap-3">
@@ -97,7 +97,7 @@ export default function LoginPage() {
                 height={48}
                 className="w-full h-12 object-contain"
               />
-              <span className="text-[#1C1C1E]">{place.name}</span>
+              <span className="text-black">{place.name}</span>
             </button>
           ))}
         </div>
@@ -110,7 +110,7 @@ export default function LoginPage() {
       <div className="w-full max-w-xs">
         <button
           onClick={() => { setSelected(null); setPin('') }}
-          className="flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600 mb-8 transition-colors"
+          className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-600 mb-8 transition-colors"
         >
           <ChevronLeft className="w-4 h-4" />
           Volver
@@ -126,8 +126,8 @@ export default function LoginPage() {
               className="w-24 h-16 object-contain"
             />
           </div>
-          <h2 className="text-xl font-bold text-[#1C1C1E]">{selected.name}</h2>
-          <p className="text-gray-400 text-sm mt-1">Introduce tu PIN</p>
+          <h2 className="text-xl font-bold text-black">{selected.name}</h2>
+          <p className="text-gray-600 text-sm mt-1">Introduce tu PIN</p>
         </div>
 
         {/* Puntos del PIN */}
@@ -158,7 +158,7 @@ export default function LoginPage() {
                   key={i}
                   onClick={() => handleKey('del')}
                   disabled={loading}
-                  className="flex items-center justify-center h-16 rounded-2xl bg-gray-100 hover:bg-gray-200 active:scale-95 transition-all text-gray-500 disabled:opacity-40"
+                  className="flex items-center justify-center h-16 rounded-2xl bg-gray-100 hover:bg-gray-200 active:scale-95 transition-all text-gray-700 disabled:opacity-40"
                 >
                   <Delete className="w-5 h-5" />
                 </button>
@@ -169,7 +169,7 @@ export default function LoginPage() {
                 key={i}
                 onClick={() => handleKey(key)}
                 disabled={loading || pin.length >= 4}
-                className="flex items-center justify-center h-16 rounded-2xl bg-white border border-gray-100 hover:border-[#1E2B28] hover:shadow-md active:scale-95 transition-all text-xl font-semibold text-[#1C1C1E] shadow-sm disabled:opacity-40"
+                className="flex items-center justify-center h-16 rounded-2xl bg-white border border-gray-100 hover:border-[#1E2B28] hover:shadow-md active:scale-95 transition-all text-xl font-semibold text-black shadow-sm disabled:opacity-40"
               >
                 {key}
               </button>
@@ -178,7 +178,7 @@ export default function LoginPage() {
         </div>
 
         {loading && (
-          <p className="text-center text-sm text-gray-400 mt-6 animate-pulse">Entrando...</p>
+          <p className="text-center text-sm text-gray-600 mt-6 animate-pulse">Entrando...</p>
         )}
       </div>
     </div>

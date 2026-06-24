@@ -162,8 +162,8 @@ export default function CatalogoPage() {
         <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
           <Check className="h-10 w-10 text-green-600" />
         </div>
-        <h2 className="text-xl font-bold text-[#1C1C1E]">¡Pedido enviado!</h2>
-        <p className="text-gray-500">La nave recibirá tu pedido en breve</p>
+        <h2 className="text-xl font-bold text-black">¡Pedido enviado!</h2>
+        <p className="text-gray-700">La nave recibirá tu pedido en breve</p>
       </div>
     )
   }
@@ -172,7 +172,7 @@ export default function CatalogoPage() {
   const cartItemsList = (
     <div className="p-4">
       {cartItems.length === 0 ? (
-        <p className="text-gray-400 text-sm text-center py-6">
+        <p className="text-gray-600 text-sm text-center py-6">
           Pulsa + en cualquier producto para añadirlo
         </p>
       ) : (
@@ -180,14 +180,14 @@ export default function CatalogoPage() {
           {cartItems.map(({ product, quantity }) => (
             <div key={product.id} className="flex items-start justify-between gap-2 text-sm">
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-[#1C1C1E] leading-tight">{product.name}</p>
-                <p className="text-gray-400 text-xs mt-0.5">
+                <p className="font-medium text-black leading-tight">{product.name}</p>
+                <p className="text-gray-600 text-xs mt-0.5">
                   {quantity} {product.unit}
                 </p>
               </div>
               <button
                 onClick={() => handleQuantityChange(product.id, 0)}
-                className="text-gray-300 hover:text-red-500 transition-colors shrink-0"
+                className="text-gray-700 hover:text-red-500 transition-colors shrink-0"
                 title="Eliminar del pedido"
               >
                 <X className="h-4 w-4" />
@@ -229,8 +229,8 @@ export default function CatalogoPage() {
 
       {/* ── Page header ─────────────────────────────────────────────────── */}
       <div className="px-4 sm:px-6 pt-4 pb-3">
-        <h1 className="text-xl sm:text-2xl font-bold text-[#1C1C1E]">Catálogo de productos</h1>
-        <p className="text-gray-500 mt-0.5 text-sm">
+        <h1 className="text-xl sm:text-2xl font-bold text-black">Catálogo de productos</h1>
+        <p className="text-gray-700 mt-0.5 text-sm">
           {searchQuery
             ? `${filteredProducts.length} resultado${filteredProducts.length !== 1 ? 's' : ''} para "${searchQuery}"`
             : `${products.length} productos disponibles · selecciona y haz tu pedido`}
@@ -242,18 +242,18 @@ export default function CatalogoPage() {
 
         {/* Search bar */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600 pointer-events-none" />
           <input
             type="text"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             placeholder="Buscar producto..."
-            className="w-full pl-9 pr-9 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28] focus:border-transparent placeholder-gray-400"
+            className="w-full pl-9 pr-9 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28] focus:border-transparent placeholder-gray-600"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-600"
             >
               <X className="h-4 w-4" />
             </button>
@@ -269,11 +269,11 @@ export default function CatalogoPage() {
             <span className="flex items-center gap-2 truncate">
               {selectedCategory !== 'todos' && <CatDot color={(selectedCatObj as any)?.color} />}
               <span className="truncate">{selectedCatLabel}</span>
-              <span className="text-xs px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 shrink-0">
+              <span className="text-xs px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-700 shrink-0">
                 {selectedCatCount}
               </span>
             </span>
-            <ChevronDown className={cn('h-4 w-4 text-gray-400 transition-transform shrink-0', categoryMenuOpen && 'rotate-180')} />
+            <ChevronDown className={cn('h-4 w-4 text-gray-600 transition-transform shrink-0', categoryMenuOpen && 'rotate-180')} />
           </button>
 
           {categoryMenuOpen && (
@@ -288,7 +288,7 @@ export default function CatalogoPage() {
                   )}
                 >
                   <span>Todas las categorías</span>
-                  <span className="text-xs text-gray-400">{products.length}</span>
+                  <span className="text-xs text-gray-600">{products.length}</span>
                 </button>
                 {visibleCategories.map(cat => (
                   <button
@@ -303,7 +303,7 @@ export default function CatalogoPage() {
                       <CatDot color={(cat as any).color} />
                       <span className="truncate">{cat.name}</span>
                     </span>
-                    <span className="text-xs text-gray-400 shrink-0">{countByCat[cat.id]}</span>
+                    <span className="text-xs text-gray-600 shrink-0">{countByCat[cat.id]}</span>
                   </button>
                 ))}
               </div>
@@ -320,7 +320,7 @@ export default function CatalogoPage() {
           {/* Products grid */}
           <div className="flex-1 min-w-0 pb-28 lg:pb-6">
             {filteredProducts.length === 0 ? (
-              <div className="text-center py-20 text-gray-400">
+              <div className="text-center py-20 text-gray-600">
                 <Search className="h-10 w-10 mx-auto mb-3 opacity-30" />
                 <p className="text-lg font-medium">Sin resultados</p>
                 <p className="text-sm mt-1">

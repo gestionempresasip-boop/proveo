@@ -28,14 +28,14 @@ export default async function EscandалlosPage() {
     <div className="p-6 max-w-5xl mx-auto space-y-6">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[#1C1C1E]">Escandallos</h1>
-          <p className="text-gray-500 mt-1">Fichas de recetas con cálculo de costes y márgenes</p>
+          <h1 className="text-2xl font-bold text-black">Escandallos</h1>
+          <p className="text-gray-700 mt-1">Fichas de recetas con cálculo de costes y márgenes</p>
         </div>
         <NuevaRecetaModal products={products ?? []} />
       </div>
 
       {recipes.length === 0 ? (
-        <div className="text-center py-20 text-gray-400">
+        <div className="text-center py-20 text-gray-600">
           <BookOpen className="h-12 w-12 mx-auto mb-3 text-gray-200" />
           <p>No hay escandallos todavía</p>
           <p className="text-sm mt-1">Crea tu primera receta para calcular costes automáticamente</p>
@@ -61,20 +61,20 @@ export default async function EscandалlosPage() {
                       <BookOpen className="h-6 w-6 text-[#1E2B28]" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-[#1C1C1E] truncate">{recipe.name}</h3>
-                      {recipe.category && <p className="text-xs text-gray-400 mt-0.5">{recipe.category}</p>}
+                      <h3 className="font-semibold text-black truncate">{recipe.name}</h3>
+                      {recipe.category && <p className="text-xs text-gray-600 mt-0.5">{recipe.category}</p>}
                     </div>
                   </div>
 
                   <div className="mt-4 grid grid-cols-2 gap-3">
                     <div className="bg-gray-50 rounded-xl p-3">
-                      <p className="text-xs text-gray-400 uppercase tracking-wide">Coste/ración</p>
+                      <p className="text-xs text-gray-600 uppercase tracking-wide">Coste/ración</p>
                       <p className="text-lg font-bold text-[#1E2B28] mt-0.5">{costPerServing.toFixed(2)}€</p>
                     </div>
                     {recipe.sale_price && (
                       <div className="bg-gray-50 rounded-xl p-3">
-                        <p className="text-xs text-gray-400 uppercase tracking-wide">PVP</p>
-                        <p className="text-lg font-bold text-[#1C1C1E] mt-0.5">{Number(recipe.sale_price).toFixed(2)}€</p>
+                        <p className="text-xs text-gray-600 uppercase tracking-wide">PVP</p>
+                        <p className="text-lg font-bold text-black mt-0.5">{Number(recipe.sale_price).toFixed(2)}€</p>
                       </div>
                     )}
                   </div>
@@ -89,17 +89,17 @@ export default async function EscandалlosPage() {
                   )}
 
                   <div className="mt-3 pt-3 border-t border-gray-100">
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-gray-600">
                       {ingredients.length} ingrediente{ingredients.length !== 1 ? 's' : ''} · {recipe.servings} ración{recipe.servings !== 1 ? 'es' : ''}
                     </p>
                     <div className="mt-2 space-y-1">
                       {ingredients.slice(0, 3).map((ing: any, i: number) => (
-                        <p key={i} className="text-xs text-gray-500">
+                        <p key={i} className="text-xs text-gray-700">
                           {ing.products?.name} — {ing.quantity} {ing.unit}
                         </p>
                       ))}
                       {ingredients.length > 3 && (
-                        <p className="text-xs text-gray-400">+{ingredients.length - 3} más...</p>
+                        <p className="text-xs text-gray-600">+{ingredients.length - 3} más...</p>
                       )}
                     </div>
                   </div>

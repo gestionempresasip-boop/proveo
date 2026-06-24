@@ -35,7 +35,7 @@ export function EditProductoModal({ product, categories }: { product: Product; c
     <>
       <button
         onClick={() => setOpen(true)}
-        className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-[#1E2B28] transition-colors"
+        className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-600 hover:text-[#1E2B28] transition-colors"
         title="Editar producto"
       >
         <Pencil className="w-4 h-4" />
@@ -45,8 +45,8 @@ export function EditProductoModal({ product, categories }: { product: Product; c
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-5 border-b sticky top-0 bg-white">
-              <h2 className="text-lg font-bold text-[#1C1C1E]">Editar producto</h2>
-              <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600">
+              <h2 className="text-lg font-bold text-black">Editar producto</h2>
+              <button onClick={() => setOpen(false)} className="text-gray-600 hover:text-gray-600">
                 <X className="w-5 h-5" />
               </button>
             </div>

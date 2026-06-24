@@ -75,12 +75,12 @@ function OrderRow({ order, onCanceled }: { order: Order; onCanceled: (id: string
               <span className="text-white text-xs font-bold">#{order.order_number}</span>
             </div>
             <div>
-              <div className="flex items-center gap-2 text-xs text-gray-400">
+              <div className="flex items-center gap-2 text-xs text-gray-600">
                 <Clock className="h-3 w-3" />
                 {new Date(order.created_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
               </div>
               {order.notes && (
-                <p className="text-xs text-gray-500 mt-1 italic">"{order.notes}"</p>
+                <p className="text-xs text-gray-700 mt-1 italic">"{order.notes}"</p>
               )}
             </div>
           </div>
@@ -99,7 +99,7 @@ function OrderRow({ order, onCanceled }: { order: Order; onCanceled: (id: string
               return (
                 <div key={i} className="text-xs rounded-xl px-3 py-2 bg-red-50 border border-red-200">
                   <div className="flex items-center justify-between">
-                    <span className="font-medium text-[#1C1C1E] flex items-center gap-1.5">
+                    <span className="font-medium text-black flex items-center gap-1.5">
                       <Ban className="h-3 w-3 text-red-500 shrink-0" />{item.products?.name}
                     </span>
                     <span className="text-red-600 font-semibold shrink-0 ml-2">❌ No disponible</span>
@@ -110,13 +110,13 @@ function OrderRow({ order, onCanceled }: { order: Order; onCanceled: (id: string
             }
             return (
               <div key={i} className={cn('text-xs rounded-xl px-3 py-2 flex justify-between', isRectified ? 'bg-amber-50 border border-amber-200' : 'bg-gray-50')}>
-                <span className="font-medium text-[#1C1C1E]">{item.products?.name}</span>
+                <span className="font-medium text-black">{item.products?.name}</span>
                 {isRectified ? (
                   <span className="text-amber-700 shrink-0 ml-2">
-                    Pedido: <span className="line-through text-gray-400">{item.quantity}</span> · Confirmado: <span className="font-semibold">{item.rectified_quantity} {unitLabel(item.unit)}</span>
+                    Pedido: <span className="line-through text-gray-600">{item.quantity}</span> · Confirmado: <span className="font-semibold">{item.rectified_quantity} {unitLabel(item.unit)}</span>
                   </span>
                 ) : (
-                  <span className="text-gray-400 shrink-0 ml-2">{item.quantity} {unitLabel(item.unit)}</span>
+                  <span className="text-gray-600 shrink-0 ml-2">{item.quantity} {unitLabel(item.unit)}</span>
                 )}
               </div>
             )
@@ -206,7 +206,7 @@ export function PedidosRestauranteClient({ orders: initialOrders }: { orders: Or
 
   if (orders.length === 0) {
     return (
-      <div className="text-center py-20 text-gray-400">
+      <div className="text-center py-20 text-gray-600">
         <Package className="h-12 w-12 mx-auto mb-3 text-gray-200" />
         <p>No hay pedidos aún</p>
       </div>
@@ -218,13 +218,13 @@ export function PedidosRestauranteClient({ orders: initialOrders }: { orders: Or
       {/* Filtros */}
       <div className="flex flex-col sm:flex-row gap-2">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600 pointer-events-none" />
           <input
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Buscar por nº de pedido, producto o nota..."
-            className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28] focus:border-transparent placeholder-gray-400"
+            className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28] focus:border-transparent placeholder-gray-600"
           />
         </div>
         <input
@@ -236,7 +236,7 @@ export function PedidosRestauranteClient({ orders: initialOrders }: { orders: Or
         {hasFilters && (
           <button
             onClick={() => { setSearch(''); setDateFilter('') }}
-            className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border border-gray-200 text-gray-500 text-sm hover:bg-gray-50 transition-colors shrink-0"
+            className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border border-gray-200 text-gray-700 text-sm hover:bg-gray-50 transition-colors shrink-0"
           >
             <X className="h-4 w-4" />
             Limpiar
@@ -245,7 +245,7 @@ export function PedidosRestauranteClient({ orders: initialOrders }: { orders: Or
       </div>
 
       {groups.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">
+        <div className="text-center py-16 text-gray-600">
           <Search className="h-10 w-10 mx-auto mb-3 opacity-30" />
           <p className="font-medium">Sin resultados</p>
           <p className="text-sm mt-1">No hay pedidos que coincidan con la búsqueda</p>
@@ -261,12 +261,12 @@ export function PedidosRestauranteClient({ orders: initialOrders }: { orders: Or
                   className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-gray-50/80 transition-colors"
                 >
                   <div className="flex items-center gap-2.5">
-                    <span className="font-semibold text-[#1C1C1E] capitalize">{dayLabel(group[0].created_at)}</span>
-                    <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full font-medium">
+                    <span className="font-semibold text-black capitalize">{dayLabel(group[0].created_at)}</span>
+                    <span className="text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full font-medium">
                       {group.length} {group.length === 1 ? 'pedido' : 'pedidos'}
                     </span>
                   </div>
-                  <ChevronDown className={cn('h-4 w-4 text-gray-400 transition-transform shrink-0', open && 'rotate-180')} />
+                  <ChevronDown className={cn('h-4 w-4 text-gray-600 transition-transform shrink-0', open && 'rotate-180')} />
                 </button>
                 {open && (
                   <div className="px-4 pb-4 pt-1 space-y-3 border-t border-gray-100">

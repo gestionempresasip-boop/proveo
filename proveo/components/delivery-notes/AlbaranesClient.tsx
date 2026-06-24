@@ -32,8 +32,8 @@ function NoteRow({ note, isNave, onDeleted }: { note: Note; isNave: boolean; onD
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
           <FileText className="w-4 h-4 text-[#1E2B28] shrink-0" />
-          <span className="font-medium text-[#1C1C1E]">#{note.note_number}</span>
-          <span className="text-gray-400 text-xs">Pedido #{note.orders?.order_number}</span>
+          <span className="font-medium text-black">#{note.note_number}</span>
+          <span className="text-gray-600 text-xs">Pedido #{note.orders?.order_number}</span>
         </div>
       </td>
       {isNave && (
@@ -41,7 +41,7 @@ function NoteRow({ note, isNave, onDeleted }: { note: Note; isNave: boolean; onD
           {note.orders?.organizations?.name ?? '—'}
         </td>
       )}
-      <td className="px-4 py-3 text-gray-500">
+      <td className="px-4 py-3 text-gray-700">
         {new Date(note.delivered_at).toLocaleDateString('es-ES', {
           day: 'numeric', month: 'short', year: 'numeric'
         })}
@@ -99,7 +99,7 @@ export function AlbaranesClient({ notes: initialNotes, isNave }: { notes: Note[]
 
   if (notes.length === 0) {
     return (
-      <div className="text-center py-20 text-gray-400">
+      <div className="text-center py-20 text-gray-600">
         <FileText className="h-12 w-12 mx-auto mb-3 text-gray-200" />
         <p className="font-medium">No hay albaranes todavía</p>
       </div>
@@ -112,10 +112,10 @@ export function AlbaranesClient({ notes: initialNotes, isNave }: { notes: Note[]
         <table className="w-full text-sm min-w-[500px]">
           <thead className="bg-gray-50 border-b border-gray-100">
             <tr>
-              <th className="text-left px-4 py-3 text-gray-500 font-medium">Albarán</th>
-              {isNave && <th className="text-left px-4 py-3 text-gray-500 font-medium">Restaurante</th>}
-              <th className="text-left px-4 py-3 text-gray-500 font-medium">Fecha</th>
-              {isNave && <th className="text-right px-4 py-3 text-gray-500 font-medium">Total</th>}
+              <th className="text-left px-4 py-3 text-gray-700 font-medium">Albarán</th>
+              {isNave && <th className="text-left px-4 py-3 text-gray-700 font-medium">Restaurante</th>}
+              <th className="text-left px-4 py-3 text-gray-700 font-medium">Fecha</th>
+              {isNave && <th className="text-right px-4 py-3 text-gray-700 font-medium">Total</th>}
               <th className="px-4 py-3"></th>
             </tr>
           </thead>

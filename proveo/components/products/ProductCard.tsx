@@ -123,14 +123,14 @@ export function ProductCard({
 
       {/* ── Product info ─────────────────────────────────────────────── */}
       <div className="p-3 flex flex-col flex-1">
-        <h3 className="font-semibold text-[#1C1C1E] text-sm leading-tight line-clamp-2 flex-1">
+        <h3 className="font-semibold text-black text-sm leading-tight line-clamp-2 flex-1">
           {product.name}
         </h3>
         {product.description && (
-          <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{product.description}</p>
+          <p className="text-xs text-gray-600 mt-0.5 line-clamp-1">{product.description}</p>
         )}
         {!outOfStock && maxStock !== undefined && (
-          <p className="text-[10px] text-gray-400 mt-0.5">Quedan {maxStock} {unit}</p>
+          <p className="text-[10px] text-gray-600 mt-0.5">Quedan {maxStock} {unit}</p>
         )}
 
         {/* ── Quantity selector ───────────────────────────────────────── */}
@@ -142,7 +142,7 @@ export function ProductCard({
               'w-11 h-11 rounded-xl flex items-center justify-center transition-all shrink-0 active:scale-95',
               hasQuantity
                 ? 'bg-[#1E2B28] text-white'
-                : 'bg-gray-100 text-gray-300 cursor-not-allowed'
+                : 'bg-gray-100 text-gray-700 cursor-not-allowed'
             )}
           >
             <Minus className="h-4 w-4" />
@@ -161,11 +161,11 @@ export function ProductCard({
               onKeyDown={e => { if (e.key === 'Enter') { commitInput(inputValue); (e.target as HTMLInputElement).blur() } }}
               className={cn(
                 'w-full text-center text-sm font-semibold tabular-nums bg-transparent border-0 outline-none focus:ring-1 focus:ring-[#1E2B28] rounded-lg py-1',
-                hasQuantity ? 'text-gray-900' : 'text-gray-400 placeholder-gray-300'
+                hasQuantity ? 'text-gray-900' : 'text-gray-600 placeholder-gray-500'
               )}
             />
             {hasQuantity && (
-              <span className="text-[10px] text-gray-400 leading-none">{unit}</span>
+              <span className="text-[10px] text-gray-600 leading-none">{unit}</span>
             )}
           </div>
 
@@ -175,7 +175,7 @@ export function ProductCard({
             title={atStockLimit ? 'Has llegado al stock disponible' : undefined}
             className={cn(
               'w-11 h-11 rounded-xl flex items-center justify-center active:scale-95 transition-all shrink-0',
-              outOfStock || atStockLimit ? 'bg-gray-100 text-gray-300 cursor-not-allowed' : 'bg-[#1E2B28] text-white'
+              outOfStock || atStockLimit ? 'bg-gray-100 text-gray-700 cursor-not-allowed' : 'bg-[#1E2B28] text-white'
             )}
           >
             <Plus className="h-4 w-4" />

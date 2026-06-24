@@ -79,7 +79,7 @@ export default async function DashboardPage() {
         <h1 className="text-2xl font-semibold text-gray-900">
           {greeting(profile.full_name)}
         </h1>
-        <p className="text-gray-400 mt-1 text-sm">
+        <p className="text-gray-600 mt-1 text-sm">
           {isNave ? 'Nave Obrador' : profile.organizations.name}
         </p>
       </div>
@@ -94,7 +94,7 @@ export default async function DashboardPage() {
               </div>
               <div>
                 <p className="text-2xl font-bold text-gray-900">{s.value}</p>
-                <p className="text-xs text-gray-400 mt-0.5">{s.label}</p>
+                <p className="text-xs text-gray-600 mt-0.5">{s.label}</p>
               </div>
             </div>
           </Link>
@@ -111,9 +111,9 @@ export default async function DashboardPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-gray-900 text-sm">{action.label}</p>
-                <p className="text-xs text-gray-400 mt-0.5 truncate">{action.desc}</p>
+                <p className="text-xs text-gray-600 mt-0.5 truncate">{action.desc}</p>
               </div>
-              <ArrowRight className="h-4 w-4 text-gray-300 group-hover:text-gray-500 transition-colors shrink-0" />
+              <ArrowRight className="h-4 w-4 text-gray-700 group-hover:text-gray-700 transition-colors shrink-0" />
             </div>
           </Link>
         ))}
@@ -125,13 +125,13 @@ export default async function DashboardPage() {
           <h2 className="text-sm font-semibold text-gray-900">
             {isNave ? 'Últimos pedidos' : 'Mis últimos pedidos'}
           </h2>
-          <Link href="/pedidos" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
+          <Link href="/pedidos" className="text-xs text-gray-600 hover:text-gray-600 transition-colors">
             Ver todos →
           </Link>
         </div>
 
         {!recentOrders || recentOrders.length === 0 ? (
-          <div className="py-12 text-center text-gray-400 text-sm">
+          <div className="py-12 text-center text-gray-600 text-sm">
             No hay pedidos aún
           </div>
         ) : (
@@ -139,11 +139,11 @@ export default async function DashboardPage() {
             {recentOrders.map((order: any) => (
               <div key={order.id} className="px-5 py-3.5 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3 min-w-0">
-                  <span className="text-xs font-mono text-gray-400 shrink-0">#{order.order_number}</span>
+                  <span className="text-xs font-mono text-gray-600 shrink-0">#{order.order_number}</span>
                   <span className="text-sm text-gray-700 font-medium truncate">
                     {isNave ? order.organizations?.name : `Pedido #${order.order_number}`}
                   </span>
-                  <span className="text-xs text-gray-400 shrink-0 hidden sm:block">
+                  <span className="text-xs text-gray-600 shrink-0 hidden sm:block">
                     {new Date(order.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
                   </span>
                 </div>
@@ -153,7 +153,7 @@ export default async function DashboardPage() {
                   </span>
                   <div className="flex items-center gap-1.5">
                     <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${STATUS_DOT[order.status] ?? 'bg-gray-300'}`} />
-                    <span className="text-xs text-gray-400 hidden sm:block">
+                    <span className="text-xs text-gray-600 hidden sm:block">
                       {STATUS_LABELS[order.status] ?? order.status}
                     </span>
                   </div>

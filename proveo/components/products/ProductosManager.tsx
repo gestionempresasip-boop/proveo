@@ -62,7 +62,7 @@ function ToggleActiveButton({ product }: { product: Product }) {
     <button onClick={toggle} disabled={pending} title={active ? 'Ocultar a restaurantes' : 'Hacer visible'}
       className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors border ${
         active ? 'bg-green-50 text-green-700 border-green-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200'
-               : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-green-50 hover:text-green-700 hover:border-green-200'
+               : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-green-50 hover:text-green-700 hover:border-green-200'
       }`}>
       {active ? <><Eye className="w-3 h-3" />Visible</> : <><EyeOff className="w-3 h-3" />Oculto</>}
     </button>
@@ -78,15 +78,15 @@ function DeleteButton({ product }: { product: Product }) {
   if (confirming) {
     return (
       <div className="flex items-center gap-1">
-        <span className="text-xs text-gray-500 whitespace-nowrap">¿Eliminar?</span>
+        <span className="text-xs text-gray-700 whitespace-nowrap">¿Eliminar?</span>
         <button onClick={doDelete} disabled={pending} className="p-1 rounded text-red-600 hover:bg-red-50"><Check className="w-4 h-4" /></button>
-        <button onClick={() => setConfirming(false)} className="p-1 rounded text-gray-400 hover:bg-gray-100"><X className="w-4 h-4" /></button>
+        <button onClick={() => setConfirming(false)} className="p-1 rounded text-gray-600 hover:bg-gray-100"><X className="w-4 h-4" /></button>
       </div>
     )
   }
   return (
     <button onClick={() => setConfirming(true)} title={`Eliminar ${product.name}`}
-      className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors">
+      className="p-1.5 rounded-lg text-gray-700 hover:text-red-500 hover:bg-red-50 transition-colors">
       <Trash2 className="w-4 h-4" />
     </button>
   )
@@ -131,7 +131,7 @@ function PricingCalculator({
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-xs text-gray-500 font-medium block mb-1">Precio de coste (€)</label>
+          <label className="text-xs text-gray-700 font-medium block mb-1">Precio de coste (€)</label>
           <input
             type="number" step="0.0001" min="0"
             value={cost || ''}
@@ -141,7 +141,7 @@ function PricingCalculator({
           />
         </div>
         <div>
-          <label className="text-xs text-gray-500 font-medium block mb-1">Margen (%)</label>
+          <label className="text-xs text-gray-700 font-medium block mb-1">Margen (%)</label>
           <div className="flex items-center gap-1.5">
             <input
               type="number" step="1" min="0" max="2000"
@@ -155,7 +155,7 @@ function PricingCalculator({
       </div>
 
       <div>
-        <label className="text-xs text-gray-500 font-medium block mb-1">IVA aplicable</label>
+        <label className="text-xs text-gray-700 font-medium block mb-1">IVA aplicable</label>
         <select
           value={ivaPct}
           onChange={e => setIvaPct(Number(e.target.value))}
@@ -168,18 +168,18 @@ function PricingCalculator({
       {/* Calculated breakdown */}
       <div className="bg-white rounded-lg p-3 border border-amber-100 space-y-1.5">
         <div className="flex justify-between text-sm">
-          <span className="text-gray-500">Precio venta <span className="text-xs text-gray-400">(sin IVA)</span></span>
-          <span className="font-semibold text-[#1C1C1E] tabular-nums">{priceNoIva.toFixed(4)} €</span>
+          <span className="text-gray-700">Precio venta <span className="text-xs text-gray-600">(sin IVA)</span></span>
+          <span className="font-semibold text-black tabular-nums">{priceNoIva.toFixed(4)} €</span>
         </div>
-        <div className="flex justify-between text-xs text-gray-400 tabular-nums">
+        <div className="flex justify-between text-xs text-gray-600 tabular-nums">
           <span>+ IVA {ivaPct}%</span>
           <span>+ {ivaAmount.toFixed(4)} €</span>
         </div>
         <div className="flex justify-between items-baseline border-t border-amber-100 pt-1.5">
-          <span className="text-sm font-semibold text-[#1C1C1E]">Precio final (con IVA)</span>
+          <span className="text-sm font-semibold text-black">Precio final (con IVA)</span>
           <span className="text-xl font-bold text-[#1E2B28] tabular-nums">{priceConIva.toFixed(2)} €</span>
         </div>
-        <p className="text-xs text-gray-400 pt-0.5">Este es el precio que verán los restaurantes</p>
+        <p className="text-xs text-gray-600 pt-0.5">Este es el precio que verán los restaurantes</p>
       </div>
     </div>
   )
@@ -199,24 +199,24 @@ function ProductFields({
   return (
     <div className="space-y-3">
       <div>
-        <label className="text-xs text-gray-500 font-medium block mb-1">Nombre *</label>
+        <label className="text-xs text-gray-700 font-medium block mb-1">Nombre *</label>
         <input name="name" defaultValue={product?.name} required placeholder="Ej: Aceite de oliva virgen"
           className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
       </div>
       <div>
-        <label className="text-xs text-gray-500 font-medium block mb-1">Descripción</label>
+        <label className="text-xs text-gray-700 font-medium block mb-1">Descripción</label>
         <input name="description" defaultValue={product?.description ?? ''} placeholder="Opcional"
           className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
       </div>
       <div>
-        <label className="text-xs text-gray-500 font-medium block mb-1">URL de imagen</label>
+        <label className="text-xs text-gray-700 font-medium block mb-1">URL de imagen</label>
         <input name="image_url" type="url" defaultValue={product?.image_url ?? ''} placeholder="https://... (pega una URL de imagen)"
           className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
       </div>
       <div>
-        <label className="text-xs text-gray-500 font-medium block mb-1">Categorías (puedes marcar varias)</label>
+        <label className="text-xs text-gray-700 font-medium block mb-1">Categorías (puedes marcar varias)</label>
         <div className="border border-gray-200 rounded-lg p-2.5 max-h-36 overflow-y-auto space-y-1">
-          {categories.length === 0 && <p className="text-xs text-gray-400 px-1">No hay categorías creadas</p>}
+          {categories.length === 0 && <p className="text-xs text-gray-600 px-1">No hay categorías creadas</p>}
           {categories.map(c => (
             <label key={c.id} className="flex items-center gap-2 px-1 py-1 rounded hover:bg-gray-50 cursor-pointer text-sm">
               <input
@@ -236,19 +236,19 @@ function ProductFields({
         {/* When isNave the price is driven by the PricingCalculator via price_override.
             We still render it for fallback (cost=0 case) but it's labeled clearly. */}
         <div>
-          <label className="text-xs text-gray-500 font-medium block mb-1">
+          <label className="text-xs text-gray-700 font-medium block mb-1">
             {isNave ? 'Precio sin IVA (€) — anulado por coste+margen si > 0' : 'Precio (€) *'}
           </label>
           <input name="price" type="number" step="0.0001" min="0"
             defaultValue={product?.price ?? 0}
             required={!isNave}
             className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28] ${
-              isNave ? 'border-gray-100 bg-gray-50 text-gray-400' : 'border-gray-200'
+              isNave ? 'border-gray-100 bg-gray-50 text-gray-600' : 'border-gray-200'
             }`} />
-          {isNave && <p className="text-xs text-gray-400 mt-0.5">Se calcula automáticamente arriba</p>}
+          {isNave && <p className="text-xs text-gray-600 mt-0.5">Se calcula automáticamente arriba</p>}
         </div>
         <div>
-          <label className="text-xs text-gray-500 font-medium block mb-1">Unidad *</label>
+          <label className="text-xs text-gray-700 font-medium block mb-1">Unidad *</label>
           <select name="unit" defaultValue={product?.unit ?? 'kg'}
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]">
             {UNIT_OPTIONS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
@@ -257,12 +257,12 @@ function ProductFields({
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-xs text-gray-500 font-medium block mb-1">Cant. mínima</label>
+          <label className="text-xs text-gray-700 font-medium block mb-1">Cant. mínima</label>
           <input name="min_order_quantity" type="number" step="0.001" min="0" defaultValue={product?.min_order_quantity ?? 1}
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
         </div>
         <div>
-          <label className="text-xs text-gray-500 font-medium block mb-1">Incremento</label>
+          <label className="text-xs text-gray-700 font-medium block mb-1">Incremento</label>
           <input name="order_increment" type="number" step="0.001" min="0" defaultValue={product?.order_increment ?? 1}
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
         </div>
@@ -289,8 +289,8 @@ function EditModal({
     <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 overflow-y-auto">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md my-4">
         <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
-          <h2 className="font-semibold text-[#1C1C1E]">Editar producto</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+          <h2 className="font-semibold text-black">Editar producto</h2>
+          <button onClick={onClose} className="text-gray-600 hover:text-gray-600"><X className="w-5 h-5" /></button>
         </div>
         <form onSubmit={handleSubmit} className="px-6 py-4 space-y-4">
           {isNave && (
@@ -335,8 +335,8 @@ function NuevoModal({
     <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 overflow-y-auto">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md my-4">
         <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
-          <h2 className="font-semibold text-[#1C1C1E]">Nuevo producto</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+          <h2 className="font-semibold text-black">Nuevo producto</h2>
+          <button onClick={onClose} className="text-gray-600 hover:text-gray-600"><X className="w-5 h-5" /></button>
         </div>
         <form onSubmit={handleSubmit} className="px-6 py-4 space-y-4">
           {isNave && (
@@ -345,19 +345,19 @@ function NuevoModal({
           {/* Inline fields (same as ProductFields but with defaultCategoryId) */}
           <div className="space-y-3">
             <div>
-              <label className="text-xs text-gray-500 font-medium block mb-1">Nombre *</label>
+              <label className="text-xs text-gray-700 font-medium block mb-1">Nombre *</label>
               <input name="name" required placeholder="Ej: Aceite de oliva virgen"
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
             </div>
             <div>
-              <label className="text-xs text-gray-500 font-medium block mb-1">Descripción</label>
+              <label className="text-xs text-gray-700 font-medium block mb-1">Descripción</label>
               <input name="description" placeholder="Opcional"
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
             </div>
             <div>
-              <label className="text-xs text-gray-500 font-medium block mb-1">Categorías (puedes marcar varias)</label>
+              <label className="text-xs text-gray-700 font-medium block mb-1">Categorías (puedes marcar varias)</label>
               <div className="border border-gray-200 rounded-lg p-2.5 max-h-36 overflow-y-auto space-y-1">
-                {categories.length === 0 && <p className="text-xs text-gray-400 px-1">No hay categorías creadas</p>}
+                {categories.length === 0 && <p className="text-xs text-gray-600 px-1">No hay categorías creadas</p>}
                 {categories.map(c => (
                   <label key={c.id} className="flex items-center gap-2 px-1 py-1 rounded hover:bg-gray-50 cursor-pointer text-sm">
                     <input type="checkbox" name="category_ids" value={c.id} defaultChecked={c.id === catForSelect} className="accent-[#1E2B28]" />
@@ -369,18 +369,18 @@ function NuevoModal({
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-gray-500 font-medium block mb-1">
+                <label className="text-xs text-gray-700 font-medium block mb-1">
                   {isNave ? 'Precio sin IVA (€)' : 'Precio (€) *'}
                 </label>
                 <input name="price" type="number" step="0.0001" min="0" defaultValue="0"
                   required={!isNave}
                   className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28] ${
-                    isNave ? 'border-gray-100 bg-gray-50 text-gray-400' : 'border-gray-200'
+                    isNave ? 'border-gray-100 bg-gray-50 text-gray-600' : 'border-gray-200'
                   }`} />
-                {isNave && <p className="text-xs text-gray-400 mt-0.5">Se calcula arriba</p>}
+                {isNave && <p className="text-xs text-gray-600 mt-0.5">Se calcula arriba</p>}
               </div>
               <div>
-                <label className="text-xs text-gray-500 font-medium block mb-1">Unidad *</label>
+                <label className="text-xs text-gray-700 font-medium block mb-1">Unidad *</label>
                 <select name="unit" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]">
                   {UNIT_OPTIONS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
                 </select>
@@ -388,12 +388,12 @@ function NuevoModal({
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-gray-500 font-medium block mb-1">Cant. mínima</label>
+                <label className="text-xs text-gray-700 font-medium block mb-1">Cant. mínima</label>
                 <input name="min_order_quantity" type="number" step="0.001" min="0" defaultValue="1"
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
               </div>
               <div>
-                <label className="text-xs text-gray-500 font-medium block mb-1">Incremento</label>
+                <label className="text-xs text-gray-700 font-medium block mb-1">Incremento</label>
                 <input name="order_increment" type="number" step="0.001" min="0" defaultValue="1"
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
               </div>
@@ -424,19 +424,19 @@ function ProductsTable({
       <table className={`w-full text-sm ${isNave ? 'min-w-[820px]' : 'min-w-[580px]'}`}>
         <thead className="bg-gray-50 border-b border-gray-100">
           <tr>
-            <th className="text-left px-4 py-2.5 text-xs text-gray-400 font-medium">Producto</th>
+            <th className="text-left px-4 py-2.5 text-xs text-gray-600 font-medium">Producto</th>
             {isNave ? (
               <>
-                <th className="text-right px-3 py-2.5 text-xs text-gray-400 font-medium">Coste</th>
-                <th className="text-right px-3 py-2.5 text-xs text-gray-400 font-medium">Margen</th>
-                <th className="text-right px-3 py-2.5 text-xs text-gray-400 font-medium">Sin IVA</th>
+                <th className="text-right px-3 py-2.5 text-xs text-gray-600 font-medium">Coste</th>
+                <th className="text-right px-3 py-2.5 text-xs text-gray-600 font-medium">Margen</th>
+                <th className="text-right px-3 py-2.5 text-xs text-gray-600 font-medium">Sin IVA</th>
                 <th className="text-right px-3 py-2.5 text-xs text-amber-600 font-medium">Con IVA</th>
               </>
             ) : (
-              <th className="text-right px-4 py-2.5 text-xs text-gray-400 font-medium">Precio</th>
+              <th className="text-right px-4 py-2.5 text-xs text-gray-600 font-medium">Precio</th>
             )}
-            <th className="text-left px-3 py-2.5 text-xs text-gray-400 font-medium">Unidad</th>
-            <th className="text-center px-3 py-2.5 text-xs text-gray-400 font-medium">Visibilidad</th>
+            <th className="text-left px-3 py-2.5 text-xs text-gray-600 font-medium">Unidad</th>
+            <th className="text-center px-3 py-2.5 text-xs text-gray-600 font-medium">Visibilidad</th>
             <th className="px-4 py-2.5 w-20"></th>
           </tr>
         </thead>
@@ -450,17 +450,17 @@ function ProductsTable({
               <tr key={p.id} className={`hover:bg-gray-50 transition-colors ${!p.is_active ? 'opacity-50' : ''}`}>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
-                    <Package className="w-3.5 h-3.5 text-gray-300 shrink-0" />
+                    <Package className="w-3.5 h-3.5 text-gray-700 shrink-0" />
                     <div>
-                      <p className="font-medium text-[#1C1C1E] leading-tight">{p.name}</p>
-                      {p.description && <p className="text-xs text-gray-400">{p.description}</p>}
+                      <p className="font-medium text-black leading-tight">{p.name}</p>
+                      {p.description && <p className="text-xs text-gray-600">{p.description}</p>}
                       {(p.category_ids?.length ?? 0) > 1 && (
                         <div className="flex flex-wrap gap-1 mt-1">
                           {p.category_ids!.map(cid => {
                             const c = categories.find(cat => cat.id === cid)
                             if (!c) return null
                             return (
-                              <span key={cid} className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">
+                              <span key={cid} className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-700">
                                 <ColorDot color={c.color} />{c.name}
                               </span>
                             )
@@ -472,13 +472,13 @@ function ProductsTable({
                 </td>
                 {isNave ? (
                   <>
-                    <td className="px-3 py-3 text-right text-xs tabular-nums text-gray-500">
-                      {hasCost ? `${Number(p.cost_price).toFixed(2)} €` : <span className="text-gray-300">—</span>}
+                    <td className="px-3 py-3 text-right text-xs tabular-nums text-gray-700">
+                      {hasCost ? `${Number(p.cost_price).toFixed(2)} €` : <span className="text-gray-700">—</span>}
                     </td>
                     <td className="px-3 py-3 text-right text-xs tabular-nums">
                       {hasCost
                         ? <span className="bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-medium">{marginPct}%</span>
-                        : <span className="text-gray-300">—</span>}
+                        : <span className="text-gray-700">—</span>}
                     </td>
                     <td className="px-3 py-3 text-right text-xs tabular-nums text-gray-600 font-medium">
                       {Number(p.price).toFixed(2)} €
@@ -487,18 +487,18 @@ function ProductsTable({
                       <div className="text-sm font-bold text-[#1E2B28] tabular-nums">
                         {pFinal.toFixed(2)} €
                       </div>
-                      {ivaPct > 0 && <div className="text-xs text-gray-400">IVA {ivaPct}%</div>}
+                      {ivaPct > 0 && <div className="text-xs text-gray-600">IVA {ivaPct}%</div>}
                     </td>
                   </>
                 ) : (
                   <td className="px-4 py-3 text-right font-semibold text-[#1E2B28]">{Number(p.price).toFixed(2)} €</td>
                 )}
-                <td className="px-3 py-3 text-gray-500 text-xs">{unitLabel(p.unit)}</td>
+                <td className="px-3 py-3 text-gray-700 text-xs">{unitLabel(p.unit)}</td>
                 <td className="px-3 py-3 text-center"><ToggleActiveButton product={p} /></td>
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-end gap-1">
                     <button onClick={() => onEdit(p)} title="Editar"
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-[#1E2B28] hover:bg-green-50 transition-colors">
+                      className="p-1.5 rounded-lg text-gray-600 hover:text-[#1E2B28] hover:bg-green-50 transition-colors">
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
                     <DeleteButton product={p} />
@@ -544,11 +544,11 @@ function CategorySection({
         className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-left"
       >
         <ColorDot color={color} />
-        <span className="font-semibold text-[#1C1C1E] flex-1">{name}</span>
-        <div className="flex items-center gap-2 text-xs text-gray-400">
+        <span className="font-semibold text-black flex-1">{name}</span>
+        <div className="flex items-center gap-2 text-xs text-gray-600">
           <span className="bg-gray-100 px-2 py-0.5 rounded-full">{products.length} productos</span>
           {visibleCount > 0 && <span className="bg-green-50 text-green-600 px-2 py-0.5 rounded-full">{visibleCount} visibles</span>}
-          {hiddenCount  > 0 && <span className="bg-gray-100 text-gray-400 px-2 py-0.5 rounded-full">{hiddenCount} ocultos</span>}
+          {hiddenCount  > 0 && <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{hiddenCount} ocultos</span>}
         </div>
         {categoryId !== '__none__' && products.length > 0 && (
           moving ? (
@@ -566,7 +566,7 @@ function CategorySection({
           ) : (
             <button
               onClick={e => { e.stopPropagation(); setMoving(true) }}
-              className="text-xs text-gray-400 hover:text-[#1E2B28] hover:bg-gray-50 px-2 py-1 rounded-lg transition-colors"
+              className="text-xs text-gray-600 hover:text-[#1E2B28] hover:bg-gray-50 px-2 py-1 rounded-lg transition-colors"
               title="Mover todos los productos de esta categoría a otra"
             >
               Mover todos
@@ -580,12 +580,12 @@ function CategorySection({
         >
           <Plus className="w-3.5 h-3.5" />Añadir
         </button>
-        {open ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
+        {open ? <ChevronDown className="w-4 h-4 text-gray-600" /> : <ChevronRight className="w-4 h-4 text-gray-600" />}
       </button>
       {open && (
         products.length > 0
           ? <ProductsTable products={products} categories={categories} isNave={isNave} onEdit={onEdit} />
-          : <p className="text-xs text-gray-400 px-6 py-4">Sin productos. Pulsa "Añadir" para crear el primero.</p>
+          : <p className="text-xs text-gray-600 px-6 py-4">Sin productos. Pulsa "Añadir" para crear el primero.</p>
       )}
     </div>
   )
@@ -611,15 +611,15 @@ function MergeCategoriesPanel({ categories }: { categories: Category[] }) {
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-4 space-y-2">
-      <p className="text-sm font-medium text-[#1C1C1E]">Fusionar categorías duplicadas</p>
-      <p className="text-xs text-gray-400">Mueve todos los productos de una categoría a otra y borra la primera.</p>
+      <p className="text-sm font-medium text-black">Fusionar categorías duplicadas</p>
+      <p className="text-xs text-gray-600">Mueve todos los productos de una categoría a otra y borra la primera.</p>
       <div className="flex flex-wrap items-center gap-2 pt-1">
         <select value={fromId} onChange={e => setFromId(e.target.value)}
           className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]">
           <option value="">Categoría a eliminar...</option>
           {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
-        <span className="text-gray-400 text-sm">→</span>
+        <span className="text-gray-600 text-sm">→</span>
         <select value={toId} onChange={e => setToId(e.target.value)}
           className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]">
           <option value="">Pasar sus productos a...</option>
@@ -656,7 +656,7 @@ function CategoriasManager({ categories, productCountByCat }: { categories: Cate
     <div className="space-y-4">
       {categories.length > 1 && <MergeCategoriesPanel categories={categories} />}
       <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-500">{categories.length} categorías configuradas</p>
+        <p className="text-sm text-gray-700">{categories.length} categorías configuradas</p>
         <div className="flex gap-2">
           <button onClick={handleSeed} disabled={seedPending || seedDone}
             className="flex items-center gap-1.5 text-xs border border-[#1E2B28] text-[#1E2B28] px-3 py-2 rounded-xl hover:bg-green-50 disabled:opacity-50 transition-colors font-medium">
@@ -672,7 +672,7 @@ function CategoriasManager({ categories, productCountByCat }: { categories: Cate
 
       <div className="bg-white rounded-xl border border-gray-100 divide-y divide-gray-50">
         {categories.length === 0 && (
-          <div className="text-center py-12 text-gray-400">
+          <div className="text-center py-12 text-gray-600">
             <Tag className="w-8 h-8 mx-auto mb-2 text-gray-200" />
             <p className="text-sm">No hay categorías</p>
             <p className="text-xs mt-1">Pulsa "Categorías por defecto" para crear las principales de un tirón</p>
@@ -685,24 +685,24 @@ function CategoriasManager({ categories, productCountByCat }: { categories: Cate
               <EditCatInline cat={cat} onClose={() => setEditingCat(null)} />
             ) : (
               <>
-                <span className="font-medium text-[#1C1C1E] flex-1 text-sm">{cat.name}</span>
-                <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+                <span className="font-medium text-black flex-1 text-sm">{cat.name}</span>
+                <span className="text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">
                   {productCountByCat[cat.id] ?? 0} productos
                 </span>
                 <button onClick={() => setEditingCat(cat)}
-                  className="p-1.5 rounded-lg text-gray-400 hover:text-[#1E2B28] hover:bg-green-50 transition-colors">
+                  className="p-1.5 rounded-lg text-gray-600 hover:text-[#1E2B28] hover:bg-green-50 transition-colors">
                   <Pencil className="w-3.5 h-3.5" />
                 </button>
                 {deletingId === cat.id ? (
                   <div className="flex items-center gap-1">
-                    <span className="text-xs text-gray-500">¿Eliminar?</span>
+                    <span className="text-xs text-gray-700">¿Eliminar?</span>
                     <button onClick={() => handleDeleteCat(cat.id)} disabled={deletePending}
                       className="p-1 rounded text-red-600 hover:bg-red-50"><Check className="w-4 h-4" /></button>
-                    <button onClick={() => setDeletingId(null)} className="p-1 rounded text-gray-400 hover:bg-gray-100"><X className="w-4 h-4" /></button>
+                    <button onClick={() => setDeletingId(null)} className="p-1 rounded text-gray-600 hover:bg-gray-100"><X className="w-4 h-4" /></button>
                   </div>
                 ) : (
                   <button onClick={() => setDeletingId(cat.id)}
-                    className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors">
+                    className="p-1.5 rounded-lg text-gray-700 hover:text-red-500 hover:bg-red-50 transition-colors">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 )}
@@ -713,7 +713,7 @@ function CategoriasManager({ categories, productCountByCat }: { categories: Cate
       </div>
 
       {showNew && <NewCatForm onClose={() => setShowNew(false)} />}
-      <p className="text-xs text-gray-400">Al eliminar una categoría, sus productos quedan sin categoría pero no se borran.</p>
+      <p className="text-xs text-gray-600">Al eliminar una categoría, sus productos quedan sin categoría pero no se borran.</p>
     </div>
   )
 }
@@ -731,7 +731,7 @@ function EditCatInline({ cat, onClose }: { cat: Category; onClose: () => void })
       <input type="color" name="color" defaultValue={cat.color ?? '#6B7280'} className="w-7 h-7 rounded cursor-pointer border border-gray-200" />
       <input name="name" defaultValue={cat.name} required className="flex-1 border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
       <button type="submit" disabled={pending || done} className="p-1.5 rounded-lg bg-[#1E2B28] text-white hover:bg-[#141F1C] disabled:opacity-50"><Check className="w-3.5 h-3.5" /></button>
-      <button type="button" onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100"><X className="w-3.5 h-3.5" /></button>
+      <button type="button" onClick={onClose} className="p-1.5 rounded-lg text-gray-600 hover:bg-gray-100"><X className="w-3.5 h-3.5" /></button>
     </form>
   )
 }
@@ -752,7 +752,7 @@ function NewCatForm({ onClose }: { onClose: () => void }) {
       <button type="submit" disabled={pending || done} className="bg-[#1E2B28] text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-[#141F1C] disabled:opacity-50">
         {done ? '✓' : pending ? '...' : 'Crear'}
       </button>
-      <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
+      <button type="button" onClick={onClose} className="text-gray-600 hover:text-gray-600"><X className="w-4 h-4" /></button>
     </form>
   )
 }
@@ -816,21 +816,21 @@ function BulkPricingModal({
     <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 overflow-y-auto">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg my-4">
         <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
-          <h2 className="font-semibold text-[#1C1C1E] flex items-center gap-2">
+          <h2 className="font-semibold text-black flex items-center gap-2">
             <Calculator className="w-4 h-4 text-[#1E2B28]" /> Editar precios en masa
           </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} className="text-gray-600 hover:text-gray-600"><X className="w-5 h-5" /></button>
         </div>
 
         <div className="px-6 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
           {/* Ámbito */}
           <div>
-            <label className="text-xs text-gray-500 font-medium block mb-1.5">¿A qué productos afecta?</label>
+            <label className="text-xs text-gray-700 font-medium block mb-1.5">¿A qué productos afecta?</label>
             <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
               {([['todos', 'Todos'], ['categoria', 'Por categoría'], ['seleccion', 'Selección manual']] as const).map(([k, l]) => (
                 <button key={k} onClick={() => setScope(k)}
                   className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                    scope === k ? 'bg-white text-[#1C1C1E] shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                    scope === k ? 'bg-white text-black shadow-sm' : 'text-gray-700 hover:text-gray-700'
                   }`}>{l}</button>
               ))}
             </div>
@@ -859,24 +859,24 @@ function BulkPricingModal({
                     <span className="truncate">{p.name}</span>
                   </label>
                 ))}
-                {filteredProds.length === 0 && <p className="text-xs text-gray-400 px-1">Sin resultados</p>}
+                {filteredProds.length === 0 && <p className="text-xs text-gray-600 px-1">Sin resultados</p>}
               </div>
             </div>
           )}
 
-          <p className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
+          <p className="text-xs text-gray-700 bg-gray-50 rounded-lg px-3 py-2">
             Afectará a <strong>{targetIds.length}</strong> producto{targetIds.length !== 1 ? 's' : ''}.
             {field !== 'precio_final' && ' Se saltarán los que no tengan coste puesto.'}
           </p>
 
           {/* Campo a modificar */}
           <div>
-            <label className="text-xs text-gray-500 font-medium block mb-1.5">Campo a modificar</label>
+            <label className="text-xs text-gray-700 font-medium block mb-1.5">Campo a modificar</label>
             <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
               {(['precio_final', 'coste', 'margen'] as BulkPricingField[]).map(f => (
                 <button key={f} onClick={() => setField(f)}
                   className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                    field === f ? 'bg-white text-[#1C1C1E] shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                    field === f ? 'bg-white text-black shadow-sm' : 'text-gray-700 hover:text-gray-700'
                   }`}>{BULK_FIELD_LABELS[f]}</button>
               ))}
             </div>
@@ -885,7 +885,7 @@ function BulkPricingModal({
           {/* Operación + valor */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-gray-500 font-medium block mb-1.5">Operación</label>
+              <label className="text-xs text-gray-700 font-medium block mb-1.5">Operación</label>
               <select value={mode} onChange={e => setMode(e.target.value as BulkPricingMode)}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]">
                 <option value="fixed">{field === 'margen' ? 'Sumar puntos' : 'Sumar cantidad fija (€)'}</option>
@@ -893,20 +893,20 @@ function BulkPricingModal({
               </select>
             </div>
             <div>
-              <label className="text-xs text-gray-500 font-medium block mb-1.5">Valor</label>
+              <label className="text-xs text-gray-700 font-medium block mb-1.5">Valor</label>
               <div className="relative">
                 <input
                   type="number" step="0.01" value={value} onChange={e => setValue(e.target.value)}
                   placeholder={mode === 'fixed' ? (field === 'margen' ? '3' : '0.50') : '5'}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28] pr-8"
                 />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-600">
                   {mode === 'percent' ? '%' : field === 'margen' ? 'pts' : '€'}
                 </span>
               </div>
             </div>
           </div>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-gray-600">
             Usa un valor negativo para bajar en vez de subir.
           </p>
 
@@ -1054,8 +1054,8 @@ export function ProductosManager({
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-[#1C1C1E]">Gestión de Productos</h1>
-            <p className="text-gray-500 mt-0.5 text-sm">{products.length} productos · {categories.length} categorías</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-black">Gestión de Productos</h1>
+            <p className="text-gray-700 mt-0.5 text-sm">{products.length} productos · {categories.length} categorías</p>
           </div>
           <div className="flex items-center gap-2">
             {isNave && (
@@ -1080,7 +1080,7 @@ export function ProductosManager({
           {([['productos','Productos'],['buscar','Buscar'],['categorias','Categorías']] as const).map(([k,l]) => (
             <button key={k} onClick={() => setTab(k)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
-                tab === k ? 'bg-white text-[#1C1C1E] shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                tab === k ? 'bg-white text-black shadow-sm' : 'text-gray-700 hover:text-gray-700'
               }`}>
               {k === 'buscar' && <Search className="w-3.5 h-3.5" />}
               {l}
@@ -1138,12 +1138,12 @@ export function ProductosManager({
                       className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
                         isSelected
                           ? 'border-transparent bg-[#1E2B28] text-white'
-                          : 'border-gray-200 hover:border-gray-300 bg-white text-[#1C1C1E]'
+                          : 'border-gray-200 hover:border-gray-300 bg-white text-black'
                       }`}
                       style={!isSelected ? { borderLeftColor: catColor(c.color), borderLeftWidth: 3 } : undefined}
                     >
                       {c.name}
-                      <span className={`px-1.5 py-0.5 rounded-full ${isSelected ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}>{count}</span>
+                      <span className={`px-1.5 py-0.5 rounded-full ${isSelected ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-700'}`}>{count}</span>
                     </button>
                   )
                 })}
@@ -1179,14 +1179,14 @@ export function ProductosManager({
                 />
               ))}
               {grouped.length === 0 && (
-                <div className="text-center py-16 text-gray-400 bg-white rounded-xl border border-gray-100">
+                <div className="text-center py-16 text-gray-600 bg-white rounded-xl border border-gray-100">
                   <Package className="w-10 h-10 mx-auto mb-3 text-gray-200" />
                   <p>No hay productos que coincidan</p>
                 </div>
               )}
             </div>
 
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-gray-600">
               Los productos <strong>Ocultos</strong> no aparecen en el catálogo de restaurantes, pero su historial de inventario se conserva.
             </p>
           </>
@@ -1196,7 +1196,7 @@ export function ProductosManager({
         {tab === 'buscar' && (
           <div className="space-y-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-700" />
               <input
                 type="text"
                 autoFocus
@@ -1208,18 +1208,18 @@ export function ProductosManager({
             </div>
 
             <div>
-              <p className="text-xs text-gray-400 font-medium mb-2">Filtrar por categoría</p>
+              <p className="text-xs text-gray-600 font-medium mb-2">Filtrar por categoría</p>
               <div className="flex flex-wrap gap-1.5">
                 <button
                   onClick={() => setBuscarCategory(null)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
                     buscarCategory === null
                       ? 'border-transparent bg-[#1E2B28] text-white'
-                      : 'border-gray-200 hover:border-gray-300 bg-white text-[#1C1C1E]'
+                      : 'border-gray-200 hover:border-gray-300 bg-white text-black'
                   }`}
                 >
                   Todas
-                  <span className={`px-1.5 py-0.5 rounded-full ${buscarCategory === null ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}>{products.length}</span>
+                  <span className={`px-1.5 py-0.5 rounded-full ${buscarCategory === null ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-700'}`}>{products.length}</span>
                 </button>
                 {categories.map(c => {
                   const count = productCountByCat[c.id] ?? 0
@@ -1231,13 +1231,13 @@ export function ProductosManager({
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
                         isSelected
                           ? 'border-transparent bg-[#1E2B28] text-white'
-                          : 'border-gray-200 hover:border-gray-300 bg-white text-[#1C1C1E]'
+                          : 'border-gray-200 hover:border-gray-300 bg-white text-black'
                       }`}
                       style={!isSelected ? { borderLeftColor: catColor(c.color), borderLeftWidth: 3 } : undefined}
                     >
                       <ColorDot color={isSelected ? '#ffffff' : c.color} />
                       {c.name}
-                      <span className={`px-1.5 py-0.5 rounded-full ${isSelected ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}>{count}</span>
+                      <span className={`px-1.5 py-0.5 rounded-full ${isSelected ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-700'}`}>{count}</span>
                     </button>
                   )
                 })}
@@ -1247,22 +1247,22 @@ export function ProductosManager({
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
                       buscarCategory === '__none__'
                         ? 'border-transparent bg-[#1E2B28] text-white'
-                        : 'border-gray-200 hover:border-gray-300 bg-white text-[#1C1C1E]'
+                        : 'border-gray-200 hover:border-gray-300 bg-white text-black'
                     }`}
                   >
                     Sin categoría
-                    <span className={`px-1.5 py-0.5 rounded-full ${buscarCategory === '__none__' ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}>{uncategorizedCount}</span>
+                    <span className={`px-1.5 py-0.5 rounded-full ${buscarCategory === '__none__' ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-700'}`}>{uncategorizedCount}</span>
                   </button>
                 )}
               </div>
             </div>
 
             <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-500">{buscarResults.length} producto{buscarResults.length !== 1 ? 's' : ''} encontrado{buscarResults.length !== 1 ? 's' : ''}</p>
+              <p className="text-sm text-gray-700">{buscarResults.length} producto{buscarResults.length !== 1 ? 's' : ''} encontrado{buscarResults.length !== 1 ? 's' : ''}</p>
               {(buscarQuery || buscarCategory) && (
                 <button
                   onClick={() => { setBuscarQuery(''); setBuscarCategory(null) }}
-                  className="text-xs text-gray-400 hover:text-[#1E2B28] flex items-center gap-1"
+                  className="text-xs text-gray-600 hover:text-[#1E2B28] flex items-center gap-1"
                 >
                   <X className="w-3 h-3" /> Limpiar filtros
                 </button>
@@ -1274,7 +1274,7 @@ export function ProductosManager({
                 <ProductsTable products={buscarResults} categories={categories} isNave={isNave} onEdit={setEditProduct} />
               </div>
             ) : (
-              <div className="text-center py-16 text-gray-400 bg-white rounded-xl border border-gray-100">
+              <div className="text-center py-16 text-gray-600 bg-white rounded-xl border border-gray-100">
                 <Search className="w-10 h-10 mx-auto mb-3 text-gray-200" />
                 <p>No hay productos que coincidan con la búsqueda</p>
               </div>

@@ -24,8 +24,8 @@ export default async function AlbaranesPage() {
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-[#1C1C1E]">Albaranes</h1>
-        <p className="text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-black">Albaranes</h1>
+        <p className="text-gray-700 mt-1">
           {isNave
             ? 'Albaranes generados al marcar pedidos como enviados'
             : 'Albaranes recibidos de la nave'}
@@ -33,7 +33,7 @@ export default async function AlbaranesPage() {
       </div>
 
       {validNotes.length === 0 && (
-        <div className="text-center py-6 text-gray-500 text-sm">
+        <div className="text-center py-6 text-gray-700 text-sm">
           {isNave
             ? 'Se generan automáticamente al marcar un pedido como enviado'
             : 'Aparecerán aquí cuando la nave envíe tus pedidos'}

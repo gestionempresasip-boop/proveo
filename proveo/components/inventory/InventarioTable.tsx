@@ -59,10 +59,10 @@ function InventoryRowItem({
   return (
     <tr className={`border-b border-gray-50 hover:bg-gray-50/50 transition-colors ${isEmpty ? 'bg-red-50/20' : isLow ? 'bg-orange-50/20' : ''}`}>
       <td className="px-4 py-3">
-        <p className="font-medium text-[#1C1C1E] text-sm">{row.product_name}</p>
-        {row.category_name && <p className="text-xs text-gray-400 mt-0.5">{row.category_name}</p>}
+        <p className="font-medium text-black text-sm">{row.product_name}</p>
+        {row.category_name && <p className="text-xs text-gray-600 mt-0.5">{row.category_name}</p>}
       </td>
-      <td className="px-4 py-3 text-xs text-gray-400">{row.product_unit}</td>
+      <td className="px-4 py-3 text-xs text-gray-600">{row.product_unit}</td>
       <td className="px-4 py-3">
         <div className="flex items-center gap-1.5">
           <input
@@ -75,7 +75,7 @@ function InventoryRowItem({
               isEmpty ? 'border-red-300 text-red-600' : isLow ? 'border-orange-300 text-orange-600' : 'border-gray-200 text-[#1E2B28]'
             }`}
           />
-          <span className="text-xs text-gray-400">{row.product_unit}</span>
+          <span className="text-xs text-gray-600">{row.product_unit}</span>
         </div>
       </td>
       <td className="px-4 py-3">
@@ -86,15 +86,15 @@ function InventoryRowItem({
             step="0.001"
             value={minValue}
             onChange={e => onMinChange(e.target.value)}
-            className="w-24 border border-gray-200 rounded-lg px-2 py-1 text-sm text-center text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
+            className="w-24 border border-gray-200 rounded-lg px-2 py-1 text-sm text-center text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
           />
-          <span className="text-xs text-gray-400">{row.product_unit}</span>
+          <span className="text-xs text-gray-600">{row.product_unit}</span>
         </div>
       </td>
       <td className="px-4 py-3">
         <StockStatus current={currentNum} min={minNum} />
       </td>
-      <td className="px-4 py-3 text-xs text-gray-300 hidden sm:table-cell">
+      <td className="px-4 py-3 text-xs text-gray-700 hidden sm:table-cell">
         {row.last_updated
           ? new Date(row.last_updated).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
           : '—'}
@@ -109,7 +109,7 @@ function InventoryRowItem({
             className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
               dirty
                 ? 'bg-[#1E2B28] text-white hover:bg-[#141F1C]'
-                : 'text-gray-300 cursor-default'
+                : 'text-gray-700 cursor-default'
             }`}
           >
             <Save className="w-3.5 h-3.5" />
@@ -160,10 +160,10 @@ function HistorialTab({ organizationId }: { organizationId: string }) {
   return (
     <div className="space-y-4">
       <div className="bg-white rounded-xl border border-gray-100 p-4">
-        <p className="text-sm font-medium text-[#1C1C1E] mb-3">Filtrar por fecha</p>
+        <p className="text-sm font-medium text-black mb-3">Filtrar por fecha</p>
         <div className="flex flex-wrap gap-3 items-end">
           <div>
-            <label className="text-xs text-gray-400 block mb-1">Desde</label>
+            <label className="text-xs text-gray-600 block mb-1">Desde</label>
             <input
               type="date"
               value={dateFrom}
@@ -172,7 +172,7 @@ function HistorialTab({ organizationId }: { organizationId: string }) {
             />
           </div>
           <div>
-            <label className="text-xs text-gray-400 block mb-1">Hasta</label>
+            <label className="text-xs text-gray-600 block mb-1">Hasta</label>
             <input
               type="date"
               value={dateTo}
@@ -200,7 +200,7 @@ function HistorialTab({ organizationId }: { organizationId: string }) {
       </div>
 
       {!searched && (
-        <div className="text-center py-12 text-gray-400">
+        <div className="text-center py-12 text-gray-600">
           <History className="w-10 h-10 mx-auto mb-3 text-gray-200" />
           <p>Selecciona un rango de fechas y pulsa «Ver historial»</p>
           <p className="text-xs mt-1">Cada vez que guardas un stock queda registrado aquí</p>
@@ -208,7 +208,7 @@ function HistorialTab({ organizationId }: { organizationId: string }) {
       )}
 
       {searched && logs !== null && logs.length === 0 && (
-        <div className="text-center py-12 text-gray-400">
+        <div className="text-center py-12 text-gray-600">
           <Package className="w-10 h-10 mx-auto mb-3 text-gray-200" />
           <p>No hay registros para ese período</p>
         </div>
@@ -219,25 +219,25 @@ function HistorialTab({ organizationId }: { organizationId: string }) {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                <th className="text-left px-4 py-3 text-xs text-gray-400 font-medium">Producto</th>
-                <th className="text-left px-4 py-3 text-xs text-gray-400 font-medium">Ud.</th>
-                <th className="text-right px-4 py-3 text-xs text-gray-400 font-medium">Stock</th>
-                <th className="text-right px-4 py-3 text-xs text-gray-400 font-medium">Mínimo</th>
-                <th className="text-left px-4 py-3 text-xs text-gray-400 font-medium">Fecha y hora</th>
+                <th className="text-left px-4 py-3 text-xs text-gray-600 font-medium">Producto</th>
+                <th className="text-left px-4 py-3 text-xs text-gray-600 font-medium">Ud.</th>
+                <th className="text-right px-4 py-3 text-xs text-gray-600 font-medium">Stock</th>
+                <th className="text-right px-4 py-3 text-xs text-gray-600 font-medium">Mínimo</th>
+                <th className="text-left px-4 py-3 text-xs text-gray-600 font-medium">Fecha y hora</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {logs.map(l => (
                 <tr key={l.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-2.5 font-medium text-[#1C1C1E]">{l.product_name}</td>
-                  <td className="px-4 py-2.5 text-gray-400">{l.product_unit}</td>
+                  <td className="px-4 py-2.5 font-medium text-black">{l.product_name}</td>
+                  <td className="px-4 py-2.5 text-gray-600">{l.product_unit}</td>
                   <td className="px-4 py-2.5 text-right font-semibold text-[#1E2B28]">
                     {Number(l.stock_value).toLocaleString('es-ES', { maximumFractionDigits: 3 })}
                   </td>
-                  <td className="px-4 py-2.5 text-right text-gray-400">
+                  <td className="px-4 py-2.5 text-right text-gray-600">
                     {Number(l.min_stock).toLocaleString('es-ES', { maximumFractionDigits: 3 })}
                   </td>
-                  <td className="px-4 py-2.5 text-gray-500">
+                  <td className="px-4 py-2.5 text-gray-700">
                     {new Date(l.recorded_at).toLocaleString('es-ES', {
                       day: 'numeric', month: 'short', year: 'numeric',
                       hour: '2-digit', minute: '2-digit',
@@ -247,7 +247,7 @@ function HistorialTab({ organizationId }: { organizationId: string }) {
               ))}
             </tbody>
           </table>
-          <div className="px-4 py-2.5 border-t border-gray-50 text-xs text-gray-400">
+          <div className="px-4 py-2.5 border-t border-gray-50 text-xs text-gray-600">
             {logs.length} registros encontrados
           </div>
         </div>
@@ -304,20 +304,20 @@ function BulkMinStockModal({
     <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 overflow-y-auto">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg my-4">
         <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
-          <h2 className="font-semibold text-[#1C1C1E] flex items-center gap-2">
+          <h2 className="font-semibold text-black flex items-center gap-2">
             <ListChecks className="w-4 h-4 text-[#1E2B28]" /> Asignar stock mínimo en masa
           </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} className="text-gray-600 hover:text-gray-600"><X className="w-5 h-5" /></button>
         </div>
 
         <div className="px-6 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
           <div>
-            <label className="text-xs text-gray-500 font-medium block mb-1.5">¿A qué productos afecta?</label>
+            <label className="text-xs text-gray-700 font-medium block mb-1.5">¿A qué productos afecta?</label>
             <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
               {([['todos', 'Todos'], ['categoria', 'Por categoría'], ['seleccion', 'Selección manual']] as const).map(([k, l]) => (
                 <button key={k} onClick={() => setScope(k)}
                   className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                    scope === k ? 'bg-white text-[#1C1C1E] shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                    scope === k ? 'bg-white text-black shadow-sm' : 'text-gray-700 hover:text-gray-700'
                   }`}>{l}</button>
               ))}
             </div>
@@ -332,7 +332,7 @@ function BulkMinStockModal({
                   {c.name}
                 </label>
               ))}
-              {categories.length === 0 && <p className="text-xs text-gray-400 px-1">No hay categorías</p>}
+              {categories.length === 0 && <p className="text-xs text-gray-600 px-1">No hay categorías</p>}
             </div>
           )}
 
@@ -347,17 +347,17 @@ function BulkMinStockModal({
                     <span className="truncate">{r.product_name}</span>
                   </label>
                 ))}
-                {filteredRows.length === 0 && <p className="text-xs text-gray-400 px-1">Sin resultados</p>}
+                {filteredRows.length === 0 && <p className="text-xs text-gray-600 px-1">Sin resultados</p>}
               </div>
             </div>
           )}
 
-          <p className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
+          <p className="text-xs text-gray-700 bg-gray-50 rounded-lg px-3 py-2">
             Afectará a <strong>{targetIds.length}</strong> producto{targetIds.length !== 1 ? 's' : ''}. El stock actual de cada uno no se modifica.
           </p>
 
           <div>
-            <label className="text-xs text-gray-500 font-medium block mb-1.5">Stock mínimo a asignar</label>
+            <label className="text-xs text-gray-700 font-medium block mb-1.5">Stock mínimo a asignar</label>
             <input
               type="number" step="0.001" min="0" value={value} onChange={e => setValue(e.target.value)}
               placeholder="Ej: 5"
@@ -478,7 +478,7 @@ export function InventarioTable({
         <button
           onClick={() => setTab('stock')}
           className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            tab === 'stock' ? 'bg-white text-[#1C1C1E] shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            tab === 'stock' ? 'bg-white text-black shadow-sm' : 'text-gray-700 hover:text-gray-700'
           }`}
         >
           Stock actual
@@ -486,7 +486,7 @@ export function InventarioTable({
         <button
           onClick={() => setTab('historial')}
           className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            tab === 'historial' ? 'bg-white text-[#1C1C1E] shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            tab === 'historial' ? 'bg-white text-black shadow-sm' : 'text-gray-700 hover:text-gray-700'
           }`}
         >
           <History className="w-4 h-4" />
@@ -504,22 +504,22 @@ export function InventarioTable({
               onClick={() => setFilter('todos')}
               className={`rounded-xl p-4 text-left transition-all ${filter === 'todos' ? 'bg-[#1E2B28] text-white' : 'bg-white border border-gray-100 hover:border-[#1E2B28]'}`}
             >
-              <p className={`text-2xl font-bold ${filter === 'todos' ? 'text-white' : 'text-[#1C1C1E]'}`}>{rows.length}</p>
-              <p className={`text-xs mt-0.5 ${filter === 'todos' ? 'text-green-200' : 'text-gray-500'}`}>Total productos</p>
+              <p className={`text-2xl font-bold ${filter === 'todos' ? 'text-white' : 'text-black'}`}>{rows.length}</p>
+              <p className={`text-xs mt-0.5 ${filter === 'todos' ? 'text-green-200' : 'text-gray-700'}`}>Total productos</p>
             </button>
             <button
               onClick={() => setFilter(filter === 'bajo' ? 'todos' : 'bajo')}
               className={`rounded-xl p-4 text-left transition-all ${filter === 'bajo' ? 'bg-orange-500 text-white' : 'bg-white border border-gray-100 hover:border-orange-400'}`}
             >
-              <p className={`text-2xl font-bold ${filter === 'bajo' ? 'text-white' : alertCount > 0 ? 'text-orange-500' : 'text-[#1C1C1E]'}`}>{alertCount}</p>
-              <p className={`text-xs mt-0.5 ${filter === 'bajo' ? 'text-orange-100' : 'text-gray-500'}`}>Stock bajo</p>
+              <p className={`text-2xl font-bold ${filter === 'bajo' ? 'text-white' : alertCount > 0 ? 'text-orange-500' : 'text-black'}`}>{alertCount}</p>
+              <p className={`text-xs mt-0.5 ${filter === 'bajo' ? 'text-orange-100' : 'text-gray-700'}`}>Stock bajo</p>
             </button>
             <button
               onClick={() => setFilter(filter === 'sinstock' ? 'todos' : 'sinstock')}
               className={`rounded-xl p-4 text-left transition-all ${filter === 'sinstock' ? 'bg-red-500 text-white' : 'bg-white border border-gray-100 hover:border-red-400'}`}
             >
-              <p className={`text-2xl font-bold ${filter === 'sinstock' ? 'text-white' : emptyCount > 0 ? 'text-red-600' : 'text-[#1C1C1E]'}`}>{emptyCount}</p>
-              <p className={`text-xs mt-0.5 ${filter === 'sinstock' ? 'text-red-100' : 'text-gray-500'}`}>Sin stock</p>
+              <p className={`text-2xl font-bold ${filter === 'sinstock' ? 'text-white' : emptyCount > 0 ? 'text-red-600' : 'text-black'}`}>{emptyCount}</p>
+              <p className={`text-xs mt-0.5 ${filter === 'sinstock' ? 'text-red-100' : 'text-gray-700'}`}>Sin stock</p>
             </button>
           </div>
 
@@ -577,13 +577,13 @@ export function InventarioTable({
                   onClick={() => toggleCategory(cat)}
                   className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors"
                 >
-                  <span className="flex items-center gap-2 font-semibold text-sm text-[#1C1C1E]">
+                  <span className="flex items-center gap-2 font-semibold text-sm text-black">
                     <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: group.color ?? '#9CA3AF' }} />
                     {cat}
                   </span>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-400">{group.rows.length} productos</span>
-                    {isOpen ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                    <span className="text-xs text-gray-600">{group.rows.length} productos</span>
+                    {isOpen ? <ChevronUp className="w-4 h-4 text-gray-600" /> : <ChevronDown className="w-4 h-4 text-gray-600" />}
                   </div>
                 </button>
 
@@ -592,12 +592,12 @@ export function InventarioTable({
                   <table className="w-full text-sm min-w-[600px]">
                     <thead className="border-b border-gray-100">
                       <tr>
-                        <th className="text-left px-4 py-2 text-xs text-gray-400 font-medium">Producto</th>
-                        <th className="text-left px-4 py-2 text-xs text-gray-400 font-medium">Ud.</th>
-                        <th className="text-left px-4 py-2 text-xs text-gray-400 font-medium">Stock actual</th>
-                        <th className="text-left px-4 py-2 text-xs text-gray-400 font-medium">Mínimo (alerta)</th>
-                        <th className="text-left px-4 py-2 text-xs text-gray-400 font-medium">Estado</th>
-                        <th className="text-left px-4 py-2 text-xs text-gray-400 font-medium hidden sm:table-cell">Actualizado</th>
+                        <th className="text-left px-4 py-2 text-xs text-gray-600 font-medium">Producto</th>
+                        <th className="text-left px-4 py-2 text-xs text-gray-600 font-medium">Ud.</th>
+                        <th className="text-left px-4 py-2 text-xs text-gray-600 font-medium">Stock actual</th>
+                        <th className="text-left px-4 py-2 text-xs text-gray-600 font-medium">Mínimo (alerta)</th>
+                        <th className="text-left px-4 py-2 text-xs text-gray-600 font-medium">Estado</th>
+                        <th className="text-left px-4 py-2 text-xs text-gray-600 font-medium hidden sm:table-cell">Actualizado</th>
                         <th className="px-4 py-2"></th>
                       </tr>
                     </thead>
@@ -625,7 +625,7 @@ export function InventarioTable({
           })}
 
           {filtered.length === 0 && (
-            <div className="text-center py-12 text-gray-400">No se encontraron productos</div>
+            <div className="text-center py-12 text-gray-600">No se encontraron productos</div>
           )}
         </>
       )}

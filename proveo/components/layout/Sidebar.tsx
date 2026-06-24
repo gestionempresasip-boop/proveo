@@ -89,12 +89,12 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
           </div>
           <div className="flex-1 min-w-0">
             <span className="text-white font-bold text-base tracking-tight">Proveo</span>
-            <p className="text-gray-500 text-xs truncate">{orgLabel}</p>
+            <p className="text-gray-700 text-xs truncate">{orgLabel}</p>
           </div>
           <button
             onClick={handleLogout}
             title="Cerrar sesión"
-            className="shrink-0 w-8 h-8 rounded-md flex items-center justify-center text-gray-400 hover:text-red-400 hover:bg-white/10 transition-all"
+            className="shrink-0 w-8 h-8 rounded-md flex items-center justify-center text-gray-600 hover:text-red-400 hover:bg-white/10 transition-all"
           >
             <LogOut className="h-4 w-4" />
           </button>
@@ -104,13 +104,13 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
         <div className="mx-3 mb-2 px-3 py-2.5 rounded-lg bg-white/5 flex items-center gap-2">
           <div className="flex-1 min-w-0">
             <p className="text-white text-sm font-medium truncate leading-tight">{profile.full_name ?? 'Usuario'}</p>
-            <p className="text-gray-500 text-xs mt-0.5 capitalize">{profile.role.replace('_', ' ')}</p>
+            <p className="text-gray-700 text-xs mt-0.5 capitalize">{profile.role.replace('_', ' ')}</p>
           </div>
           <button
             onClick={handleRefresh}
             disabled={refreshing}
             title="Actualizar datos"
-            className="shrink-0 w-8 h-8 rounded-md flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-all disabled:opacity-50"
+            className="shrink-0 w-8 h-8 rounded-md flex items-center justify-center text-gray-600 hover:text-white hover:bg-white/10 transition-all disabled:opacity-50"
           >
             <RefreshCw className={cn('h-4 w-4', refreshing && 'animate-spin')} />
           </button>
@@ -127,7 +127,7 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
                 href={item.href}
                 className={cn(
                   'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all',
-                  active ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/8'
+                  active ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-white hover:bg-white/8'
                 )}
               >
                 <Icon className={cn('h-4 w-4 shrink-0', active && 'text-[#A8793A]')} />
@@ -156,18 +156,18 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
             <span className="text-white font-bold text-sm tracking-tight">Proveo</span>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-gray-400 text-xs">{orgLabel}</span>
+            <span className="text-gray-600 text-xs">{orgLabel}</span>
             <button
               onClick={handleRefresh}
               disabled={refreshing}
-              className="text-gray-500 hover:text-white transition-colors p-1 disabled:opacity-50"
+              className="text-gray-700 hover:text-white transition-colors p-1 disabled:opacity-50"
               title="Actualizar datos"
             >
               <RefreshCw className={cn('h-4 w-4', refreshing && 'animate-spin')} />
             </button>
             <button
               onClick={handleLogout}
-              className="text-gray-500 hover:text-red-400 transition-colors p-1"
+              className="text-gray-700 hover:text-red-400 transition-colors p-1"
               title="Cerrar sesión"
             >
               <LogOut className="h-4 w-4" />
@@ -186,7 +186,7 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
                 href={item.href}
                 className={cn(
                   'flex-1 flex flex-col items-center justify-center gap-1 py-2.5 transition-colors min-h-[60px]',
-                  active ? 'text-[#A8793A]' : 'text-gray-400 hover:text-gray-600'
+                  active ? 'text-[#A8793A]' : 'text-gray-600 hover:text-gray-600'
                 )}
               >
                 <Icon className="h-5 w-5 shrink-0" />

@@ -109,16 +109,16 @@ function ItemRow({
     return (
       <div className="bg-amber-50 border border-amber-200 rounded-xl px-2 py-1.5 text-xs space-y-1.5">
         <div className="flex items-center gap-1.5">
-          <span className="font-medium text-[#1C1C1E] truncate flex-1">{item.products?.name ?? '—'}</span>
+          <span className="font-medium text-black truncate flex-1">{item.products?.name ?? '—'}</span>
           <input
             type="number" step="0.001" min="0" autoFocus value={value}
             onChange={e => setValue(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') save() }}
             className="w-16 border border-amber-300 rounded-lg px-1.5 py-1 text-center focus:outline-none focus:ring-2 focus:ring-amber-400"
           />
-          <span className="text-gray-400 shrink-0">{unitLabel(item.unit)}</span>
+          <span className="text-gray-600 shrink-0">{unitLabel(item.unit)}</span>
           <button onClick={save} disabled={pending} className="p-1 rounded text-green-600 hover:bg-green-50 shrink-0"><Check className="w-3.5 h-3.5" /></button>
-          <button onClick={() => { setEditing(false); setValue(String(item.rectified_quantity ?? item.quantity)); setNote(item.rectification_note ?? '') }} className="p-1 rounded text-gray-400 hover:bg-gray-100 shrink-0"><X className="w-3.5 h-3.5" /></button>
+          <button onClick={() => { setEditing(false); setValue(String(item.rectified_quantity ?? item.quantity)); setNote(item.rectification_note ?? '') }} className="p-1 rounded text-gray-600 hover:bg-gray-100 shrink-0"><X className="w-3.5 h-3.5" /></button>
         </div>
         <input
           type="text" placeholder="Motivo (opcional): rotura de stock, mal estado..."
@@ -136,13 +136,13 @@ function ItemRow({
     return (
       <div className="rounded-xl px-3 py-2 text-xs bg-red-50 border border-red-200">
         <div className="flex items-center justify-between gap-2">
-          <span className="font-medium text-[#1C1C1E] truncate flex items-center gap-1.5">
+          <span className="font-medium text-black truncate flex items-center gap-1.5">
             <Ban className="w-3 h-3 text-red-500 shrink-0" />{item.products?.name ?? '—'}
           </span>
           <span className="text-red-600 font-semibold shrink-0">❌ Cancelado</span>
         </div>
         {item.rectification_note && <p className="text-red-500 mt-0.5 truncate">{item.rectification_note}</p>}
-        <button onClick={() => setEditing(true)} className="text-gray-400 hover:text-amber-600 mt-1 flex items-center gap-1">
+        <button onClick={() => setEditing(true)} className="text-gray-600 hover:text-amber-600 mt-1 flex items-center gap-1">
           <Pencil className="w-3 h-3" /> Editar
         </button>
       </div>
@@ -160,25 +160,25 @@ function ItemRow({
             title="Listo / cargado en la furgoneta"
             className="accent-green-600 shrink-0 w-4 h-4"
           />
-          <span className={`font-medium truncate ${item.prepared ? 'text-green-700' : 'text-[#1C1C1E]'}`}>
+          <span className={`font-medium truncate ${item.prepared ? 'text-green-700' : 'text-black'}`}>
             {item.products?.name ?? '—'}
           </span>
         </label>
         <div className="flex items-center gap-1.5 shrink-0">
           {isRectified ? (
             <span className="text-amber-700">
-              <span className="line-through text-gray-400">{item.quantity}</span> → <span className="font-semibold">{item.rectified_quantity} {unitLabel(item.unit)}</span>
+              <span className="line-through text-gray-600">{item.quantity}</span> → <span className="font-semibold">{item.rectified_quantity} {unitLabel(item.unit)}</span>
             </span>
           ) : (
-            <span className="text-gray-500">{item.quantity} {unitLabel(item.unit)}</span>
+            <span className="text-gray-700">{item.quantity} {unitLabel(item.unit)}</span>
           )}
-          <button onClick={() => setEditing(true)} title="Rectificar cantidad" className="p-1 rounded text-gray-400 hover:text-amber-600 hover:bg-amber-50">
+          <button onClick={() => setEditing(true)} title="Rectificar cantidad" className="p-1 rounded text-gray-600 hover:text-amber-600 hover:bg-amber-50">
             <Pencil className="w-3 h-3" />
           </button>
         </div>
       </div>
       <div className="flex items-center gap-1.5 pl-6">
-        <span className="text-gray-400 shrink-0">Lote:</span>
+        <span className="text-gray-600 shrink-0">Lote:</span>
         <input
           type="text"
           value={lot}
@@ -186,7 +186,7 @@ function ItemRow({
           onBlur={saveLot}
           onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
           placeholder="Sin especificar"
-          className="flex-1 min-w-0 bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-[#1E2B28] placeholder-gray-300"
+          className="flex-1 min-w-0 bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-[#1E2B28] placeholder-gray-500"
         />
       </div>
     </div>
@@ -396,22 +396,22 @@ function OrderCard({
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
-            <p className="font-semibold text-[#1C1C1E] truncate">{order.organizations?.name ?? 'Restaurante'}</p>
+            <p className="font-semibold text-black truncate">{order.organizations?.name ?? 'Restaurante'}</p>
             <span className={`flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full border shrink-0 ${cfg.color}`}>
               {cfg.icon} {cfg.label}
             </span>
           </div>
           <div className="flex items-center gap-3 mt-0.5">
-            <span className="text-xs text-gray-400">
+            <span className="text-xs text-gray-600">
               {date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
               {' · '}
               {order.order_items.length} producto{order.order_items.length !== 1 ? 's' : ''}
             </span>
             <span className="font-semibold text-[#1E2B28] text-sm ml-auto">{Number(order.total_price).toFixed(2)}€</span>
           </div>
-          {order.notes && <p className="text-xs text-gray-400 italic mt-1 truncate">"{order.notes}"</p>}
+          {order.notes && <p className="text-xs text-gray-600 italic mt-1 truncate">"{order.notes}"</p>}
         </div>
-        <div className="shrink-0 text-gray-400 mt-1">
+        <div className="shrink-0 text-gray-600 mt-1">
           {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
         </div>
       </button>
@@ -527,8 +527,8 @@ export function PedidosNaveClient({ orders: initialOrders, restaurants }: { orde
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-5">
       {/* Title */}
       <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-[#1C1C1E]">Pedidos entrantes</h1>
-        <p className="text-gray-500 text-sm mt-1 capitalize">{todayLabel}</p>
+        <h1 className="text-xl sm:text-2xl font-bold text-black">Pedidos entrantes</h1>
+        <p className="text-gray-700 text-sm mt-1 capitalize">{todayLabel}</p>
       </div>
 
       {/* Summary chips */}
@@ -557,7 +557,7 @@ export function PedidosNaveClient({ orders: initialOrders, restaurants }: { orde
               key={k}
               onClick={() => setDateFilter(k)}
               className={`flex-1 py-3 text-xs sm:text-sm font-medium transition-colors ${
-                dateFilter === k ? 'bg-[#1E2B28] text-white' : 'text-gray-500 hover:bg-gray-50'
+                dateFilter === k ? 'bg-[#1E2B28] text-white' : 'text-gray-700 hover:bg-gray-50'
               }`}
             >
               {l}
@@ -569,12 +569,12 @@ export function PedidosNaveClient({ orders: initialOrders, restaurants }: { orde
         {dateFilter === 'custom' && (
           <div className="flex flex-wrap gap-3 p-4 border-b border-gray-100">
             <div className="flex-1 min-w-[140px]">
-              <label className="text-xs text-gray-400 block mb-1">Desde</label>
+              <label className="text-xs text-gray-600 block mb-1">Desde</label>
               <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
                 className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
             </div>
             <div className="flex-1 min-w-[140px]">
-              <label className="text-xs text-gray-400 block mb-1">Hasta</label>
+              <label className="text-xs text-gray-600 block mb-1">Hasta</label>
               <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
                 className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
             </div>
@@ -584,7 +584,7 @@ export function PedidosNaveClient({ orders: initialOrders, restaurants }: { orde
         {/* Restaurant + status filters */}
         <div className="flex flex-wrap gap-3 p-4">
           <div className="flex-1 min-w-[160px]">
-            <label className="text-xs text-gray-400 block mb-1">Restaurante</label>
+            <label className="text-xs text-gray-600 block mb-1">Restaurante</label>
             <div className="relative">
               <select
                 value={restFilter}
@@ -594,11 +594,11 @@ export function PedidosNaveClient({ orders: initialOrders, restaurants }: { orde
                 <option value="todos">Todos los restaurantes</option>
                 {restaurants.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
               </select>
-              <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-2.5 pointer-events-none" />
+              <ChevronDown className="w-4 h-4 text-gray-600 absolute right-2.5 top-2.5 pointer-events-none" />
             </div>
           </div>
           <div className="flex-1 min-w-[140px]">
-            <label className="text-xs text-gray-400 block mb-1">Estado</label>
+            <label className="text-xs text-gray-600 block mb-1">Estado</label>
             <div className="relative">
               <select
                 value={statusFilter}
@@ -610,7 +610,7 @@ export function PedidosNaveClient({ orders: initialOrders, restaurants }: { orde
                 <option value="hecho">Hecho</option>
                 <option value="enviado">Enviado</option>
               </select>
-              <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-2.5 pointer-events-none" />
+              <ChevronDown className="w-4 h-4 text-gray-600 absolute right-2.5 top-2.5 pointer-events-none" />
             </div>
           </div>
         </div>
@@ -632,13 +632,13 @@ export function PedidosNaveClient({ orders: initialOrders, restaurants }: { orde
       {/* Today's orders / filtered orders */}
       <section>
         {dateFilter === 'hoy' && (
-          <h2 className="text-sm font-semibold text-[#1C1C1E] flex items-center gap-2 mb-3">
+          <h2 className="text-sm font-semibold text-black flex items-center gap-2 mb-3">
             <Calendar className="w-4 h-4 text-[#1E2B28]" />
             Pedidos de hoy ({todayOrders.length})
           </h2>
         )}
         {todayOrders.length === 0 && pastPending.length === 0 ? (
-          <div className="text-center py-16 text-gray-400">
+          <div className="text-center py-16 text-gray-600">
             <Package className="w-12 h-12 mx-auto mb-3 text-gray-200" />
             <p className="font-medium">No hay pedidos para este período</p>
             {dateFilter === 'hoy' && <p className="text-sm mt-1">Los pedidos de hoy aparecerán aquí cuando lleguen</p>}

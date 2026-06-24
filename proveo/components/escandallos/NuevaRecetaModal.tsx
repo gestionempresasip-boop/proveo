@@ -69,8 +69,8 @@ export function NuevaRecetaModal({ products }: { products: Product[] }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-5 border-b">
-              <h2 className="text-lg font-bold text-[#1C1C1E]">Nueva receta / escandallo</h2>
-              <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600">
+              <h2 className="text-lg font-bold text-black">Nueva receta / escandallo</h2>
+              <button onClick={() => setOpen(false)} className="text-gray-600 hover:text-gray-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -128,7 +128,7 @@ export function NuevaRecetaModal({ products }: { products: Product[] }) {
                         className="w-20 border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
                         placeholder="Cant."
                       />
-                      <span className="text-xs text-gray-400 w-10 text-center">{ing.unit}</span>
+                      <span className="text-xs text-gray-600 w-10 text-center">{ing.unit}</span>
                       <button type="button" onClick={() => removeIngredient(i)} className="text-red-400 hover:text-red-600">
                         <Trash2 className="w-4 h-4" />
                       </button>

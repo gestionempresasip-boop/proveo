@@ -52,8 +52,8 @@ export default async function InventarioPage() {
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-[#1C1C1E]">Inventario</h1>
-        <p className="text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-black">Inventario</h1>
+        <p className="text-gray-700 mt-1">
           {isNave
             ? 'Controla cuánto tienes de cada producto en el obrador.'
             : 'Controla cuánto tienes de cada producto en tu restaurante.'}
@@ -61,7 +61,7 @@ export default async function InventarioPage() {
       </div>
 
       {rows.length === 0 ? (
-        <div className="text-center py-20 text-gray-400">
+        <div className="text-center py-20 text-gray-600">
           <Package className="h-12 w-12 mx-auto mb-3 text-gray-200" />
           <p>No hay productos activos todavía</p>
           <p className="text-sm mt-1">Añade productos desde Gestión de Productos</p>

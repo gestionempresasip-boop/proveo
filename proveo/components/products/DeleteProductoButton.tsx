@@ -11,7 +11,7 @@ export function DeleteProductoButton({ productId, productName }: { productId: st
   if (confirm) {
     return (
       <div className="flex items-center gap-1.5">
-        <span className="text-xs text-gray-500">¿Eliminar?</span>
+        <span className="text-xs text-gray-700">¿Eliminar?</span>
         <button
           onClick={async () => {
             setDeleting(true)
@@ -24,7 +24,7 @@ export function DeleteProductoButton({ productId, productName }: { productId: st
         </button>
         <button
           onClick={() => setConfirm(false)}
-          className="text-xs text-gray-400 hover:underline"
+          className="text-xs text-gray-600 hover:underline"
         >
           No
         </button>
@@ -36,7 +36,7 @@ export function DeleteProductoButton({ productId, productName }: { productId: st
     <button
       onClick={() => setConfirm(true)}
       title={`Eliminar ${productName}`}
-      className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+      className="p-1.5 rounded-lg text-gray-600 hover:text-red-500 hover:bg-red-50 transition-colors"
     >
       <Trash2 className="w-4 h-4" />
     </button>
