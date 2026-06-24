@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useMemo, useRef, Fragment } from 'react'
-import { ChevronDown, ChevronLeft, ChevronRight, Download, Minus } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, Download, Minus, Calculator } from 'lucide-react'
+import { unitLabel, realQuantityLabel, CONVERTIBLE_UNITS, toKg, toLitros } from '@/lib/units'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -119,6 +120,53 @@ function HScroll({ children }: { children: React.ReactNode }) {
       >
         <ChevronRight className="w-4 h-4" />
       </button>
+    </div>
+  )
+}
+
+// Conversor sencillo: cantidad pedida (bolsas, barquetas...) → kg o litros reales.
+function UnitConverter() {
+  const [open, setOpen] = useState(false)
+  const [unit, setUnit] = useState<string>(CONVERTIBLE_UNITS[0]?.value ?? 'kg')
+  const [qty, setQty] = useState('1')
+
+  const num = parseFloat(qty.replace(',', '.')) || 0
+  const kg = toKg(unit, num)
+  const lt = toLitros(unit, num)
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+      <button onClick={() => setOpen(v => !v)} className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors">
+        <span className="flex items-center gap-2 text-sm font-medium text-[#1C1C1E]">
+          <Calculator className="w-4 h-4 text-[#1E2B28]" /> Conversor de unidades
+        </span>
+        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="px-4 pb-4 flex flex-wrap items-end gap-3">
+          <div>
+            <label className="text-xs text-gray-400 block mb-1">Cantidad</label>
+            <input
+              type="number" step="0.01" value={qty} onChange={e => setQty(e.target.value)}
+              className="w-24 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-gray-400 block mb-1">Unidad</label>
+            <select value={unit} onChange={e => setUnit(e.target.value)}
+              className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]">
+              {CONVERTIBLE_UNITS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
+            </select>
+          </div>
+          <div className="bg-gray-50 rounded-lg px-4 py-2.5 text-sm">
+            <span className="text-gray-400 mr-1">Equivale a</span>
+            <span className="font-bold text-[#1E2B28]">
+              {kg != null && `${kg % 1 === 0 ? kg : kg.toFixed(2)} kg`}
+              {lt != null && `${lt % 1 === 0 ? lt : lt.toFixed(2)} lt`}
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -470,6 +518,7 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
         const { products, restNames, restMax } = productoTable
         return (
           <div className="space-y-2">
+            <UnitConverter />
             <div className="flex flex-wrap items-center gap-3">
               <input type="text" placeholder="Buscar producto..." value={prodSearch}
                 onChange={e => setProdSearch(e.target.value)}
@@ -512,8 +561,11 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
                                   {v ? (
                                     <>
                                       <p className={`text-sm ${cellText(v.euros, restMax[r])}`}>
-                                        {v.qty % 1 === 0 ? v.qty : v.qty.toFixed(1)} {p.unit}
+                                        {v.qty % 1 === 0 ? v.qty : v.qty.toFixed(1)} {unitLabel(p.unit)}
                                       </p>
+                                      {realQuantityLabel(p.unit, v.qty) && (
+                                        <p className="text-[10px] text-gray-400">{realQuantityLabel(p.unit, v.qty)}</p>
+                                      )}
                                       <p className="text-xs text-gray-400">{v.euros.toFixed(0)}€</p>
                                     </>
                                   ) : <span className="text-gray-200 text-xs">—</span>}
@@ -545,7 +597,10 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
                                             <div className="h-full bg-[#A8793A] rounded-full" style={{ width: `${(v.qty / maxQty) * 100}%` }} />
                                           </div>
                                           <span className="text-sm font-semibold text-[#1E2B28] w-20 text-right shrink-0">
-                                            {v.qty % 1 === 0 ? v.qty : v.qty.toFixed(1)} {p.unit}
+                                            {v.qty % 1 === 0 ? v.qty : v.qty.toFixed(1)} {unitLabel(p.unit)}
+                                            {realQuantityLabel(p.unit, v.qty) && (
+                                              <span className="block text-[10px] text-gray-400 font-normal">{realQuantityLabel(p.unit, v.qty)}</span>
+                                            )}
                                           </span>
                                         </div>
                                       )
@@ -625,7 +680,10 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
                   </div>
                   <div className="text-right shrink-0">
                     <p className="font-bold text-[#1E2B28] text-sm">{p.euros.toFixed(0)}€</p>
-                    <p className="text-xs text-gray-400">{p.qty % 1 === 0 ? p.qty : p.qty.toFixed(1)} {p.unit}</p>
+                    <p className="text-xs text-gray-400">{p.qty % 1 === 0 ? p.qty : p.qty.toFixed(1)} {unitLabel(p.unit)}</p>
+                    {realQuantityLabel(p.unit, p.qty) && (
+                      <p className="text-[10px] text-gray-300">{realQuantityLabel(p.unit, p.qty)}</p>
+                    )}
                   </div>
                 </div>
               ))}
