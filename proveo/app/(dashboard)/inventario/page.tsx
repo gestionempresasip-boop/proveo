@@ -11,12 +11,14 @@ export default async function InventarioPage() {
   const isNave = profile.organizations.type === 'nave'
 
   // Cargar TODOS los productos activos (sin deleted_at) con su categoría
-  const { data: products } = await sb
-    .from('products')
-    .select('id, name, unit, product_categories!products_category_id_fkey(name)')
-    .eq('is_active', true)
-    .is('deleted_at', null)
-    .order('name')
+  const [{ data: products }, { data: categories }] = await Promise.all([
+    sb.from('products')
+      .select('id, name, unit, category_id, product_categories!products_category_id_fkey(name, color)')
+      .eq('is_active', true)
+      .is('deleted_at', null)
+      .order('name'),
+    sb.from('product_categories').select('id, name, color').order('order_index').order('name'),
+  ])
 
   // Cargar las entradas de inventario existentes
   let inventoryMap: Record<string, { current_stock: number; min_stock: number; last_updated: string }> = {}
@@ -39,7 +41,9 @@ export default async function InventarioPage() {
     product_id: p.id,
     product_name: p.name,
     product_unit: p.unit,
+    category_id: p.category_id ?? null,
     category_name: p.product_categories?.name ?? null,
+    category_color: p.product_categories?.color ?? null,
     current_stock: inventoryMap[p.id]?.current_stock ?? 0,
     min_stock: inventoryMap[p.id]?.min_stock ?? 0,
     last_updated: inventoryMap[p.id]?.last_updated ?? null,
@@ -65,6 +69,7 @@ export default async function InventarioPage() {
       ) : (
         <InventarioTable
           rows={rows}
+          categories={categories ?? []}
           isNave={isNave}
           organizationId={profile.organization_id}
         />

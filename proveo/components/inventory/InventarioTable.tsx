@@ -1,18 +1,22 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { upsertInventory, getInventoryHistory } from '@/app/actions/inventory'
-import { AlertTriangle, CheckCircle2, XCircle, Save, ChevronDown, ChevronUp, History, Package, Download } from 'lucide-react'
+import { useState, useTransition, useMemo } from 'react'
+import { upsertInventory, getInventoryHistory, bulkSetMinStock } from '@/app/actions/inventory'
+import { AlertTriangle, CheckCircle2, XCircle, Save, ChevronDown, ChevronUp, History, Package, Download, ListChecks, X, Check } from 'lucide-react'
 
 type InventoryRow = {
   product_id: string
   product_name: string
   product_unit: string
+  category_id: string | null
   category_name: string | null
+  category_color: string | null
   current_stock: number
   min_stock: number
   last_updated: string | null
 }
+
+type Category = { id: string; name: string; color: string | null }
 
 type LogRow = {
   id: string
@@ -264,15 +268,147 @@ function HistorialTab({ organizationId }: { organizationId: string }) {
   )
 }
 
-export function InventarioTable({
-  rows, isNave, organizationId,
+// ── Asignar stock mínimo en masa ─────────────────────────────────────────────
+
+function BulkMinStockModal({
+  rows, categories, isNave, organizationId, onClose,
 }: {
-  rows: InventoryRow[]; isNave: boolean; organizationId: string
+  rows: InventoryRow[]; categories: Category[]; isNave: boolean; organizationId: string; onClose: () => void
+}) {
+  const [scope, setScope] = useState<'todos' | 'categoria' | 'seleccion'>('todos')
+  const [selectedCats, setSelectedCats] = useState<Set<string>>(new Set())
+  const [selectedProds, setSelectedProds] = useState<Set<string>>(new Set())
+  const [prodSearch, setProdSearch] = useState('')
+  const [value, setValue] = useState('')
+  const [pending, startTransition] = useTransition()
+  const [result, setResult] = useState<number | null>(null)
+
+  const targetIds = useMemo(() => {
+    if (scope === 'todos') return rows.map(r => r.product_id)
+    if (scope === 'categoria') return rows.filter(r => r.category_id && selectedCats.has(r.category_id)).map(r => r.product_id)
+    return [...selectedProds]
+  }, [scope, rows, selectedCats, selectedProds])
+
+  const filteredRows = useMemo(() =>
+    rows.filter(r => r.product_name.toLowerCase().includes(prodSearch.toLowerCase())),
+    [rows, prodSearch]
+  )
+
+  function toggleCat(id: string) {
+    setSelectedCats(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  }
+  function toggleProd(id: string) {
+    setSelectedProds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  }
+
+  function handleApply() {
+    const min = parseFloat(value.replace(',', '.'))
+    if (isNaN(min) || min < 0 || targetIds.length === 0) return
+    startTransition(async () => {
+      const res = await bulkSetMinStock(targetIds, min, isNave, organizationId)
+      setResult(res.updated)
+    })
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg my-4">
+        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
+          <h2 className="font-semibold text-[#1C1C1E] flex items-center gap-2">
+            <ListChecks className="w-4 h-4 text-[#1E2B28]" /> Asignar stock mínimo en masa
+          </h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+        </div>
+
+        <div className="px-6 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
+          <div>
+            <label className="text-xs text-gray-500 font-medium block mb-1.5">¿A qué productos afecta?</label>
+            <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
+              {([['todos', 'Todos'], ['categoria', 'Por categoría'], ['seleccion', 'Selección manual']] as const).map(([k, l]) => (
+                <button key={k} onClick={() => setScope(k)}
+                  className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    scope === k ? 'bg-white text-[#1C1C1E] shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                  }`}>{l}</button>
+              ))}
+            </div>
+          </div>
+
+          {scope === 'categoria' && (
+            <div className="border border-gray-200 rounded-xl p-2.5 max-h-40 overflow-y-auto space-y-1">
+              {categories.map(c => (
+                <label key={c.id} className="flex items-center gap-2 px-1 py-1 rounded hover:bg-gray-50 cursor-pointer text-sm">
+                  <input type="checkbox" checked={selectedCats.has(c.id)} onChange={() => toggleCat(c.id)} className="accent-[#1E2B28]" />
+                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: c.color ?? '#9CA3AF' }} />
+                  {c.name}
+                </label>
+              ))}
+              {categories.length === 0 && <p className="text-xs text-gray-400 px-1">No hay categorías</p>}
+            </div>
+          )}
+
+          {scope === 'seleccion' && (
+            <div className="space-y-2">
+              <input type="text" placeholder="Buscar producto..." value={prodSearch} onChange={e => setProdSearch(e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
+              <div className="border border-gray-200 rounded-xl p-2.5 max-h-40 overflow-y-auto space-y-1">
+                {filteredRows.map(r => (
+                  <label key={r.product_id} className="flex items-center gap-2 px-1 py-1 rounded hover:bg-gray-50 cursor-pointer text-sm">
+                    <input type="checkbox" checked={selectedProds.has(r.product_id)} onChange={() => toggleProd(r.product_id)} className="accent-[#1E2B28]" />
+                    <span className="truncate">{r.product_name}</span>
+                  </label>
+                ))}
+                {filteredRows.length === 0 && <p className="text-xs text-gray-400 px-1">Sin resultados</p>}
+              </div>
+            </div>
+          )}
+
+          <p className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
+            Afectará a <strong>{targetIds.length}</strong> producto{targetIds.length !== 1 ? 's' : ''}. El stock actual de cada uno no se modifica.
+          </p>
+
+          <div>
+            <label className="text-xs text-gray-500 font-medium block mb-1.5">Stock mínimo a asignar</label>
+            <input
+              type="number" step="0.001" min="0" value={value} onChange={e => setValue(e.target.value)}
+              placeholder="Ej: 5"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
+            />
+          </div>
+
+          {result !== null && (
+            <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg px-3 py-2 flex items-center gap-1.5">
+              <Check className="w-4 h-4 shrink-0" /> Mínimo asignado a {result} producto{result !== 1 ? 's' : ''}
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-2 px-6 py-4 border-t border-gray-100">
+          <button onClick={onClose} className="flex-1 border border-gray-200 text-gray-600 rounded-lg py-2 text-sm font-medium hover:bg-gray-50">
+            Cerrar
+          </button>
+          <button
+            onClick={handleApply}
+            disabled={pending || targetIds.length === 0 || value === ''}
+            className="flex-1 bg-[#1E2B28] text-white rounded-lg py-2 text-sm font-medium hover:bg-[#141F1C] disabled:opacity-50"
+          >
+            {pending ? 'Aplicando...' : 'Aplicar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export function InventarioTable({
+  rows, categories, isNave, organizationId,
+}: {
+  rows: InventoryRow[]; categories: Category[]; isNave: boolean; organizationId: string
 }) {
   const [tab, setTab] = useState<'stock' | 'historial'>('stock')
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'todos' | 'bajo' | 'sinstock'>('todos')
   const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({})
+  const [showBulkMin, setShowBulkMin] = useState(false)
 
   const filtered = rows.filter(r => {
     const matchSearch = r.product_name.toLowerCase().includes(search.toLowerCase())
@@ -283,11 +419,11 @@ export function InventarioTable({
     return matchSearch
   })
 
-  const byCategory: Record<string, InventoryRow[]> = {}
+  const byCategory: Record<string, { rows: InventoryRow[]; color: string | null }> = {}
   filtered.forEach(r => {
     const cat = r.category_name ?? 'Sin categoría'
-    if (!byCategory[cat]) byCategory[cat] = []
-    byCategory[cat].push(r)
+    if (!byCategory[cat]) byCategory[cat] = { rows: [], color: r.category_color }
+    byCategory[cat].rows.push(r)
   })
 
   const alertCount = rows.filter(r => r.min_stock > 0 && r.current_stock <= r.min_stock).length
@@ -349,17 +485,37 @@ export function InventarioTable({
             </button>
           </div>
 
-          {/* Buscador */}
-          <input
-            type="text"
-            placeholder="Buscar producto..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
-          />
+          {/* Buscador + acción masiva */}
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input
+              type="text"
+              placeholder="Buscar producto..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
+            />
+            {isNave && (
+              <button
+                onClick={() => setShowBulkMin(true)}
+                className="flex items-center justify-center gap-2 border border-[#1E2B28] text-[#1E2B28] text-sm font-medium px-4 py-2.5 rounded-xl hover:bg-green-50 transition-colors shrink-0"
+              >
+                <ListChecks className="w-4 h-4" /> Mínimo en masa
+              </button>
+            )}
+          </div>
+
+          {showBulkMin && (
+            <BulkMinStockModal
+              rows={rows}
+              categories={categories}
+              isNave={isNave}
+              organizationId={organizationId}
+              onClose={() => setShowBulkMin(false)}
+            />
+          )}
 
           {/* Tabla agrupada por categoría */}
-          {Object.entries(byCategory).map(([cat, catRows]) => {
+          {Object.entries(byCategory).map(([cat, group]) => {
             const isOpen = openCategories[cat] !== false
             return (
               <div key={cat} className="bg-white rounded-xl border border-gray-100 overflow-hidden">
@@ -367,9 +523,12 @@ export function InventarioTable({
                   onClick={() => toggleCategory(cat)}
                   className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors"
                 >
-                  <span className="font-semibold text-sm text-[#1C1C1E]">{cat}</span>
+                  <span className="flex items-center gap-2 font-semibold text-sm text-[#1C1C1E]">
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: group.color ?? '#9CA3AF' }} />
+                    {cat}
+                  </span>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-400">{catRows.length} productos</span>
+                    <span className="text-xs text-gray-400">{group.rows.length} productos</span>
                     {isOpen ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
                   </div>
                 </button>
@@ -389,7 +548,7 @@ export function InventarioTable({
                       </tr>
                     </thead>
                     <tbody>
-                      {catRows.map(row => (
+                      {group.rows.map(row => (
                         <InventoryRowItem key={row.product_id} row={row} isNave={isNave} organizationId={organizationId} />
                       ))}
                     </tbody>

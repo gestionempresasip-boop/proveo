@@ -67,6 +67,49 @@ export async function upsertInventory(
   revalidatePath('/inventario')
 }
 
+// Asigna el mismo stock mínimo a varios productos a la vez (sin tocar el
+// stock actual de cada uno, que se conserva).
+export async function bulkSetMinStock(
+  productIds: string[],
+  minStock: number,
+  isNave: boolean,
+  organizationId: string,
+) {
+  if (productIds.length === 0) return { updated: 0 }
+  const supabase = await createClient()
+  const sb = supabase as any
+
+  if (isNave) {
+    const { data: existing } = await sb.from('nave_inventory').select('product_id, current_stock').in('product_id', productIds)
+    const stockById = new Map((existing ?? []).map((r: any) => [r.product_id, r.current_stock]))
+    await sb.from('nave_inventory').upsert(
+      productIds.map(id => ({
+        product_id: id,
+        current_stock: stockById.get(id) ?? 0,
+        min_stock: minStock,
+        last_updated: new Date().toISOString(),
+      })),
+      { onConflict: 'product_id' }
+    )
+  } else {
+    const { data: existing } = await sb.from('restaurant_inventory').select('product_id, current_stock').eq('organization_id', organizationId).in('product_id', productIds)
+    const stockById = new Map((existing ?? []).map((r: any) => [r.product_id, r.current_stock]))
+    await sb.from('restaurant_inventory').upsert(
+      productIds.map(id => ({
+        product_id: id,
+        organization_id: organizationId,
+        current_stock: stockById.get(id) ?? 0,
+        min_stock: minStock,
+        last_updated: new Date().toISOString(),
+      })),
+      { onConflict: 'organization_id,product_id' }
+    )
+  }
+
+  revalidatePath('/inventario')
+  return { updated: productIds.length }
+}
+
 export async function getInventoryHistory(
   organizationId: string,
   dateFrom?: string,
