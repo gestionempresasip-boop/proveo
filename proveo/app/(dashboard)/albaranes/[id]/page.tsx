@@ -107,6 +107,9 @@ export default async function AlbaranDetailPage({ params }: { params: Promise<{ 
                 <tr key={item.id} className="border-b border-gray-100">
                   <td className="py-2.5">
                     {item.products?.name}
+                    {item.lot_number && (
+                      <span className="block text-xs text-gray-400 mt-0.5">Lote: {item.lot_number}</span>
+                    )}
                     {isCanceled && (
                       <span className="block text-xs text-red-600 font-medium mt-0.5">
                         ❌ Cancelado{item.note ? ` — ${item.note}` : ''}

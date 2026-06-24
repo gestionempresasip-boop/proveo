@@ -78,6 +78,7 @@ export async function generateDeliveryNote(orderId: string) {
       unit: item.unit,
       unit_price: item.unit_price,
       total_price: deliveredQty * Number(item.unit_price),
+      lot_number: item.lot_number || null,
     }
   })
 
@@ -135,8 +136,21 @@ export async function setItemPrepared(orderItemId: string, prepared: boolean) {
 export async function setItemLot(orderItemId: string, lotNumber: string) {
   const supabase = await createClient()
   const sb = supabase as any
+  const { data: item } = await sb.from('order_items').select('order_id, product_id').eq('id', orderItemId).single()
   await sb.from('order_items').update({ lot_number: lotNumber || null }).eq('id', orderItemId)
+
+  if (item) {
+    const { data: deliveryNote } = await sb.from('delivery_notes').select('id').eq('order_id', item.order_id).maybeSingle()
+    if (deliveryNote) {
+      await sb.from('delivery_note_items')
+        .update({ lot_number: lotNumber || null })
+        .eq('delivery_note_id', deliveryNote.id)
+        .eq('product_id', item.product_id)
+    }
+  }
+
   revalidatePath('/pedidos')
+  revalidatePath('/albaranes')
 }
 
 // Cancela por completo una línea del pedido (rotura de stock, producto en
