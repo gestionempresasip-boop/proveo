@@ -90,13 +90,19 @@ export default async function AlbaranDetailPage({ params }: { params: Promise<{ 
               <th className="text-left py-2 font-semibold text-[#1C1C1E]">Producto</th>
               <th className="text-right py-2 font-semibold text-[#1C1C1E]">Pedido</th>
               <th className="text-right py-2 font-semibold text-[#1C1C1E]">Enviado</th>
-              {showPrices && <th className="text-right py-2 font-semibold text-[#1C1C1E]">Precio/u</th>}
+              {showPrices && <th className="text-right py-2 font-semibold text-[#1C1C1E]">Base imp.</th>}
+              {showPrices && <th className="text-right py-2 font-semibold text-[#1C1C1E]">IVA %</th>}
+              {showPrices && <th className="text-right py-2 font-semibold text-[#1C1C1E]">Cuota IVA</th>}
               {showPrices && <th className="text-right py-2 font-semibold text-[#1C1C1E]">Total</th>}
             </tr>
           </thead>
           <tbody>
             {items.map((item: any) => {
               const isCanceled = Number(item.delivered_quantity) === 0
+              const ivaRate = Number(item.products?.iva_rate) || 0
+              const total = Number(item.total_price)
+              const base = total / (1 + ivaRate)
+              const ivaAmount = total - base
               return (
                 <tr key={item.id} className="border-b border-gray-100">
                   <td className="py-2.5">
@@ -109,8 +115,10 @@ export default async function AlbaranDetailPage({ params }: { params: Promise<{ 
                   </td>
                   <td className="text-right py-2.5 text-gray-500">{item.ordered_quantity} {unitLabel(item.unit)}</td>
                   <td className="text-right py-2.5 font-medium">{item.delivered_quantity} {unitLabel(item.unit)}</td>
-                  {showPrices && <td className="text-right py-2.5">{Number(item.unit_price).toFixed(2)} €</td>}
-                  {showPrices && <td className="text-right py-2.5 font-semibold">{Number(item.total_price).toFixed(2)} €</td>}
+                  {showPrices && <td className="text-right py-2.5 text-gray-500">{base.toFixed(2)} €</td>}
+                  {showPrices && <td className="text-right py-2.5 text-gray-500">{Math.round(ivaRate * 100)}%</td>}
+                  {showPrices && <td className="text-right py-2.5 text-gray-500">{ivaAmount.toFixed(2)} €</td>}
+                  {showPrices && <td className="text-right py-2.5 font-semibold">{total.toFixed(2)} €</td>}
                 </tr>
               )
             })}
@@ -119,24 +127,36 @@ export default async function AlbaranDetailPage({ params }: { params: Promise<{ 
 
         {/* Desglose de IVA — solo nave */}
         {showPrices && (
-          <div className="flex justify-end mb-8">
-            <div className="w-full max-w-xs space-y-1.5">
-              {[...ivaGroups.entries()].sort((a, b) => a[0] - b[0]).map(([rate, g]) => (
-                <div key={rate} className="flex justify-between text-sm text-gray-500">
-                  <span>Base imponible (IVA {Math.round(rate * 100)}%)</span>
-                  <span>{g.base.toFixed(2)} €</span>
-                </div>
-              ))}
-              <div className="flex justify-between text-sm text-gray-500 pt-1 border-t border-gray-100">
-                <span>Base imponible total</span>
-                <span>{baseImponible.toFixed(2)} €</span>
-              </div>
-              <div className="flex justify-between text-sm text-gray-500">
-                <span>IVA</span>
-                <span>{totalIva.toFixed(2)} €</span>
-              </div>
-              <div className="flex justify-between items-baseline pt-2 border-t border-[#1E2B28]">
-                <span className="font-bold text-[#1C1C1E]">TOTAL</span>
+          <div className="mb-8">
+            <p className="text-xs text-gray-400 uppercase font-medium mb-2">Desglose de IVA</p>
+            <table className="w-full text-sm max-w-md ml-auto">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left py-1.5 font-medium text-gray-500">Tipo IVA</th>
+                  <th className="text-right py-1.5 font-medium text-gray-500">Base imponible</th>
+                  <th className="text-right py-1.5 font-medium text-gray-500">Cuota IVA</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...ivaGroups.entries()].sort((a, b) => a[0] - b[0]).map(([rate, g]) => (
+                  <tr key={rate} className="border-b border-gray-100">
+                    <td className="py-1.5 text-gray-500">{Math.round(rate * 100)}%</td>
+                    <td className="text-right py-1.5 text-gray-600">{g.base.toFixed(2)} €</td>
+                    <td className="text-right py-1.5 text-gray-600">{g.iva.toFixed(2)} €</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t border-gray-200">
+                  <td className="py-1.5 font-medium text-[#1C1C1E]">Total</td>
+                  <td className="text-right py-1.5 font-medium text-[#1C1C1E]">{baseImponible.toFixed(2)} €</td>
+                  <td className="text-right py-1.5 font-medium text-[#1C1C1E]">{totalIva.toFixed(2)} €</td>
+                </tr>
+              </tfoot>
+            </table>
+            <div className="flex justify-end mt-2">
+              <div className="w-full max-w-md flex justify-between items-baseline pt-2 border-t-2 border-[#1E2B28]">
+                <span className="font-bold text-[#1C1C1E]">TOTAL (base + IVA)</span>
                 <span className="font-bold text-xl text-[#1E2B28]">{Number(order?.total_price ?? 0).toFixed(2)} €</span>
               </div>
             </div>
