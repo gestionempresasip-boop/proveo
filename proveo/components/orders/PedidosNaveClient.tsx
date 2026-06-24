@@ -276,7 +276,7 @@ function OrderActions({ order, onDeleted, onStatusChange }: { order: Order; onDe
           disabled={loading}
           title={needsPrepCheck && !allPrepared ? 'Faltan artículos por marcar como listos' : undefined}
           className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl transition-colors disabled:opacity-50 ${
-            needsPrepCheck && !allPrepared ? 'bg-gray-200 text-gray-400' : nextAction.color
+            needsPrepCheck && !allPrepared ? 'bg-gray-500 text-white' : nextAction.color
           }`}
         >
           {loading ? 'Actualizando...' : nextAction.label}
