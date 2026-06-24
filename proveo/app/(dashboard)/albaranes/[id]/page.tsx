@@ -7,7 +7,8 @@ import { PrintButton } from './PrintButton'
 import { unitLabel } from '@/lib/units'
 
 export default async function AlbaranDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  await getAuthProfile()
+  const profile = await getAuthProfile()
+  const showPrices = profile.organizations.type === 'nave'
   const { id } = await params
 
   const supabase = await createClient()
@@ -89,46 +90,58 @@ export default async function AlbaranDetailPage({ params }: { params: Promise<{ 
               <th className="text-left py-2 font-semibold text-[#1C1C1E]">Producto</th>
               <th className="text-right py-2 font-semibold text-[#1C1C1E]">Pedido</th>
               <th className="text-right py-2 font-semibold text-[#1C1C1E]">Enviado</th>
-              <th className="text-right py-2 font-semibold text-[#1C1C1E]">Precio/u</th>
-              <th className="text-right py-2 font-semibold text-[#1C1C1E]">Total</th>
+              {showPrices && <th className="text-right py-2 font-semibold text-[#1C1C1E]">Precio/u</th>}
+              {showPrices && <th className="text-right py-2 font-semibold text-[#1C1C1E]">Total</th>}
             </tr>
           </thead>
           <tbody>
-            {items.map((item: any) => (
-              <tr key={item.id} className="border-b border-gray-100">
-                <td className="py-2.5">{item.products?.name}</td>
-                <td className="text-right py-2.5 text-gray-500">{item.ordered_quantity} {unitLabel(item.unit)}</td>
-                <td className="text-right py-2.5 font-medium">{item.delivered_quantity} {unitLabel(item.unit)}</td>
-                <td className="text-right py-2.5">{Number(item.unit_price).toFixed(2)} €</td>
-                <td className="text-right py-2.5 font-semibold">{Number(item.total_price).toFixed(2)} €</td>
-              </tr>
-            ))}
+            {items.map((item: any) => {
+              const isCanceled = Number(item.delivered_quantity) === 0
+              return (
+                <tr key={item.id} className="border-b border-gray-100">
+                  <td className="py-2.5">
+                    {item.products?.name}
+                    {isCanceled && (
+                      <span className="block text-xs text-red-600 font-medium mt-0.5">
+                        ❌ Cancelado{item.note ? ` — ${item.note}` : ''}
+                      </span>
+                    )}
+                  </td>
+                  <td className="text-right py-2.5 text-gray-500">{item.ordered_quantity} {unitLabel(item.unit)}</td>
+                  <td className="text-right py-2.5 font-medium">{item.delivered_quantity} {unitLabel(item.unit)}</td>
+                  {showPrices && <td className="text-right py-2.5">{Number(item.unit_price).toFixed(2)} €</td>}
+                  {showPrices && <td className="text-right py-2.5 font-semibold">{Number(item.total_price).toFixed(2)} €</td>}
+                </tr>
+              )
+            })}
           </tbody>
         </table>
 
-        {/* Desglose de IVA */}
-        <div className="flex justify-end mb-8">
-          <div className="w-full max-w-xs space-y-1.5">
-            {[...ivaGroups.entries()].sort((a, b) => a[0] - b[0]).map(([rate, g]) => (
-              <div key={rate} className="flex justify-between text-sm text-gray-500">
-                <span>Base imponible (IVA {Math.round(rate * 100)}%)</span>
-                <span>{g.base.toFixed(2)} €</span>
+        {/* Desglose de IVA — solo nave */}
+        {showPrices && (
+          <div className="flex justify-end mb-8">
+            <div className="w-full max-w-xs space-y-1.5">
+              {[...ivaGroups.entries()].sort((a, b) => a[0] - b[0]).map(([rate, g]) => (
+                <div key={rate} className="flex justify-between text-sm text-gray-500">
+                  <span>Base imponible (IVA {Math.round(rate * 100)}%)</span>
+                  <span>{g.base.toFixed(2)} €</span>
+                </div>
+              ))}
+              <div className="flex justify-between text-sm text-gray-500 pt-1 border-t border-gray-100">
+                <span>Base imponible total</span>
+                <span>{baseImponible.toFixed(2)} €</span>
               </div>
-            ))}
-            <div className="flex justify-between text-sm text-gray-500 pt-1 border-t border-gray-100">
-              <span>Base imponible total</span>
-              <span>{baseImponible.toFixed(2)} €</span>
-            </div>
-            <div className="flex justify-between text-sm text-gray-500">
-              <span>IVA</span>
-              <span>{totalIva.toFixed(2)} €</span>
-            </div>
-            <div className="flex justify-between items-baseline pt-2 border-t border-[#1E2B28]">
-              <span className="font-bold text-[#1C1C1E]">TOTAL</span>
-              <span className="font-bold text-xl text-[#1E2B28]">{Number(order?.total_price ?? 0).toFixed(2)} €</span>
+              <div className="flex justify-between text-sm text-gray-500">
+                <span>IVA</span>
+                <span>{totalIva.toFixed(2)} €</span>
+              </div>
+              <div className="flex justify-between items-baseline pt-2 border-t border-[#1E2B28]">
+                <span className="font-bold text-[#1C1C1E]">TOTAL</span>
+                <span className="font-bold text-xl text-[#1E2B28]">{Number(order?.total_price ?? 0).toFixed(2)} €</span>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {order?.notes && (
           <div className="border-t border-gray-100 pt-4 mb-6">

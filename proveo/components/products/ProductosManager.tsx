@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useTransition, useMemo } from 'react'
-import { Package, Pencil, Trash2, Eye, EyeOff, Plus, X, Check, ChevronDown, ChevronRight, Sparkles, Tag, Euro, Search } from 'lucide-react'
+import { Package, Pencil, Trash2, Eye, EyeOff, Plus, X, Check, ChevronDown, ChevronRight, Sparkles, Tag, Euro, Search, Calculator } from 'lucide-react'
 import {
   toggleProductActive, softDeleteProduct, updateProduct, createProduct,
   createCategory, deleteCategory, updateCategory, seedDefaultCategories,
-  mergeCategories, moveProductsToCategory,
+  mergeCategories, moveProductsToCategory, bulkAdjustPricing,
 } from '@/app/actions/products'
+import type { BulkPricingField, BulkPricingMode } from '@/app/actions/products'
 import { UNIT_OPTIONS, unitLabel } from '@/lib/units'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -756,6 +757,184 @@ function NewCatForm({ onClose }: { onClose: () => void }) {
   )
 }
 
+// ── Edición masiva de precios / coste / margen ───────────────────────────────
+
+const BULK_FIELD_LABELS: Record<BulkPricingField, string> = {
+  precio_final: 'Precio final (con IVA)',
+  coste: 'Precio de coste',
+  margen: 'Margen',
+}
+
+function BulkPricingModal({
+  products, categories, onClose,
+}: {
+  products: Product[]; categories: Category[]; onClose: () => void
+}) {
+  const [scope, setScope] = useState<'todos' | 'categoria' | 'seleccion'>('todos')
+  const [selectedCats, setSelectedCats] = useState<Set<string>>(new Set())
+  const [selectedProds, setSelectedProds] = useState<Set<string>>(new Set())
+  const [prodSearch, setProdSearch] = useState('')
+  const [field, setField] = useState<BulkPricingField>('precio_final')
+  const [mode, setMode] = useState<BulkPricingMode>('fixed')
+  const [value, setValue] = useState('')
+  const [pending, startTransition] = useTransition()
+  const [result, setResult] = useState<{ updated: number; skipped: number } | null>(null)
+
+  const targetIds = useMemo(() => {
+    if (scope === 'todos') return products.map(p => p.id)
+    if (scope === 'categoria') {
+      return products.filter(p => {
+        const ids = p.category_ids ?? (p.category_id ? [p.category_id] : [])
+        return ids.some(id => selectedCats.has(id))
+      }).map(p => p.id)
+    }
+    return [...selectedProds]
+  }, [scope, products, selectedCats, selectedProds])
+
+  const filteredProds = useMemo(() =>
+    products.filter(p => p.name.toLowerCase().includes(prodSearch.toLowerCase())),
+    [products, prodSearch]
+  )
+
+  function toggleCat(id: string) {
+    setSelectedCats(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  }
+  function toggleProd(id: string) {
+    setSelectedProds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  }
+
+  function handleApply() {
+    const num = parseFloat(value.replace(',', '.'))
+    if (isNaN(num) || num === 0 || targetIds.length === 0) return
+    startTransition(async () => {
+      const res = await bulkAdjustPricing(targetIds, field, mode, num)
+      setResult(res)
+    })
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg my-4">
+        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
+          <h2 className="font-semibold text-[#1C1C1E] flex items-center gap-2">
+            <Calculator className="w-4 h-4 text-[#1E2B28]" /> Editar precios en masa
+          </h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+        </div>
+
+        <div className="px-6 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
+          {/* Ámbito */}
+          <div>
+            <label className="text-xs text-gray-500 font-medium block mb-1.5">¿A qué productos afecta?</label>
+            <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
+              {([['todos', 'Todos'], ['categoria', 'Por categoría'], ['seleccion', 'Selección manual']] as const).map(([k, l]) => (
+                <button key={k} onClick={() => setScope(k)}
+                  className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    scope === k ? 'bg-white text-[#1C1C1E] shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                  }`}>{l}</button>
+              ))}
+            </div>
+          </div>
+
+          {scope === 'categoria' && (
+            <div className="border border-gray-200 rounded-xl p-2.5 max-h-40 overflow-y-auto space-y-1">
+              {categories.map(c => (
+                <label key={c.id} className="flex items-center gap-2 px-1 py-1 rounded hover:bg-gray-50 cursor-pointer text-sm">
+                  <input type="checkbox" checked={selectedCats.has(c.id)} onChange={() => toggleCat(c.id)} className="accent-[#1E2B28]" />
+                  <ColorDot color={c.color} />
+                  {c.name}
+                </label>
+              ))}
+            </div>
+          )}
+
+          {scope === 'seleccion' && (
+            <div className="space-y-2">
+              <input type="text" placeholder="Buscar producto..." value={prodSearch} onChange={e => setProdSearch(e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
+              <div className="border border-gray-200 rounded-xl p-2.5 max-h-40 overflow-y-auto space-y-1">
+                {filteredProds.map(p => (
+                  <label key={p.id} className="flex items-center gap-2 px-1 py-1 rounded hover:bg-gray-50 cursor-pointer text-sm">
+                    <input type="checkbox" checked={selectedProds.has(p.id)} onChange={() => toggleProd(p.id)} className="accent-[#1E2B28]" />
+                    <span className="truncate">{p.name}</span>
+                  </label>
+                ))}
+                {filteredProds.length === 0 && <p className="text-xs text-gray-400 px-1">Sin resultados</p>}
+              </div>
+            </div>
+          )}
+
+          <p className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
+            Afectará a <strong>{targetIds.length}</strong> producto{targetIds.length !== 1 ? 's' : ''}.
+            {field !== 'precio_final' && ' Se saltarán los que no tengan coste puesto.'}
+          </p>
+
+          {/* Campo a modificar */}
+          <div>
+            <label className="text-xs text-gray-500 font-medium block mb-1.5">Campo a modificar</label>
+            <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
+              {(['precio_final', 'coste', 'margen'] as BulkPricingField[]).map(f => (
+                <button key={f} onClick={() => setField(f)}
+                  className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    field === f ? 'bg-white text-[#1C1C1E] shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                  }`}>{BULK_FIELD_LABELS[f]}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Operación + valor */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-gray-500 font-medium block mb-1.5">Operación</label>
+              <select value={mode} onChange={e => setMode(e.target.value as BulkPricingMode)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]">
+                <option value="fixed">{field === 'margen' ? 'Sumar puntos' : 'Sumar cantidad fija (€)'}</option>
+                <option value="percent">Aumentar un %</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 font-medium block mb-1.5">Valor</label>
+              <div className="relative">
+                <input
+                  type="number" step="0.01" value={value} onChange={e => setValue(e.target.value)}
+                  placeholder={mode === 'fixed' ? (field === 'margen' ? '3' : '0.50') : '5'}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28] pr-8"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+                  {mode === 'percent' ? '%' : field === 'margen' ? 'pts' : '€'}
+                </span>
+              </div>
+            </div>
+          </div>
+          <p className="text-xs text-gray-400">
+            Usa un valor negativo para bajar en vez de subir.
+          </p>
+
+          {result && (
+            <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg px-3 py-2">
+              ✓ Actualizados {result.updated} producto{result.updated !== 1 ? 's' : ''}
+              {result.skipped > 0 && ` · ${result.skipped} sin coste (omitidos)`}
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-2 px-6 py-4 border-t border-gray-100">
+          <button onClick={onClose} className="flex-1 border border-gray-200 text-gray-600 rounded-lg py-2 text-sm font-medium hover:bg-gray-50">
+            Cerrar
+          </button>
+          <button
+            onClick={handleApply}
+            disabled={pending || targetIds.length === 0 || !value}
+            className="flex-1 bg-[#1E2B28] text-white rounded-lg py-2 text-sm font-medium hover:bg-[#141F1C] disabled:opacity-50"
+          >
+            {pending ? 'Aplicando...' : 'Aplicar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function ProductosManager({
@@ -769,6 +948,7 @@ export function ProductosManager({
   const [editProduct, setEditProduct] = useState<Product | null>(null)
   const [nuevoDefaultCat, setNuevoDefaultCat] = useState<string | undefined>()
   const [showNuevo, setShowNuevo]     = useState(false)
+  const [showBulkPricing, setShowBulkPricing] = useState(false)
   const [search, setSearch]           = useState('')
   const [filterActive, setFilterActive] = useState<'todos' | 'activos' | 'ocultos'>('todos')
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
@@ -862,6 +1042,13 @@ export function ProductosManager({
           onClose={() => { setShowNuevo(false); setNuevoDefaultCat(undefined) }}
         />
       )}
+      {showBulkPricing && (
+        <BulkPricingModal
+          products={products}
+          categories={categories}
+          onClose={() => setShowBulkPricing(false)}
+        />
+      )}
 
       <div className="space-y-4">
         {/* Header */}
@@ -870,12 +1057,22 @@ export function ProductosManager({
             <h1 className="text-xl sm:text-2xl font-bold text-[#1C1C1E]">Gestión de Productos</h1>
             <p className="text-gray-500 mt-0.5 text-sm">{products.length} productos · {categories.length} categorías</p>
           </div>
-          <button
-            onClick={() => { setNuevoDefaultCat(undefined); setShowNuevo(true) }}
-            className="flex items-center gap-2 bg-[#1E2B28] text-white text-sm font-medium px-4 py-2.5 rounded-xl hover:bg-[#141F1C] transition-colors"
-          >
-            <Plus className="w-4 h-4" /> Nuevo producto
-          </button>
+          <div className="flex items-center gap-2">
+            {isNave && (
+              <button
+                onClick={() => setShowBulkPricing(true)}
+                className="flex items-center gap-2 border border-[#1E2B28] text-[#1E2B28] text-sm font-medium px-4 py-2.5 rounded-xl hover:bg-green-50 transition-colors"
+              >
+                <Calculator className="w-4 h-4" /> Precios en masa
+              </button>
+            )}
+            <button
+              onClick={() => { setNuevoDefaultCat(undefined); setShowNuevo(true) }}
+              className="flex items-center gap-2 bg-[#1E2B28] text-white text-sm font-medium px-4 py-2.5 rounded-xl hover:bg-[#141F1C] transition-colors"
+            >
+              <Plus className="w-4 h-4" /> Nuevo producto
+            </button>
+          </div>
         </div>
 
         {/* Tabs */}

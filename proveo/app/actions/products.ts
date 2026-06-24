@@ -196,6 +196,63 @@ export async function mergeCategories(fromId: string, toId: string) {
   revalidatePath('/admin/productos')
 }
 
+export type BulkPricingField = 'precio_final' | 'coste' | 'margen'
+export type BulkPricingMode = 'fixed' | 'percent'
+
+// Modifica precio final (con IVA), precio de coste o margen de varios
+// productos a la vez, sumando una cantidad fija o un porcentaje.
+// Devuelve cuántos productos se actualizaron y cuántos se saltaron
+// (coste/margen no aplican a productos sin coste puesto).
+export async function bulkAdjustPricing(
+  productIds: string[],
+  field: BulkPricingField,
+  mode: BulkPricingMode,
+  value: number,
+) {
+  if (productIds.length === 0 || !value) return { updated: 0, skipped: 0 }
+  const supabase = await createClient()
+  const sb = supabase as any
+
+  const { data: products } = await sb
+    .from('products')
+    .select('id, price, cost_price, margin, iva_rate')
+    .in('id', productIds)
+
+  let skipped = 0
+  const updates = (products ?? []).map((p: any) => {
+    const iva = Number(p.iva_rate) || 0
+    const cost = Number(p.cost_price) || 0
+    const margin = Number(p.margin) || 0
+    const currentPrice = Number(p.price) || 0
+
+    if (field === 'precio_final') {
+      const currentFinal = currentPrice * (1 + iva)
+      const newFinal = mode === 'fixed' ? currentFinal + value : currentFinal * (1 + value / 100)
+      const newPrice = Math.max(0, newFinal) / (1 + iva)
+      return { id: p.id, price: Math.max(0, newPrice) }
+    }
+    if (field === 'coste') {
+      if (cost <= 0) { skipped++; return null }
+      const newCost = mode === 'fixed' ? cost + value : cost * (1 + value / 100)
+      const safeCost = Math.max(0, newCost)
+      return { id: p.id, cost_price: safeCost, price: safeCost * (1 + margin) }
+    }
+    // margen — value en puntos porcentuales (fixed) o % relativo (percent)
+    if (cost <= 0) { skipped++; return null }
+    const newMargin = mode === 'fixed' ? margin + value / 100 : margin * (1 + value / 100)
+    const safeMargin = Math.max(0, newMargin)
+    return { id: p.id, margin: safeMargin, price: cost * (1 + safeMargin) }
+  }).filter(Boolean) as { id: string; [key: string]: unknown }[]
+
+  await Promise.all(updates.map(u => {
+    const { id, ...rest } = u
+    return sb.from('products').update(rest).eq('id', id)
+  }))
+
+  revalidatePath('/admin/productos')
+  return { updated: updates.length, skipped }
+}
+
 // Mueve todos los productos de una categoría a otra (sin borrar la categoría de origen)
 export async function moveProductsToCategory(productIds: string[], targetCategoryId: string) {
   if (productIds.length === 0) return

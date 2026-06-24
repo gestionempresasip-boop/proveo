@@ -46,9 +46,11 @@ function NoteRow({ note, isNave, onDeleted }: { note: Note; isNave: boolean; onD
           day: 'numeric', month: 'short', year: 'numeric'
         })}
       </td>
-      <td className="px-4 py-3 text-right font-bold text-[#1E2B28]">
-        {Number(note.orders?.total_price ?? 0).toFixed(2)} €
-      </td>
+      {isNave && (
+        <td className="px-4 py-3 text-right font-bold text-[#1E2B28]">
+          {Number(note.orders?.total_price ?? 0).toFixed(2)} €
+        </td>
+      )}
       <td className="px-4 py-3 text-right">
         <div className="flex items-center justify-end gap-2">
           <Link
@@ -113,7 +115,7 @@ export function AlbaranesClient({ notes: initialNotes, isNave }: { notes: Note[]
               <th className="text-left px-4 py-3 text-gray-500 font-medium">Albarán</th>
               {isNave && <th className="text-left px-4 py-3 text-gray-500 font-medium">Restaurante</th>}
               <th className="text-left px-4 py-3 text-gray-500 font-medium">Fecha</th>
-              <th className="text-right px-4 py-3 text-gray-500 font-medium">Total</th>
+              {isNave && <th className="text-right px-4 py-3 text-gray-500 font-medium">Total</th>}
               <th className="px-4 py-3"></th>
             </tr>
           </thead>
