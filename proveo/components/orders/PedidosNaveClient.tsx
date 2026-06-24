@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useMemo } from 'react'
 import Link from 'next/link'
-import { updateOrderStatus, generateDeliveryNote, deleteOrder, rectifyOrderItem, cancelOrderItem } from '@/app/actions/orders'
+import { updateOrderStatus, generateDeliveryNote, deleteOrder, rectifyOrderItem, cancelOrderItem, setItemPrepared, setItemLot } from '@/app/actions/orders'
 import type { OrderStatus } from '@/app/actions/orders'
 import { unitLabel } from '@/lib/units'
 import {
@@ -42,6 +42,7 @@ function isToday(d: Date) { const t = startOfDay(new Date()); return d >= t && d
 type OrderItem = {
   id: string; product_id: string; quantity: number; rectified_quantity?: number | null
   rectification_note?: string | null
+  prepared?: boolean; lot_number?: string | null
   unit: string; unit_price: number; total_price: number; products: { name: string } | null
 }
 type DeliveryNote = { id: string; note_number: number }
@@ -57,18 +58,33 @@ type Restaurant = { id: string; name: string }
 // ── Línea de pedido rectificable ──────────────────────────────────────────────
 
 function ItemRow({
-  item, onRectified, onCanceled,
+  item, onRectified, onCanceled, onPreparedChange, onLotChange,
 }: {
   item: OrderItem
   onRectified: (itemId: string, qty: number, note?: string) => void
   onCanceled: (itemId: string, reason?: string) => void
+  onPreparedChange: (itemId: string, prepared: boolean) => void
+  onLotChange: (itemId: string, lot: string) => void
 }) {
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState(String(item.rectified_quantity ?? item.quantity))
   const [note, setNote] = useState(item.rectification_note ?? '')
+  const [lot, setLot] = useState(item.lot_number ?? '')
   const [pending, startTransition] = useTransition()
   const isCanceled = item.rectified_quantity != null && Number(item.rectified_quantity) === 0
   const isRectified = item.rectified_quantity != null && Number(item.rectified_quantity) !== Number(item.quantity)
+
+  function togglePrepared() {
+    const next = !item.prepared
+    onPreparedChange(item.id, next)
+    setItemPrepared(item.id, next)
+  }
+
+  function saveLot() {
+    if (lot === (item.lot_number ?? '')) return
+    onLotChange(item.id, lot)
+    setItemLot(item.id, lot)
+  }
 
   function save() {
     const qty = parseFloat(value.replace(',', '.'))
@@ -134,19 +150,44 @@ function ItemRow({
   }
 
   return (
-    <div className={`flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-xs ${isRectified ? 'bg-amber-50 border border-amber-200' : 'bg-gray-50'}`}>
-      <span className="font-medium text-[#1C1C1E] truncate">{item.products?.name ?? '—'}</span>
-      <div className="flex items-center gap-1.5 shrink-0">
-        {isRectified ? (
-          <span className="text-amber-700">
-            <span className="line-through text-gray-400">{item.quantity}</span> → <span className="font-semibold">{item.rectified_quantity} {unitLabel(item.unit)}</span>
+    <div className={`rounded-xl px-3 py-2 text-xs space-y-1.5 ${isRectified ? 'bg-amber-50 border border-amber-200' : item.prepared ? 'bg-green-50 border border-green-200' : 'bg-gray-50'}`}>
+      <div className="flex items-center justify-between gap-2">
+        <label className="flex items-center gap-2 min-w-0 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={!!item.prepared}
+            onChange={togglePrepared}
+            title="Listo / cargado en la furgoneta"
+            className="accent-green-600 shrink-0 w-4 h-4"
+          />
+          <span className={`font-medium truncate ${item.prepared ? 'text-green-700' : 'text-[#1C1C1E]'}`}>
+            {item.products?.name ?? '—'}
           </span>
-        ) : (
-          <span className="text-gray-500">{item.quantity} {unitLabel(item.unit)}</span>
-        )}
-        <button onClick={() => setEditing(true)} title="Rectificar cantidad" className="p-1 rounded text-gray-400 hover:text-amber-600 hover:bg-amber-50">
-          <Pencil className="w-3 h-3" />
-        </button>
+        </label>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {isRectified ? (
+            <span className="text-amber-700">
+              <span className="line-through text-gray-400">{item.quantity}</span> → <span className="font-semibold">{item.rectified_quantity} {unitLabel(item.unit)}</span>
+            </span>
+          ) : (
+            <span className="text-gray-500">{item.quantity} {unitLabel(item.unit)}</span>
+          )}
+          <button onClick={() => setEditing(true)} title="Rectificar cantidad" className="p-1 rounded text-gray-400 hover:text-amber-600 hover:bg-amber-50">
+            <Pencil className="w-3 h-3" />
+          </button>
+        </div>
+      </div>
+      <div className="flex items-center gap-1.5 pl-6">
+        <span className="text-gray-400 shrink-0">Lote:</span>
+        <input
+          type="text"
+          value={lot}
+          onChange={e => setLot(e.target.value)}
+          onBlur={saveLot}
+          onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+          placeholder="Sin especificar"
+          className="flex-1 min-w-0 bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-[#1E2B28] placeholder-gray-300"
+        />
       </div>
     </div>
   )
@@ -159,13 +200,23 @@ function OrderActions({ order, onDeleted, onStatusChange }: { order: Order; onDe
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [noteId, setNoteId] = useState<string | null>(order.delivery_notes?.[0]?.id ?? null)
   const [noteNumber, setNoteNumber] = useState<number | null>(order.delivery_notes?.[0]?.note_number ?? null)
+  const [blockedMsg, setBlockedMsg] = useState(false)
   const [, startTransition] = useTransition()
 
   const status = normalizeStatus(order.status)
   const nextAction = NEXT[status]
 
+  const pendingItems = order.order_items.filter(i => Number(i.rectified_quantity ?? -1) !== 0)
+  const allPrepared = pendingItems.length > 0 && pendingItems.every(i => i.prepared)
+  const needsPrepCheck = status === 'pendiente'
+
   function handleStatus() {
     if (!nextAction) return
+    if (needsPrepCheck && !allPrepared) {
+      setBlockedMsg(true)
+      setTimeout(() => setBlockedMsg(false), 3000)
+      return
+    }
     onStatusChange(order.id, nextAction.next)
     updateOrderStatus(order.id, nextAction.next)
   }
@@ -210,13 +261,23 @@ function OrderActions({ order, onDeleted, onStatusChange }: { order: Order; onDe
   }
 
   return (
-    <div className="flex flex-wrap gap-2 mt-3">
+    <div className="mt-3">
+      {blockedMsg && (
+        <p className="text-xs text-red-600 font-medium mb-2 flex items-center gap-1.5">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+          Marca primero todos los artículos como listos (checkbox) antes de continuar
+        </p>
+      )}
+      <div className="flex flex-wrap gap-2">
       {/* Cambio de estado */}
       {nextAction && (
         <button
           onClick={handleStatus}
           disabled={loading}
-          className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl transition-colors disabled:opacity-50 ${nextAction.color}`}
+          title={needsPrepCheck && !allPrepared ? 'Faltan artículos por marcar como listos' : undefined}
+          className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl transition-colors disabled:opacity-50 ${
+            needsPrepCheck && !allPrepared ? 'bg-gray-200 text-gray-400' : nextAction.color
+          }`}
         >
           {loading ? 'Actualizando...' : nextAction.label}
         </button>
@@ -299,6 +360,7 @@ function OrderActions({ order, onDeleted, onStatusChange }: { order: Order; onDe
           </button>
         </div>
       )}
+      </div>
     </div>
   )
 }
@@ -306,12 +368,14 @@ function OrderActions({ order, onDeleted, onStatusChange }: { order: Order; onDe
 // ── Order card ───────────────────────────────────────────────────────────────
 
 function OrderCard({
-  order, onDeleted, onStatusChange, onRectified, onItemCanceled,
+  order, onDeleted, onStatusChange, onRectified, onItemCanceled, onPreparedChange, onLotChange,
 }: {
   order: Order; onDeleted: (id: string) => void
   onStatusChange: (id: string, status: OrderStatus) => void
   onRectified: (orderId: string, itemId: string, qty: number, note?: string) => void
   onItemCanceled: (orderId: string, itemId: string, reason?: string) => void
+  onPreparedChange: (orderId: string, itemId: string, prepared: boolean) => void
+  onLotChange: (orderId: string, itemId: string, lot: string) => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const status = normalizeStatus(order.status)
@@ -362,6 +426,8 @@ function OrderCard({
                 item={item}
                 onRectified={(itemId, qty, note) => onRectified(order.id, itemId, qty, note)}
                 onCanceled={(itemId, reason) => onItemCanceled(order.id, itemId, reason)}
+                onPreparedChange={(itemId, prepared) => onPreparedChange(order.id, itemId, prepared)}
+                onLotChange={(itemId, lot) => onLotChange(order.id, itemId, lot)}
               />
             ))}
           </div>
@@ -399,6 +465,16 @@ export function PedidosNaveClient({ orders: initialOrders, restaurants }: { orde
   }
   function handleItemCanceled(orderId: string, itemId: string, reason?: string) {
     handleRectified(orderId, itemId, 0, reason)
+  }
+  function handlePreparedChange(orderId: string, itemId: string, prepared: boolean) {
+    setOrders(prev => prev.map(o => o.id !== orderId ? o : {
+      ...o, order_items: o.order_items.map(it => it.id === itemId ? { ...it, prepared } : it),
+    }))
+  }
+  function handleLotChange(orderId: string, itemId: string, lot: string) {
+    setOrders(prev => prev.map(o => o.id !== orderId ? o : {
+      ...o, order_items: o.order_items.map(it => it.id === itemId ? { ...it, lot_number: lot } : it),
+    }))
   }
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
@@ -548,7 +624,7 @@ export function PedidosNaveClient({ orders: initialOrders, restaurants }: { orde
             Pendientes de días anteriores ({pastPending.length})
           </h2>
           <div className="space-y-3">
-            {pastPending.map(o => <OrderCard key={o.id} order={o} onDeleted={handleDeleted} onStatusChange={handleStatusChange} onRectified={handleRectified} onItemCanceled={handleItemCanceled} />)}
+            {pastPending.map(o => <OrderCard key={o.id} order={o} onDeleted={handleDeleted} onStatusChange={handleStatusChange} onRectified={handleRectified} onItemCanceled={handleItemCanceled} onPreparedChange={handlePreparedChange} onLotChange={handleLotChange} />)}
           </div>
         </section>
       )}
@@ -569,7 +645,7 @@ export function PedidosNaveClient({ orders: initialOrders, restaurants }: { orde
           </div>
         ) : (
           <div className="space-y-3">
-            {todayOrders.map(o => <OrderCard key={o.id} order={o} onDeleted={handleDeleted} onStatusChange={handleStatusChange} onRectified={handleRectified} onItemCanceled={handleItemCanceled} />)}
+            {todayOrders.map(o => <OrderCard key={o.id} order={o} onDeleted={handleDeleted} onStatusChange={handleStatusChange} onRectified={handleRectified} onItemCanceled={handleItemCanceled} onPreparedChange={handlePreparedChange} onLotChange={handleLotChange} />)}
           </div>
         )}
       </section>

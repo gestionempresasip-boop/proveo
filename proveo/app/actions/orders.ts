@@ -123,6 +123,22 @@ export async function rectifyOrderItem(orderItemId: string, newQuantity: number,
   revalidatePath('/albaranes')
 }
 
+// Checklist de preparación: marcar un artículo como listo/cargado.
+export async function setItemPrepared(orderItemId: string, prepared: boolean) {
+  const supabase = await createClient()
+  const sb = supabase as any
+  await sb.from('order_items').update({ prepared }).eq('id', orderItemId)
+  revalidatePath('/pedidos')
+}
+
+// Número de lote del producto servido en esa línea de pedido.
+export async function setItemLot(orderItemId: string, lotNumber: string) {
+  const supabase = await createClient()
+  const sb = supabase as any
+  await sb.from('order_items').update({ lot_number: lotNumber || null }).eq('id', orderItemId)
+  revalidatePath('/pedidos')
+}
+
 // Cancela por completo una línea del pedido (rotura de stock, producto en
 // mal estado, etc.). El restaurante verá claramente que ese artículo no
 // llegará, junto con el motivo si se indica.
