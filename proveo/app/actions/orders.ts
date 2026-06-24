@@ -93,7 +93,7 @@ export async function generateDeliveryNote(orderId: string) {
 // original (quantity) y la rectificada (rectified_quantity) por separado,
 // para que tanto la nave como el restaurante vean ambas. Si ya existe un
 // albarán generado para el pedido, se mantiene sincronizado.
-export async function rectifyOrderItem(orderItemId: string, newQuantity: number) {
+export async function rectifyOrderItem(orderItemId: string, newQuantity: number, note?: string) {
   const supabase = await createClient()
   const sb = supabase as any
 
@@ -101,7 +101,9 @@ export async function rectifyOrderItem(orderItemId: string, newQuantity: number)
   if (!item) return
 
   const total_price = newQuantity * Number(item.unit_price)
-  await sb.from('order_items').update({ rectified_quantity: newQuantity, total_price }).eq('id', orderItemId)
+  await sb.from('order_items')
+    .update({ rectified_quantity: newQuantity, total_price, rectification_note: note || null })
+    .eq('id', orderItemId)
 
   const { data: items } = await sb.from('order_items').select('quantity, rectified_quantity, unit_price').eq('order_id', item.order_id)
   const orderTotal = (items ?? []).reduce(
@@ -109,16 +111,23 @@ export async function rectifyOrderItem(orderItemId: string, newQuantity: number)
   )
   await sb.from('orders').update({ total_price: orderTotal }).eq('id', item.order_id)
 
-  const { data: note } = await sb.from('delivery_notes').select('id').eq('order_id', item.order_id).maybeSingle()
-  if (note) {
+  const { data: deliveryNote } = await sb.from('delivery_notes').select('id').eq('order_id', item.order_id).maybeSingle()
+  if (deliveryNote) {
     await sb.from('delivery_note_items')
-      .update({ delivered_quantity: newQuantity, total_price })
-      .eq('delivery_note_id', note.id)
+      .update({ delivered_quantity: newQuantity, total_price, note: note || null })
+      .eq('delivery_note_id', deliveryNote.id)
       .eq('product_id', item.product_id)
   }
 
   revalidatePath('/pedidos')
   revalidatePath('/albaranes')
+}
+
+// Cancela por completo una línea del pedido (rotura de stock, producto en
+// mal estado, etc.). El restaurante verá claramente que ese artículo no
+// llegará, junto con el motivo si se indica.
+export async function cancelOrderItem(orderItemId: string, reason?: string) {
+  await rectifyOrderItem(orderItemId, 0, reason || 'Cancelado por la nave')
 }
 
 export async function deleteOrder(orderId: string) {

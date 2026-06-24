@@ -27,7 +27,10 @@ const STATUS_LABELS: Record<string, string> = {
   cancelado:      '❌ Cancelado',
 }
 
-type OrderItem = { id: string; quantity: number; rectified_quantity?: number | null; unit: string; products: { name: string; unit: string } | null }
+type OrderItem = {
+  id: string; quantity: number; rectified_quantity?: number | null; rectification_note?: string | null
+  unit: string; products: { name: string; unit: string } | null
+}
 type Order = { id: string; order_number: number; status: string; notes: string | null; total_price: number; created_at: string; order_items: OrderItem[] }
 
 function dayKey(dateStr: string): string {
@@ -90,7 +93,21 @@ function OrderRow({ order, onCanceled }: { order: Order; onCanceled: (id: string
 
         <div className="mt-3 pt-3 border-t border-gray-100 grid grid-cols-1 sm:grid-cols-2 gap-2">
           {order.order_items?.map((item, i) => {
-            const isRectified = item.rectified_quantity != null && Number(item.rectified_quantity) !== Number(item.quantity)
+            const isCanceled = item.rectified_quantity != null && Number(item.rectified_quantity) === 0
+            const isRectified = !isCanceled && item.rectified_quantity != null && Number(item.rectified_quantity) !== Number(item.quantity)
+            if (isCanceled) {
+              return (
+                <div key={i} className="text-xs rounded-xl px-3 py-2 bg-red-50 border border-red-200">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-[#1C1C1E] flex items-center gap-1.5">
+                      <Ban className="h-3 w-3 text-red-500 shrink-0" />{item.products?.name}
+                    </span>
+                    <span className="text-red-600 font-semibold shrink-0 ml-2">❌ No disponible</span>
+                  </div>
+                  {item.rectification_note && <p className="text-red-500 mt-0.5">{item.rectification_note}</p>}
+                </div>
+              )
+            }
             return (
               <div key={i} className={cn('text-xs rounded-xl px-3 py-2 flex justify-between', isRectified ? 'bg-amber-50 border border-amber-200' : 'bg-gray-50')}>
                 <span className="font-medium text-[#1C1C1E]">{item.products?.name}</span>
