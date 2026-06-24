@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import type { Product } from '@/types/database'
 import { useState, useEffect } from 'react'
 import { unitLabel } from '@/lib/units'
+import { productEmoji } from '@/lib/productEmoji'
 
 interface ProductCardProps {
   product: Product
@@ -16,24 +17,6 @@ interface ProductCardProps {
   /** undefined = sin límite de stock controlado por la nave */
   maxStock?: number
   justRestocked?: boolean
-}
-
-function categoryEmoji(name?: string | null): string {
-  if (!name) return '📦'
-  const n = name.toLowerCase()
-  if (n.includes('carne') || n.includes('ave')) return '🥩'
-  if (n.includes('pescado') || n.includes('marisco')) return '🐟'
-  if (n.includes('fruta')) return '🍊'
-  if (n.includes('verdura') || n.includes('hortaliza')) return '🥦'
-  if (n.includes('lácteo') || n.includes('lacteo') || n.includes('huevo')) return '🧀'
-  if (n.includes('vino') || n.includes('bebida')) return '🍷'
-  if (n.includes('seco') || n.includes('conserva')) return '🫙'
-  if (n.includes('salsa') || n.includes('condimento')) return '🫒'
-  if (n.includes('panadería') || n.includes('masa')) return '🥖'
-  if (n.includes('utillaje') || n.includes('menaje')) return '🍴'
-  if (n.includes('uniforme') || n.includes('ropa')) return '👕'
-  if (n.includes('elaboracion') || n.includes('nave')) return '👨‍🍳'
-  return '📦'
 }
 
 function placeholderStyle(color?: string | null): { background: string } {
@@ -110,7 +93,7 @@ export function ProductCard({
             style={placeholderStyle(categoryColor)}
           >
             <span className="text-4xl sm:text-5xl leading-none">
-              {categoryEmoji(categoryName)}
+              {productEmoji(product.name, categoryName)}
             </span>
             {categoryName && (
               <span className="text-[10px] font-medium uppercase tracking-wide opacity-50"
