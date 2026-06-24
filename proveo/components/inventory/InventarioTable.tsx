@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useTransition, useMemo } from 'react'
-import { upsertInventory, getInventoryHistory, bulkSetMinStock } from '@/app/actions/inventory'
+import { useRouter } from 'next/navigation'
+import { upsertInventory, getInventoryHistory, bulkSetMinStock, bulkUpsertInventory } from '@/app/actions/inventory'
 import { AlertTriangle, CheckCircle2, XCircle, Save, ChevronDown, ChevronUp, History, Package, Download, ListChecks, X, Check } from 'lucide-react'
 
 type InventoryRow = {
@@ -37,34 +38,21 @@ function StockStatus({ current, min }: { current: number; min: number }) {
   return <span className="flex items-center gap-1 text-xs font-medium text-green-600"><CheckCircle2 className="w-3.5 h-3.5" />OK</span>
 }
 
+// Componente controlado: no guarda su propio estado, todo viene del padre.
+// Así un guardado en masa (o el botón "Guardar todo") siempre se refleja al
+// instante, sin depender de que el campo se "entere" de los nuevos props.
 function InventoryRowItem({
-  row, isNave, organizationId,
+  row, stockValue, minValue, dirty, saving, saved, onStockChange, onMinChange, onSave,
 }: {
-  row: InventoryRow; isNave: boolean; organizationId: string
+  row: InventoryRow
+  stockValue: string; minValue: string
+  dirty: boolean; saving: boolean; saved: boolean
+  onStockChange: (v: string) => void
+  onMinChange: (v: string) => void
+  onSave: () => void
 }) {
-  const [stock, setStock] = useState(String(row.current_stock))
-  const [min, setMin] = useState(String(row.min_stock))
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
-
-  const dirty = stock !== String(row.current_stock) || min !== String(row.min_stock)
-
-  async function handleSave() {
-    setSaving(true)
-    await upsertInventory(
-      row.product_id,
-      parseFloat(stock) || 0,
-      parseFloat(min) || 0,
-      isNave,
-      organizationId,
-    )
-    setSaving(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
-  }
-
-  const currentNum = parseFloat(stock) || 0
-  const minNum = parseFloat(min) || 0
+  const currentNum = parseFloat(stockValue) || 0
+  const minNum = parseFloat(minValue) || 0
   const isLow = minNum > 0 && currentNum <= minNum
   const isEmpty = currentNum === 0
 
@@ -81,8 +69,8 @@ function InventoryRowItem({
             type="number"
             min="0"
             step="0.001"
-            value={stock}
-            onChange={e => { setStock(e.target.value); setSaved(false) }}
+            value={stockValue}
+            onChange={e => onStockChange(e.target.value)}
             className={`w-24 border rounded-lg px-2 py-1 text-sm text-center font-semibold focus:outline-none focus:ring-2 focus:ring-[#1E2B28] ${
               isEmpty ? 'border-red-300 text-red-600' : isLow ? 'border-orange-300 text-orange-600' : 'border-gray-200 text-[#1E2B28]'
             }`}
@@ -96,8 +84,8 @@ function InventoryRowItem({
             type="number"
             min="0"
             step="0.001"
-            value={min}
-            onChange={e => { setMin(e.target.value); setSaved(false) }}
+            value={minValue}
+            onChange={e => onMinChange(e.target.value)}
             className="w-24 border border-gray-200 rounded-lg px-2 py-1 text-sm text-center text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
           />
           <span className="text-xs text-gray-400">{row.product_unit}</span>
@@ -116,7 +104,7 @@ function InventoryRowItem({
           <span className="text-xs text-green-600 font-medium">✓ Guardado</span>
         ) : (
           <button
-            onClick={handleSave}
+            onClick={onSave}
             disabled={saving || !dirty}
             className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
               dirty
@@ -282,6 +270,7 @@ function BulkMinStockModal({
   const [value, setValue] = useState('')
   const [pending, startTransition] = useTransition()
   const [result, setResult] = useState<number | null>(null)
+  const router = useRouter()
 
   const targetIds = useMemo(() => {
     if (scope === 'todos') return rows.map(r => r.product_id)
@@ -307,6 +296,7 @@ function BulkMinStockModal({
     startTransition(async () => {
       const res = await bulkSetMinStock(targetIds, min, isNave, organizationId)
       setResult(res.updated)
+      router.refresh()
     })
   }
 
@@ -409,6 +399,54 @@ export function InventarioTable({
   const [filter, setFilter] = useState<'todos' | 'bajo' | 'sinstock'>('todos')
   const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({})
   const [showBulkMin, setShowBulkMin] = useState(false)
+  const [edits, setEdits] = useState<Record<string, { stock: string; min: string }>>({})
+  const [savingAll, setSavingAll] = useState(false)
+  const [savingRow, setSavingRow] = useState<string | null>(null)
+  const [savedRows, setSavedRows] = useState<Set<string>>(new Set())
+  const router = useRouter()
+
+  function getStockValue(row: InventoryRow) { return edits[row.product_id]?.stock ?? String(row.current_stock) }
+  function getMinValue(row: InventoryRow) { return edits[row.product_id]?.min ?? String(row.min_stock) }
+  function isDirty(row: InventoryRow) {
+    const e = edits[row.product_id]
+    return !!e && (e.stock !== String(row.current_stock) || e.min !== String(row.min_stock))
+  }
+  function setStockEdit(row: InventoryRow, value: string) {
+    setEdits(prev => ({ ...prev, [row.product_id]: { stock: value, min: prev[row.product_id]?.min ?? String(row.min_stock) } }))
+    setSavedRows(prev => { const n = new Set(prev); n.delete(row.product_id); return n })
+  }
+  function setMinEdit(row: InventoryRow, value: string) {
+    setEdits(prev => ({ ...prev, [row.product_id]: { stock: prev[row.product_id]?.stock ?? String(row.current_stock), min: value } }))
+    setSavedRows(prev => { const n = new Set(prev); n.delete(row.product_id); return n })
+  }
+
+  async function saveRow(row: InventoryRow) {
+    setSavingRow(row.product_id)
+    await upsertInventory(row.product_id, parseFloat(getStockValue(row)) || 0, parseFloat(getMinValue(row)) || 0, isNave, organizationId)
+    setSavingRow(null)
+    setSavedRows(prev => new Set(prev).add(row.product_id))
+    setEdits(prev => { const n = { ...prev }; delete n[row.product_id]; return n })
+    router.refresh()
+    setTimeout(() => setSavedRows(prev => { const n = new Set(prev); n.delete(row.product_id); return n }), 2000)
+  }
+
+  const dirtyRows = rows.filter(isDirty)
+
+  async function saveAll() {
+    if (dirtyRows.length === 0) return
+    setSavingAll(true)
+    await bulkUpsertInventory(
+      dirtyRows.map(row => ({
+        productId: row.product_id,
+        currentStock: parseFloat(getStockValue(row)) || 0,
+        minStock: parseFloat(getMinValue(row)) || 0,
+      })),
+      isNave, organizationId,
+    )
+    setSavingAll(false)
+    setEdits({})
+    router.refresh()
+  }
 
   const filtered = rows.filter(r => {
     const matchSearch = r.product_name.toLowerCase().includes(search.toLowerCase())
@@ -504,6 +542,22 @@ export function InventarioTable({
             )}
           </div>
 
+          {dirtyRows.length > 0 && (
+            <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5">
+              <span className="text-sm text-amber-700">
+                {dirtyRows.length} producto{dirtyRows.length !== 1 ? 's' : ''} con cambios sin guardar
+              </span>
+              <button
+                onClick={saveAll}
+                disabled={savingAll}
+                className="flex items-center gap-1.5 bg-[#1E2B28] text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#141F1C] disabled:opacity-60 transition-colors"
+              >
+                <Save className="w-3.5 h-3.5" />
+                {savingAll ? 'Guardando...' : 'Guardar todo'}
+              </button>
+            </div>
+          )}
+
           {showBulkMin && (
             <BulkMinStockModal
               rows={rows}
@@ -549,7 +603,18 @@ export function InventarioTable({
                     </thead>
                     <tbody>
                       {group.rows.map(row => (
-                        <InventoryRowItem key={row.product_id} row={row} isNave={isNave} organizationId={organizationId} />
+                        <InventoryRowItem
+                          key={row.product_id}
+                          row={row}
+                          stockValue={getStockValue(row)}
+                          minValue={getMinValue(row)}
+                          dirty={isDirty(row)}
+                          saving={savingRow === row.product_id}
+                          saved={savedRows.has(row.product_id)}
+                          onStockChange={v => setStockEdit(row, v)}
+                          onMinChange={v => setMinEdit(row, v)}
+                          onSave={() => saveRow(row)}
+                        />
                       ))}
                     </tbody>
                   </table>

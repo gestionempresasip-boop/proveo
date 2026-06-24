@@ -67,6 +67,70 @@ export async function upsertInventory(
   revalidatePath('/inventario')
 }
 
+// Guarda de golpe el stock/mínimo de varias filas (botón "Guardar todo").
+export async function bulkUpsertInventory(
+  entries: { productId: string; currentStock: number; minStock: number }[],
+  isNave: boolean,
+  organizationId: string,
+) {
+  if (entries.length === 0) return { saved: 0 }
+  const supabase = await createClient()
+  const sb = supabase as any
+  const ids = entries.map(e => e.productId)
+
+  if (isNave) {
+    const { data: existing } = await sb.from('nave_inventory').select('product_id, current_stock').in('product_id', ids)
+    const prevById = new Map<string, number>((existing ?? []).map((r: any) => [r.product_id, Number(r.current_stock)]))
+
+    await sb.from('nave_inventory').upsert(
+      entries.map(e => {
+        const wasOutOfStock = (prevById.get(e.productId) ?? 0) <= 0
+        const isRestock = wasOutOfStock && e.currentStock > 0
+        return {
+          product_id: e.productId, current_stock: e.currentStock, min_stock: e.minStock,
+          last_updated: new Date().toISOString(),
+          ...(isRestock ? { last_restocked_at: new Date().toISOString() } : {}),
+        }
+      }),
+      { onConflict: 'product_id' }
+    )
+  } else {
+    await sb.from('restaurant_inventory').upsert(
+      entries.map(e => ({
+        product_id: e.productId, organization_id: organizationId,
+        current_stock: e.currentStock, min_stock: e.minStock,
+        last_updated: new Date().toISOString(),
+      })),
+      { onConflict: 'organization_id,product_id' }
+    )
+  }
+
+  // Log snapshot for history (best effort)
+  try {
+    const { data: products } = await sb.from('products').select('id, name, unit').in('id', ids)
+    const { data: org } = await sb.from('organizations').select('name').eq('id', organizationId).single()
+    const productById = new Map<string, { name: string; unit: string }>((products ?? []).map((p: any) => [p.id, p]))
+    if (org) {
+      await sb.from('inventory_log').insert(
+        entries.map(e => ({
+          product_id: e.productId,
+          product_name: productById.get(e.productId)?.name ?? '',
+          product_unit: productById.get(e.productId)?.unit ?? '',
+          organization_id: organizationId,
+          organization_name: org.name,
+          stock_value: e.currentStock,
+          min_stock: e.minStock,
+        }))
+      )
+    }
+  } catch {
+    // inventory_log table may not exist yet — safe to ignore
+  }
+
+  revalidatePath('/inventario')
+  return { saved: entries.length }
+}
+
 // Asigna el mismo stock mínimo a varios productos a la vez (sin tocar el
 // stock actual de cada uno, que se conserva).
 export async function bulkSetMinStock(
