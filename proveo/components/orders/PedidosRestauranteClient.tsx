@@ -1,9 +1,11 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
-import { Package, Clock, Ban, Search, ChevronDown, X, Undo2, ThumbsUp, AlertTriangle } from 'lucide-react'
+import { Package, Clock, Ban, Search, ChevronDown, X, Undo2, ThumbsUp, AlertTriangle, Repeat } from 'lucide-react'
 import { updateOrderStatus, createReturn, type ReturnReason } from '@/app/actions/orders'
+import { setRepeatOrder, type RepeatOrderItem } from '@/lib/repeatOrder'
 import { cn } from '@/lib/utils'
 import { unitLabel } from '@/lib/units'
 
@@ -150,6 +152,7 @@ function dayLabel(dateStr: string): string {
 }
 
 function OrderRow({ order, onCanceled, onReturned }: { order: Order; onCanceled: (id: string) => void; onReturned: (orderId: string, productId: string, qty: number, reason: ReturnReason) => void }) {
+  const router = useRouter()
   const [confirm, setConfirm] = useState(false)
   const [loading, setLoading] = useState(false)
   const canCancel = order.status === 'pendiente'
@@ -220,6 +223,25 @@ function OrderRow({ order, onCanceled, onReturned }: { order: Order; onCanceled:
             )
           })}
         </div>
+
+        {/* Repetir pedido */}
+        {order.status !== 'cancelado' && (
+          <div className="mt-3 flex justify-end">
+            <button
+              onClick={() => {
+                const items: RepeatOrderItem[] = order.order_items
+                  .filter(it => !(it.rectified_quantity != null && Number(it.rectified_quantity) === 0))
+                  .map(it => ({ product_id: it.product_id, quantity: Number(it.rectified_quantity ?? it.quantity) }))
+                setRepeatOrder(items)
+                router.push('/catalogo')
+              }}
+              className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-xl border border-[#1E2B28]/30 text-[#1E2B28] hover:bg-[#1E2B28]/10 transition-colors"
+            >
+              <Repeat className="w-3.5 h-3.5" />
+              Repetir pedido
+            </button>
+          </div>
+        )}
 
         {/* Cancelar */}
         {canCancel && (

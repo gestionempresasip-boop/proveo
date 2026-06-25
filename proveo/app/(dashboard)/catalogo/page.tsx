@@ -8,6 +8,7 @@ import { ShoppingCart, Loader2, Check, X, ChevronUp, ChevronDown, Search } from 
 import type { Product, ProductCategory } from '@/types/database'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
+import { takeRepeatOrder } from '@/lib/repeatOrder'
 
 type CartItem = { product: Product; quantity: number }
 
@@ -37,6 +38,7 @@ export default function CatalogoPage() {
   const [stockMap, setStockMap] = useState<Record<string, number>>({})
   const [stockError, setStockError] = useState<string | null>(null)
   const [restockedMap, setRestockedMap] = useState<Record<string, boolean>>({})
+  const [repeatedNotice, setRepeatedNotice] = useState(false)
   const supabase = createClient()
   const router = useRouter()
 
@@ -59,6 +61,24 @@ export default function CatalogoPage() {
       setStockMap(sMap)
       setRestockedMap(rMap)
       setLoading(false)
+
+      // "Repetir pedido": viene de Mis pedidos con product_id + cantidad del
+      // pedido anterior. Se rellena el carrito (recortando al stock
+      // disponible) para que el restaurante solo revise y envíe.
+      const repeat = takeRepeatOrder()
+      if (repeat && repeat.length > 0) {
+        const validIds = new Set((prods ?? []).map((p: any) => p.id))
+        const nextCart: Record<string, number> = {}
+        for (const item of repeat) {
+          if (!validIds.has(item.product_id) || item.quantity <= 0) continue
+          const max = sMap[item.product_id]
+          nextCart[item.product_id] = max !== undefined ? Math.min(item.quantity, max) : item.quantity
+        }
+        if (Object.keys(nextCart).length > 0) {
+          setCart(nextCart)
+          setRepeatedNotice(true)
+        }
+      }
     }
     load()
   }, [])
@@ -235,6 +255,16 @@ export default function CatalogoPage() {
             ? `${filteredProducts.length} resultado${filteredProducts.length !== 1 ? 's' : ''} para "${searchQuery}"`
             : `${products.length} productos disponibles · selecciona y haz tu pedido`}
         </p>
+        {repeatedNotice && (
+          <div className="mt-3 flex items-start justify-between gap-3 bg-[#1E2B28]/10 border border-[#1E2B28]/30 rounded-xl px-3.5 py-2.5">
+            <p className="text-sm text-[#1E2B28]">
+              Hemos rellenado tu pedido con los productos de tu pedido anterior. Revisa las cantidades y pulsa "Enviar pedido a la nave".
+            </p>
+            <button onClick={() => setRepeatedNotice(false)} className="text-[#1E2B28]/70 hover:text-[#1E2B28] shrink-0">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ── Search + Category filter — sticky ────────────────────────── */}
