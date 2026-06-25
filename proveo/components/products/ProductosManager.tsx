@@ -252,7 +252,7 @@ function ProductFields({
         <div>
           <label className="text-xs text-gray-700 font-medium block mb-1">Unidad *</label>
           <select name="unit" defaultValue={product?.unit ?? 'kg'}
-            className="w-full border border-gray-300 bg-gray-100 text-black rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]">
+            className="w-full border border-[#1E2B28]/25 bg-[#1E2B28]/10 text-black rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]">
             {UNIT_OPTIONS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
           </select>
         </div>
@@ -383,7 +383,7 @@ function NuevoModal({
               </div>
               <div>
                 <label className="text-xs text-gray-700 font-medium block mb-1">Unidad *</label>
-                <select name="unit" className="w-full border border-gray-300 bg-gray-100 text-black rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]">
+                <select name="unit" className="w-full border border-[#1E2B28]/25 bg-[#1E2B28]/10 text-black rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]">
                   {UNIT_OPTIONS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
                 </select>
               </div>
@@ -578,7 +578,7 @@ function CategorySection({
               onChange={e => handleMoveAll(e.target.value)}
               disabled={movePending}
               defaultValue=""
-              className="text-xs border border-gray-300 bg-gray-100 text-black rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
+              className="text-xs border border-[#1E2B28]/25 bg-[#1E2B28]/10 text-black rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
             >
               <option value="" disabled>Mover todos a...</option>
               {otherCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -643,13 +643,13 @@ function MergeCategoriesPanel({ categories }: { categories: Category[] }) {
       <p className="text-xs text-gray-600">Mueve todos los productos de una categoría a otra y borra la primera.</p>
       <div className="flex flex-wrap items-center gap-2 pt-1">
         <select value={fromId} onChange={e => setFromId(e.target.value)}
-          className="border border-gray-300 bg-gray-100 text-black rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]">
+          className="border border-[#1E2B28]/25 bg-[#1E2B28]/10 text-black rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]">
           <option value="">Categoría a eliminar...</option>
           {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
         <span className="text-gray-600 text-sm">→</span>
         <select value={toId} onChange={e => setToId(e.target.value)}
-          className="border border-gray-300 bg-gray-100 text-black rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]">
+          className="border border-[#1E2B28]/25 bg-[#1E2B28]/10 text-black rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]">
           <option value="">Pasar sus productos a...</option>
           {categories.filter(c => c.id !== fromId).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
@@ -916,7 +916,7 @@ function BulkPricingModal({
             <div>
               <label className="text-xs text-gray-700 font-medium block mb-1.5">Operación</label>
               <select value={mode} onChange={e => setMode(e.target.value as BulkPricingMode)}
-                className="w-full border border-gray-300 bg-gray-100 text-black rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]">
+                className="w-full border border-[#1E2B28]/25 bg-[#1E2B28]/10 text-black rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]">
                 <option value="fixed">{field === 'margen' ? 'Sumar puntos' : 'Sumar cantidad fija (€)'}</option>
                 <option value="percent">Aumentar un %</option>
               </select>

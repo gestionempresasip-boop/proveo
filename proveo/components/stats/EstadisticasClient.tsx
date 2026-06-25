@@ -154,7 +154,7 @@ function UnitConverter() {
           <div>
             <label className="text-xs text-gray-600 block mb-1">Unidad</label>
             <select value={unit} onChange={e => setUnit(e.target.value)}
-              className="border border-gray-300 bg-gray-100 text-black rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]">
+              className="border border-[#1E2B28]/25 bg-[#1E2B28]/10 text-black rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]">
               {CONVERTIBLE_UNITS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
             </select>
           </div>
@@ -388,7 +388,7 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
             <label className="text-xs text-gray-600 block mb-1">Agrupar por</label>
             <div className="relative">
               <select value={groupBy} onChange={e => setGroupBy(e.target.value as GroupBy)}
-                className="w-full border border-gray-300 bg-gray-100 text-black rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28] appearance-none pr-8">
+                className="w-full border border-[#1E2B28]/25 bg-[#1E2B28]/10 text-black rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28] appearance-none pr-8">
                 <option value="mes">Mes</option>
                 <option value="semana">Semana</option>
               </select>
@@ -399,7 +399,7 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
             <label className="text-xs text-gray-600 block mb-1">Restaurante</label>
             <div className="relative">
               <select value={restFilter} onChange={e => setRestFilter(e.target.value)}
-                className="w-full border border-gray-300 bg-gray-100 text-black rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28] appearance-none pr-8">
+                className="w-full border border-[#1E2B28]/25 bg-[#1E2B28]/10 text-black rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28] appearance-none pr-8">
                 <option value="todos">Todos</option>
                 {restaurants.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
               </select>
