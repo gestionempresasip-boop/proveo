@@ -402,6 +402,7 @@ export function InventarioTable({
   const [tab, setTab] = useState<'stock' | 'historial'>('stock')
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'todos' | 'bajo' | 'sinstock'>('todos')
+  const [categoryFilter, setCategoryFilter] = useState<string>('todas')
   const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({})
   const [showBulkMin, setShowBulkMin] = useState(false)
   const [edits, setEdits] = useState<Record<string, { stock: string; min: string }>>({})
@@ -481,8 +482,11 @@ export function InventarioTable({
 
   const filtered = rows.filter(r => {
     const matchSearch = r.product_name.toLowerCase().includes(search.toLowerCase())
+    const matchCategory = categoryFilter === 'todas' || r.category_id === categoryFilter
+      || (categoryFilter === '__none__' && !r.category_id)
     const stock = r.current_stock
     const min = r.min_stock
+    if (!matchCategory) return false
     if (filter === 'sinstock') return matchSearch && stock === 0
     if (filter === 'bajo') return matchSearch && min > 0 && stock <= min
     return matchSearch
@@ -563,6 +567,15 @@ export function InventarioTable({
               onChange={e => setSearch(e.target.value)}
               className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
             />
+            <select
+              value={categoryFilter}
+              onChange={e => setCategoryFilter(e.target.value)}
+              className="border border-[#1E2B28]/25 bg-[#1E2B28]/10 text-black rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28] shrink-0"
+            >
+              <option value="todas">Todas las categorías</option>
+              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              <option value="__none__">Sin categoría</option>
+            </select>
             {isNave && (
               <button
                 onClick={() => setShowBulkMin(true)}
