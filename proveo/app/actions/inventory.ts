@@ -22,7 +22,7 @@ export async function upsertInventory(
     const wasOutOfStock = !existing || Number(existing.current_stock) <= 0
     const isRestock = wasOutOfStock && currentStock > 0
 
-    await sb.from('nave_inventory').upsert(
+    const { error } = await sb.from('nave_inventory').upsert(
       {
         product_id: productId, current_stock: currentStock, min_stock: minStock,
         last_updated: new Date().toISOString(),
@@ -30,11 +30,13 @@ export async function upsertInventory(
       },
       { onConflict: 'product_id' }
     )
+    if (error) throw new Error(error.message)
   } else {
-    await sb.from('restaurant_inventory').upsert(
+    const { error } = await sb.from('restaurant_inventory').upsert(
       { product_id: productId, organization_id: organizationId, current_stock: currentStock, min_stock: minStock, last_updated: new Date().toISOString() },
       { onConflict: 'organization_id,product_id' }
     )
+    if (error) throw new Error(error.message)
   }
 
   // Log snapshot for history (graceful — table may not exist yet)
@@ -82,7 +84,7 @@ export async function bulkUpsertInventory(
     const { data: existing } = await sb.from('nave_inventory').select('product_id, current_stock').in('product_id', ids)
     const prevById = new Map<string, number>((existing ?? []).map((r: any) => [r.product_id, Number(r.current_stock)]))
 
-    await sb.from('nave_inventory').upsert(
+    const { error } = await sb.from('nave_inventory').upsert(
       entries.map(e => {
         const wasOutOfStock = (prevById.get(e.productId) ?? 0) <= 0
         const isRestock = wasOutOfStock && e.currentStock > 0
@@ -94,8 +96,9 @@ export async function bulkUpsertInventory(
       }),
       { onConflict: 'product_id' }
     )
+    if (error) throw new Error(error.message)
   } else {
-    await sb.from('restaurant_inventory').upsert(
+    const { error } = await sb.from('restaurant_inventory').upsert(
       entries.map(e => ({
         product_id: e.productId, organization_id: organizationId,
         current_stock: e.currentStock, min_stock: e.minStock,
@@ -103,6 +106,7 @@ export async function bulkUpsertInventory(
       })),
       { onConflict: 'organization_id,product_id' }
     )
+    if (error) throw new Error(error.message)
   }
 
   // Log snapshot for history (best effort)

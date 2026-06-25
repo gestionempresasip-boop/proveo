@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useMemo } from 'react'
+import { useState, useEffect, useTransition, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { upsertInventory, getInventoryHistory, bulkSetMinStock, bulkUpsertInventory } from '@/app/actions/inventory'
 import { AlertTriangle, CheckCircle2, XCircle, Save, ChevronDown, ChevronUp, History, Package, Download, ListChecks, X, Check } from 'lucide-react'
@@ -390,10 +390,15 @@ function BulkMinStockModal({
 }
 
 export function InventarioTable({
-  rows, categories, isNave, organizationId,
+  rows: initialRows, categories, isNave, organizationId,
 }: {
   rows: InventoryRow[]; categories: Category[]; isNave: boolean; organizationId: string
 }) {
+  const [rows, setRows] = useState(initialRows)
+  // El modal "mínimo en masa" guarda y llama a router.refresh(); cuando el
+  // servidor devuelve props frescas, se sincroniza el estado local con la
+  // verdad confirmada (sin esto, el cambio en masa no se vería reflejado).
+  useEffect(() => { setRows(initialRows) }, [initialRows])
   const [tab, setTab] = useState<'stock' | 'historial'>('stock')
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'todos' | 'bajo' | 'sinstock'>('todos')
@@ -403,6 +408,7 @@ export function InventarioTable({
   const [savingAll, setSavingAll] = useState(false)
   const [savingRow, setSavingRow] = useState<string | null>(null)
   const [savedRows, setSavedRows] = useState<Set<string>>(new Set())
+  const [saveError, setSaveError] = useState<string | null>(null)
   const router = useRouter()
 
   function getStockValue(row: InventoryRow) { return edits[row.product_id]?.stock ?? String(row.current_stock) }
@@ -421,12 +427,26 @@ export function InventarioTable({
   }
 
   async function saveRow(row: InventoryRow) {
+    const newStock = parseFloat(getStockValue(row)) || 0
+    const newMin = parseFloat(getMinValue(row)) || 0
+    const previous = row
     setSavingRow(row.product_id)
-    await upsertInventory(row.product_id, parseFloat(getStockValue(row)) || 0, parseFloat(getMinValue(row)) || 0, isNave, organizationId)
-    setSavingRow(null)
+    setSaveError(null)
+    // Optimista: refleja el cambio al instante, sin esperar al servidor
+    setRows(prev => prev.map(r => r.product_id === row.product_id ? { ...r, current_stock: newStock, min_stock: newMin } : r))
     setSavedRows(prev => new Set(prev).add(row.product_id))
     setEdits(prev => { const n = { ...prev }; delete n[row.product_id]; return n })
-    router.refresh()
+    try {
+      await upsertInventory(row.product_id, newStock, newMin, isNave, organizationId)
+      router.refresh()
+    } catch {
+      setRows(prev => prev.map(r => r.product_id === row.product_id ? previous : r))
+      setSavedRows(prev => { const n = new Set(prev); n.delete(row.product_id); return n })
+      setEdits(prev => ({ ...prev, [row.product_id]: { stock: String(newStock), min: String(newMin) } }))
+      setSaveError(`No se pudo guardar "${row.product_name}", inténtalo de nuevo`)
+    } finally {
+      setSavingRow(null)
+    }
     setTimeout(() => setSavedRows(prev => { const n = new Set(prev); n.delete(row.product_id); return n }), 2000)
   }
 
@@ -434,18 +454,29 @@ export function InventarioTable({
 
   async function saveAll() {
     if (dirtyRows.length === 0) return
+    const updates = dirtyRows.map(row => ({
+      productId: row.product_id,
+      currentStock: parseFloat(getStockValue(row)) || 0,
+      minStock: parseFloat(getMinValue(row)) || 0,
+    }))
+    const previousRows = rows
     setSavingAll(true)
-    await bulkUpsertInventory(
-      dirtyRows.map(row => ({
-        productId: row.product_id,
-        currentStock: parseFloat(getStockValue(row)) || 0,
-        minStock: parseFloat(getMinValue(row)) || 0,
-      })),
-      isNave, organizationId,
-    )
-    setSavingAll(false)
+    setSaveError(null)
+    // Optimista: aplica todos los cambios al instante
+    setRows(prev => prev.map(r => {
+      const u = updates.find(u => u.productId === r.product_id)
+      return u ? { ...r, current_stock: u.currentStock, min_stock: u.minStock } : r
+    }))
     setEdits({})
-    router.refresh()
+    try {
+      await bulkUpsertInventory(updates, isNave, organizationId)
+      router.refresh()
+    } catch {
+      setRows(previousRows)
+      setSaveError('No se pudo guardar todo, inténtalo de nuevo')
+    } finally {
+      setSavingAll(false)
+    }
   }
 
   const filtered = rows.filter(r => {
@@ -541,6 +572,12 @@ export function InventarioTable({
               </button>
             )}
           </div>
+
+          {saveError && (
+            <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-2.5 text-sm text-red-600">
+              {saveError}
+            </div>
+          )}
 
           {dirtyRows.length > 0 && (
             <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5">
