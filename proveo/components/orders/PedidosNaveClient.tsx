@@ -8,7 +8,7 @@ import { unitLabel } from '@/lib/units'
 import {
   Calendar, Filter, ChevronDown, MessageCircle, Printer,
   Download, FileText, Clock, CheckCircle2, Send, AlertCircle,
-  ChevronUp, Package, Trash2, Pencil, Check, X, Ban
+  ChevronUp, Package, Trash2, Pencil, Check, X, Ban, Undo2
 } from 'lucide-react'
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -45,13 +45,21 @@ type OrderItem = {
   prepared?: boolean; lot_number?: string | null
   unit: string; unit_price: number; total_price: number; products: { name: string } | null
 }
-type DeliveryNote = { id: string; note_number: number }
+type ReturnItem = { product_id: string; delivered_quantity: number; return_reason: 'reutilizable' | 'no_utilizable' | null; products: { name: string } | null }
+type DeliveryNote = { id: string; note_number: number; type?: 'entrega' | 'devolucion'; delivery_note_items?: ReturnItem[] }
 type Order = {
   id: string; order_number: number; status: string; notes: string | null
   total_price: number; created_at: string; restaurant_id: string
   organizations: { id: string; name: string } | null
   order_items: OrderItem[]
   delivery_notes: DeliveryNote[]
+}
+
+function entregaNote(order: Order): DeliveryNote | undefined {
+  return order.delivery_notes?.find(n => (n.type ?? 'entrega') === 'entrega')
+}
+function returnNotes(order: Order): DeliveryNote[] {
+  return order.delivery_notes?.filter(n => n.type === 'devolucion') ?? []
 }
 type Restaurant = { id: string; name: string }
 
@@ -232,8 +240,8 @@ function ItemRow({
 function OrderActions({ order, onDeleted, onStatusChange }: { order: Order; onDeleted: (id: string) => void; onStatusChange: (id: string, status: OrderStatus) => void }) {
   const [loading, setLoading] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const [noteId, setNoteId] = useState<string | null>(order.delivery_notes?.[0]?.id ?? null)
-  const [noteNumber, setNoteNumber] = useState<number | null>(order.delivery_notes?.[0]?.note_number ?? null)
+  const [noteId, setNoteId] = useState<string | null>(entregaNote(order)?.id ?? null)
+  const [noteNumber, setNoteNumber] = useState<number | null>(entregaNote(order)?.note_number ?? null)
   const [blockedMsg, setBlockedMsg] = useState(false)
   const [, startTransition] = useTransition()
 
@@ -415,6 +423,7 @@ function OrderCard({
   const status = normalizeStatus(order.status)
   const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.pendiente
   const date = new Date(order.created_at)
+  const returns = returnNotes(order).flatMap(n => n.delivery_note_items ?? [])
 
   return (
     <div className={`bg-white rounded-2xl border shadow-sm overflow-hidden transition-all ${
@@ -435,6 +444,11 @@ function OrderCard({
               {cfg.icon} {cfg.label}
             </span>
           </div>
+          {returns.length > 0 && (
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 mt-1">
+              <Undo2 className="w-3 h-3" /> {returns.length} {returns.length === 1 ? 'devolución' : 'devoluciones'} recibida{returns.length === 1 ? '' : 's'}
+            </span>
+          )}
           <div className="flex items-center gap-3 mt-0.5">
             <span className="text-xs text-gray-600">
               {date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
@@ -465,6 +479,21 @@ function OrderCard({
               />
             ))}
           </div>
+          {returns.length > 0 && (
+            <div className="mt-3 p-3 rounded-xl bg-amber-50 border border-amber-200 space-y-1.5">
+              <p className="text-xs font-semibold text-amber-800 flex items-center gap-1.5">
+                <Undo2 className="w-3.5 h-3.5" /> Devoluciones recibidas
+              </p>
+              {returns.map((r, i) => (
+                <div key={i} className="flex items-center justify-between text-xs">
+                  <span className="text-black">{r.products?.name ?? '—'}: {Number(r.delivered_quantity)}</span>
+                  <span className={r.return_reason === 'reutilizable' ? 'text-green-700 font-medium' : 'text-red-600 font-medium'}>
+                    {r.return_reason === 'reutilizable' ? '↩ Repuesto a stock' : '🚫 No reutilizable'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
           <OrderActions order={order} onDeleted={onDeleted} onStatusChange={onStatusChange} />
         </div>
       )}

@@ -15,7 +15,7 @@ export default async function PedidosPage() {
     const [{ data: orders }, { data: restaurants }] = await Promise.all([
       sb
         .from('orders')
-        .select('*, organizations(id, name), order_items(*, products(name, unit)), delivery_notes(id, note_number)')
+        .select('*, organizations(id, name), order_items(*, products(name, unit)), delivery_notes(id, note_number, type, delivery_note_items(product_id, delivered_quantity, return_reason, products(name)))')
         .order('created_at', { ascending: false }),
       sb
         .from('organizations')
@@ -35,7 +35,7 @@ export default async function PedidosPage() {
   // ── Restaurante: vista simple de historial ───────────────────────────────
   const { data: orders } = await sb
     .from('orders')
-    .select('*, order_items(*, products(name, unit))')
+    .select('*, order_items(*, products(name, unit)), delivery_notes(id, type, delivery_note_items(product_id, delivered_quantity, return_reason))')
     .eq('restaurant_id', profile.organization_id)
     .order('created_at', { ascending: false })
 

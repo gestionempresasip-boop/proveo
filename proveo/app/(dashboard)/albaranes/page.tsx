@@ -11,7 +11,7 @@ export default async function AlbaranesPage() {
 
   let query = sb
     .from('delivery_notes')
-    .select('*, orders(order_number, total_price, restaurant_id, organizations(name))')
+    .select('*, orders(order_number, total_price, restaurant_id, organizations(name)), delivery_note_items(delivered_quantity, unit_price, return_reason)')
     .order('delivered_at', { ascending: false })
 
   if (!isNave && profile.role !== 'admin') {

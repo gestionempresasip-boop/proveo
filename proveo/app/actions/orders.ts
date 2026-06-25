@@ -163,6 +163,32 @@ export async function cancelOrderItem(orderItemId: string, reason?: string) {
   await rectifyOrderItem(orderItemId, 0, reason || 'Cancelado por la nave')
 }
 
+export type ReturnReason = 'reutilizable' | 'no_utilizable'
+export type ReturnItemInput = {
+  product_id: string
+  quantity: number
+  unit: string
+  unit_price: number
+  reason: ReturnReason
+  lot_number?: string | null
+}
+
+// Devolución de mercancía ya entregada. Genera un albarán de devolución
+// (mismo pedido, type='devolucion') visible para nave y restaurante; si el
+// motivo es "reutilizable" (error de pedido, no se necesita...) la cantidad
+// vuelve a sumar al stock de la nave, si es "no_utilizable" (mal estado,
+// rotura...) no se repone. Todo se hace en una función SQL atómica porque
+// el restaurante no tiene permiso de escritura directa sobre delivery_notes.
+export async function createReturn(orderId: string, items: ReturnItemInput[]) {
+  const supabase = await createClient()
+  const sb = supabase as any
+  const { data, error } = await sb.rpc('create_return', { p_order_id: orderId, p_items: items })
+  if (error) throw new Error(error.message)
+  revalidatePath('/pedidos')
+  revalidatePath('/albaranes')
+  return data as string
+}
+
 export async function deleteOrder(orderId: string) {
   const supabase = await createClient()
   const sb = supabase as any

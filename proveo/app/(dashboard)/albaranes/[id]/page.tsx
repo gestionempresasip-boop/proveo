@@ -31,6 +31,8 @@ export default async function AlbaranDetailPage({ params }: { params: Promise<{ 
   const order = note.orders
   const restaurant = order?.organizations
   const items = note.delivery_note_items ?? []
+  const isReturn = note.type === 'devolucion'
+  const returnTotal = items.reduce((s: number, i: any) => s + Number(i.delivered_quantity) * Number(i.unit_price), 0)
 
   // Desglose por tipo de IVA: cada línea ya incluye IVA en su total_price.
   // base = total / (1 + iva), iva_amount = total - base
@@ -65,7 +67,9 @@ export default async function AlbaranDetailPage({ params }: { params: Promise<{ 
             <p className="text-sm text-gray-600 mt-1">Nave Obrador Central</p>
           </div>
           <div className="text-right">
-            <p className="text-2xl font-bold text-black">Albarán #{note.note_number}</p>
+            <p className="text-2xl font-bold text-black">
+              {isReturn ? 'Albarán de devolución' : 'Albarán'} #{note.note_number}
+            </p>
             <p className="text-sm text-gray-700 mt-1">
               {new Date(note.delivered_at).toLocaleDateString('es-ES', {
                 day: 'numeric', month: 'long', year: 'numeric',
@@ -83,6 +87,39 @@ export default async function AlbaranDetailPage({ params }: { params: Promise<{ 
         </div>
 
         {/* Líneas */}
+        {isReturn ? (
+          <table className="w-full text-sm mb-8">
+            <thead>
+              <tr className="border-b-2 border-amber-600">
+                <th className="text-left py-2 font-semibold text-black">Producto</th>
+                <th className="text-right py-2 font-semibold text-black">Cantidad devuelta</th>
+                <th className="text-left py-2 font-semibold text-black pl-4">Motivo</th>
+                {showPrices && <th className="text-right py-2 font-semibold text-black">Importe</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item: any) => (
+                <tr key={item.id} className="border-b border-gray-100">
+                  <td className="py-2.5">
+                    {item.products?.name}
+                    {item.lot_number && (
+                      <span className="block text-xs text-gray-600 mt-0.5">Lote: {item.lot_number}</span>
+                    )}
+                  </td>
+                  <td className="text-right py-2.5 font-medium">{item.delivered_quantity} {unitLabel(item.unit)}</td>
+                  <td className="py-2.5 pl-4">
+                    {item.return_reason === 'reutilizable' ? (
+                      <span className="text-green-700 font-medium">↩ Error de pedido / no se necesita — repuesto a stock</span>
+                    ) : (
+                      <span className="text-red-600 font-medium">🚫 Mal estado / no utilizable — no repuesto</span>
+                    )}
+                  </td>
+                  {showPrices && <td className="text-right py-2.5 font-semibold">{(Number(item.delivered_quantity) * Number(item.unit_price)).toFixed(2)} €</td>}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
         <table className="w-full text-sm mb-8">
           <thead>
             <tr className="border-b-2 border-[#1E2B28]">
@@ -126,9 +163,20 @@ export default async function AlbaranDetailPage({ params }: { params: Promise<{ 
             })}
           </tbody>
         </table>
+        )}
 
-        {/* Desglose de IVA — solo nave */}
-        {showPrices && (
+        {/* Total devolución */}
+        {isReturn && showPrices && (
+          <div className="flex justify-end mb-8">
+            <div className="w-full max-w-md flex justify-between items-baseline pt-2 border-t-2 border-amber-600">
+              <span className="font-bold text-black">TOTAL DEVUELTO</span>
+              <span className="font-bold text-xl text-amber-700">− {returnTotal.toFixed(2)} €</span>
+            </div>
+          </div>
+        )}
+
+        {/* Desglose de IVA — solo nave, solo en albaranes de entrega */}
+        {showPrices && !isReturn && (
           <div className="mb-8">
             <p className="text-xs text-gray-600 uppercase font-medium mb-2">Desglose de IVA</p>
             <table className="w-full text-sm max-w-md ml-auto">

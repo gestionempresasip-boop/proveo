@@ -2,13 +2,15 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { FileText, Printer, Trash2 } from 'lucide-react'
+import { FileText, Printer, Trash2, Undo2 } from 'lucide-react'
 import { deleteDeliveryNote } from '@/app/actions/orders'
 
 type Note = {
   id: string
   note_number: number
   delivered_at: string
+  type?: 'entrega' | 'devolucion'
+  delivery_note_items?: { delivered_quantity: number; unit_price: number; return_reason: string | null }[]
   orders: {
     order_number: number
     total_price: number
@@ -20,6 +22,8 @@ type Note = {
 function NoteRow({ note, isNave, onDeleted }: { note: Note; isNave: boolean; onDeleted: (id: string) => void }) {
   const [confirm, setConfirm] = useState(false)
   const [loading, setLoading] = useState(false)
+  const isReturn = note.type === 'devolucion'
+  const returnTotal = (note.delivery_note_items ?? []).reduce((s, i) => s + Number(i.delivered_quantity) * Number(i.unit_price), 0)
 
   function handleDelete() {
     setLoading(true)
@@ -31,8 +35,9 @@ function NoteRow({ note, isNave, onDeleted }: { note: Note; isNave: boolean; onD
     <tr className="hover:bg-gray-50">
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
-          <FileText className="w-4 h-4 text-[#1E2B28] shrink-0" />
+          {isReturn ? <Undo2 className="w-4 h-4 text-amber-600 shrink-0" /> : <FileText className="w-4 h-4 text-[#1E2B28] shrink-0" />}
           <span className="font-medium text-black">#{note.note_number}</span>
+          {isReturn && <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">Devolución</span>}
           <span className="text-gray-600 text-xs">Pedido #{note.orders?.order_number}</span>
         </div>
       </td>
@@ -48,7 +53,7 @@ function NoteRow({ note, isNave, onDeleted }: { note: Note; isNave: boolean; onD
       </td>
       {isNave && (
         <td className="px-4 py-3 text-right font-bold text-[#1E2B28]">
-          {Number(note.orders?.total_price ?? 0).toFixed(2)} €
+          {isReturn ? `− ${returnTotal.toFixed(2)} €` : `${Number(note.orders?.total_price ?? 0).toFixed(2)} €`}
         </td>
       )}
       <td className="px-4 py-3 text-right">

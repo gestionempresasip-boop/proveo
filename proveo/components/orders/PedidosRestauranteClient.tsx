@@ -2,8 +2,8 @@
 
 import { useState, useMemo } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
-import { Package, Clock, Ban, Search, ChevronDown, X } from 'lucide-react'
-import { updateOrderStatus } from '@/app/actions/orders'
+import { Package, Clock, Ban, Search, ChevronDown, X, Undo2, ThumbsUp, AlertTriangle } from 'lucide-react'
+import { updateOrderStatus, createReturn, type ReturnReason } from '@/app/actions/orders'
 import { cn } from '@/lib/utils'
 import { unitLabel } from '@/lib/units'
 
@@ -28,10 +28,96 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 type OrderItem = {
-  id: string; quantity: number; rectified_quantity?: number | null; rectification_note?: string | null
-  unit: string; products: { name: string; unit: string } | null
+  id: string; product_id: string; quantity: number; rectified_quantity?: number | null; rectification_note?: string | null
+  unit: string; unit_price: number; lot_number?: string | null; products: { name: string; unit: string } | null
 }
-type Order = { id: string; order_number: number; status: string; notes: string | null; total_price: number; created_at: string; order_items: OrderItem[] }
+type ReturnDeliveryNoteItem = { product_id: string; delivered_quantity: number; return_reason: ReturnReason | null }
+type ReturnDeliveryNote = { id: string; type: 'entrega' | 'devolucion'; delivery_note_items: ReturnDeliveryNoteItem[] }
+type Order = {
+  id: string; order_number: number; status: string; notes: string | null; total_price: number; created_at: string
+  order_items: OrderItem[]; delivery_notes?: ReturnDeliveryNote[]
+}
+
+const DELIVERED_STATUSES = new Set(['entregado', 'enviado'])
+
+function alreadyReturned(order: Order, productId: string): number {
+  return (order.delivery_notes ?? [])
+    .filter(n => n.type === 'devolucion')
+    .flatMap(n => n.delivery_note_items)
+    .filter(i => i.product_id === productId)
+    .reduce((sum, i) => sum + Number(i.delivered_quantity), 0)
+}
+
+// Botones de devolución de un artículo ya entregado. "Reutilizable" (error
+// de pedido, no se necesita...) repone stock en la nave; "No utilizable"
+// (mal estado, rotura...) no repone — la nave nunca podría volver a venderlo.
+function ReturnControls({ order, item, onReturned }: { order: Order; item: OrderItem; onReturned: (orderId: string, productId: string, qty: number, reason: ReturnReason) => void }) {
+  const [open, setOpen] = useState(false)
+  const [qty, setQty] = useState('')
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const delivered = Number(item.rectified_quantity ?? item.quantity)
+  const remaining = delivered - alreadyReturned(order, item.product_id)
+
+  if (remaining <= 0) {
+    return <span className="text-[11px] text-gray-600 mt-1 inline-flex items-center gap-1"><Undo2 className="w-3 h-3" />Ya devuelto</span>
+  }
+
+  function submit(reason: ReturnReason) {
+    const q = parseFloat((qty || String(remaining)).replace(',', '.'))
+    if (isNaN(q) || q <= 0 || q > remaining) { setError(`Cantidad entre 0 y ${remaining}`); return }
+    setError(null)
+    setPending(true)
+    onReturned(order.id, item.product_id, q, reason)
+    createReturn(order.id, [{
+      product_id: item.product_id, quantity: q, unit: item.unit, unit_price: Number(item.unit_price),
+      reason, lot_number: item.lot_number ?? null,
+    }])
+      .catch(() => setError('No se pudo registrar la devolución, inténtalo de nuevo'))
+      .finally(() => { setPending(false); setOpen(false); setQty('') })
+  }
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="text-[11px] font-medium text-gray-600 hover:text-[#1E2B28] mt-1 inline-flex items-center gap-1"
+      >
+        <Undo2 className="w-3 h-3" /> Devolver
+      </button>
+    )
+  }
+
+  return (
+    <div className="mt-1.5 p-2 rounded-lg bg-white border border-gray-200 space-y-1.5">
+      <div className="flex items-center gap-1.5">
+        <input
+          type="number" step="0.001" min="0" max={remaining} autoFocus
+          placeholder={String(remaining)}
+          value={qty} onChange={e => setQty(e.target.value)}
+          className="w-16 border border-gray-200 rounded-lg px-1.5 py-1 text-xs text-center focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
+        />
+        <span className="text-[11px] text-gray-600">{unitLabel(item.unit)} de {remaining} disponibles</span>
+        <button onClick={() => { setOpen(false); setQty(''); setError(null) }} className="ml-auto p-0.5 rounded text-gray-600 hover:bg-gray-100"><X className="w-3.5 h-3.5" /></button>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        <button
+          disabled={pending} onClick={() => submit('reutilizable')}
+          className="flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-lg bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 disabled:opacity-50"
+        >
+          <ThumbsUp className="w-3 h-3" /> Error de pedido / no se necesita
+        </button>
+        <button
+          disabled={pending} onClick={() => submit('no_utilizable')}
+          className="flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-lg bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 disabled:opacity-50"
+        >
+          <AlertTriangle className="w-3 h-3" /> Mal estado / no se puede usar
+        </button>
+      </div>
+      {error && <p className="text-[11px] text-red-600">{error}</p>}
+    </div>
+  )
+}
 
 function dayKey(dateStr: string): string {
   const d = new Date(dateStr)
@@ -55,10 +141,11 @@ function dayLabel(dateStr: string): string {
   })
 }
 
-function OrderRow({ order, onCanceled }: { order: Order; onCanceled: (id: string) => void }) {
+function OrderRow({ order, onCanceled, onReturned }: { order: Order; onCanceled: (id: string) => void; onReturned: (orderId: string, productId: string, qty: number, reason: ReturnReason) => void }) {
   const [confirm, setConfirm] = useState(false)
   const [loading, setLoading] = useState(false)
   const canCancel = order.status === 'pendiente'
+  const canReturn = DELIVERED_STATUSES.has(order.status)
 
   function handleCancel() {
     setLoading(true)
@@ -109,15 +196,18 @@ function OrderRow({ order, onCanceled }: { order: Order; onCanceled: (id: string
               )
             }
             return (
-              <div key={i} className={cn('text-xs rounded-xl px-3 py-2 flex justify-between', isRectified ? 'bg-amber-50 border border-amber-200' : 'bg-gray-50')}>
-                <span className="font-medium text-black">{item.products?.name}</span>
-                {isRectified ? (
-                  <span className="text-amber-700 shrink-0 ml-2">
-                    Pedido: <span className="line-through text-gray-600">{item.quantity}</span> · Confirmado: <span className="font-semibold">{item.rectified_quantity} {unitLabel(item.unit)}</span>
-                  </span>
-                ) : (
-                  <span className="text-gray-600 shrink-0 ml-2">{item.quantity} {unitLabel(item.unit)}</span>
-                )}
+              <div key={i} className={cn('text-xs rounded-xl px-3 py-2', isRectified ? 'bg-amber-50 border border-amber-200' : 'bg-gray-50')}>
+                <div className="flex justify-between">
+                  <span className="font-medium text-black">{item.products?.name}</span>
+                  {isRectified ? (
+                    <span className="text-amber-700 shrink-0 ml-2">
+                      Pedido: <span className="line-through text-gray-600">{item.quantity}</span> · Confirmado: <span className="font-semibold">{item.rectified_quantity} {unitLabel(item.unit)}</span>
+                    </span>
+                  ) : (
+                    <span className="text-gray-600 shrink-0 ml-2">{item.quantity} {unitLabel(item.unit)}</span>
+                  )}
+                </div>
+                {canReturn && <ReturnControls order={order} item={item} onReturned={onReturned} />}
               </div>
             )
           })}
@@ -167,6 +257,23 @@ export function PedidosRestauranteClient({ orders: initialOrders }: { orders: Or
 
   function handleCanceled(id: string) {
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status: 'cancelado' } : o))
+  }
+
+  // Refleja la devolución al instante sin esperar la respuesta del servidor:
+  // se añade una nota de tipo "devolucion" sintética con la línea devuelta,
+  // igual que vería el restaurante tras recargar la página.
+  function handleReturned(orderId: string, productId: string, qty: number, reason: ReturnReason) {
+    setOrders(prev => prev.map(o => {
+      if (o.id !== orderId) return o
+      const notes = o.delivery_notes ?? []
+      return {
+        ...o,
+        delivery_notes: [
+          ...notes,
+          { id: `optimistic-${Date.now()}`, type: 'devolucion', delivery_note_items: [{ product_id: productId, delivered_quantity: qty, return_reason: reason }] },
+        ],
+      }
+    }))
   }
 
   const filtered = useMemo(() => {
@@ -271,7 +378,7 @@ export function PedidosRestauranteClient({ orders: initialOrders }: { orders: Or
                 {open && (
                   <div className="px-4 pb-4 pt-1 space-y-3 border-t border-gray-100">
                     {group.map(order => (
-                      <OrderRow key={order.id} order={order} onCanceled={handleCanceled} />
+                      <OrderRow key={order.id} order={order} onCanceled={handleCanceled} onReturned={handleReturned} />
                     ))}
                   </div>
                 )}
