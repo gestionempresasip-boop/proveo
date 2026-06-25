@@ -60,7 +60,11 @@ function ReturnControls({ order, item, onReturned }: { order: Order; item: Order
   const remaining = delivered - alreadyReturned(order, item.product_id)
 
   if (remaining <= 0) {
-    return <span className="text-[11px] text-gray-600 mt-1 inline-flex items-center gap-1"><Undo2 className="w-3 h-3" />Ya devuelto</span>
+    return (
+      <span className="mt-1.5 inline-flex items-center gap-1.5 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-200 px-2.5 py-1.5 rounded-lg">
+        <Undo2 className="w-3.5 h-3.5" /> Ya devuelto
+      </span>
+    )
   }
 
   function submit(reason: ReturnReason) {
@@ -81,9 +85,9 @@ function ReturnControls({ order, item, onReturned }: { order: Order; item: Order
     return (
       <button
         onClick={() => setOpen(true)}
-        className="text-[11px] font-medium text-gray-600 hover:text-[#1E2B28] mt-1 inline-flex items-center gap-1"
+        className="mt-1.5 inline-flex items-center gap-1.5 text-xs font-semibold text-[#1E2B28] bg-[#1E2B28]/10 border border-[#1E2B28]/30 px-2.5 py-1.5 rounded-lg hover:bg-[#1E2B28]/20 transition-colors"
       >
-        <Undo2 className="w-3 h-3" /> Devolver
+        <Undo2 className="w-3.5 h-3.5" /> Devolver artículo
       </button>
     )
   }
