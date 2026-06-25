@@ -623,7 +623,7 @@ export function PedidosNaveClient({ orders: initialOrders, restaurants }: { orde
               <select
                 value={restFilter}
                 onChange={e => setRestFilter(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28] appearance-none pr-8"
+                className="w-full border border-gray-300 bg-gray-100 text-black rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28] appearance-none pr-8"
               >
                 <option value="todos">Todos los restaurantes</option>
                 {restaurants.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
@@ -637,7 +637,7 @@ export function PedidosNaveClient({ orders: initialOrders, restaurants }: { orde
               <select
                 value={statusFilter}
                 onChange={e => setStatusFilter(e.target.value as StatusFilter)}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28] appearance-none pr-8"
+                className="w-full border border-gray-300 bg-gray-100 text-black rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28] appearance-none pr-8"
               >
                 <option value="todos">Todos los estados</option>
                 <option value="pendiente">Pendiente</option>

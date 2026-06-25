@@ -78,7 +78,6 @@ export default async function AlbaranDetailPage({ params }: { params: Promise<{ 
         <div className="bg-gray-50 rounded-xl p-4 mb-8">
           <p className="text-xs text-gray-600 uppercase font-medium mb-2">Destinatario</p>
           <p className="font-semibold text-black">{restaurant?.name ?? 'Restaurante'}</p>
-          {restaurant?.address && <p className="text-sm text-gray-700">{restaurant.address}</p>}
           {restaurant?.phone && <p className="text-sm text-gray-700">{restaurant.phone}</p>}
           <p className="text-sm text-gray-600 mt-1">Pedido #{order?.order_number}</p>
         </div>

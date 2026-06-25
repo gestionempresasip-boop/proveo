@@ -112,7 +112,7 @@ export function NuevaRecetaModal({ products }: { products: Product[] }) {
                       <select
                         value={ing.product_id}
                         onChange={e => updateIngredient(i, 'product_id', e.target.value)}
-                        className="flex-1 border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
+                        className="flex-1 border border-gray-300 bg-gray-100 text-black rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
                       >
                         <option value="">Producto...</option>
                         {products.map(p => (
