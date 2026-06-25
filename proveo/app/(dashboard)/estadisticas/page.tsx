@@ -9,19 +9,26 @@ export default async function EstadisticasPage() {
   if (profile.organizations.type !== 'nave') redirect('/dashboard')
   const sb = supabase as any
 
-  // Traer todos los pedidos con sus líneas y restaurante
+  // Traer pedidos + restaurantes en paralelo (son independientes entre sí)
   // Excluimos cancelados
-  const { data: orders } = await sb
-    .from('orders')
-    .select(`
-      id, order_number, created_at, total_price, restaurant_id, status,
-      organizations!restaurant_id(id, name),
-      order_items(id, product_id, quantity, unit, unit_price, total_price,
-        products(name)
-      )
-    `)
-    .neq('status', 'cancelado')
-    .order('created_at', { ascending: false })
+  const [{ data: orders }, { data: restaurants }] = await Promise.all([
+    sb
+      .from('orders')
+      .select(`
+        id, order_number, created_at, total_price, restaurant_id, status,
+        organizations!restaurant_id(id, name),
+        order_items(id, product_id, quantity, unit, unit_price, total_price,
+          products(name)
+        )
+      `)
+      .neq('status', 'cancelado')
+      .order('created_at', { ascending: false }),
+    sb
+      .from('organizations')
+      .select('id, name')
+      .eq('type', 'restaurante')
+      .order('name'),
+  ])
 
   // Aplanar a filas por línea de pedido (para cálculos granulares)
   type Line = {
@@ -51,13 +58,6 @@ export default async function EstadisticasPage() {
       })
     }
   }
-
-  // Lista de restaurantes para el filtro
-  const { data: restaurants } = await sb
-    .from('organizations')
-    .select('id, name')
-    .eq('type', 'restaurante')
-    .order('name')
 
   return (
     <EstadisticasClient

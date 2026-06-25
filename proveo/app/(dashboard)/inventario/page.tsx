@@ -10,31 +10,21 @@ export default async function InventarioPage() {
 
   const isNave = profile.organizations.type === 'nave'
 
-  // Cargar TODOS los productos activos (sin deleted_at) con su categoría
-  const [{ data: products }, { data: categories }] = await Promise.all([
+  // Cargar productos + categorías + inventario en paralelo (son independientes)
+  const [{ data: products }, { data: categories }, { data: inventoryRows }] = await Promise.all([
     sb.from('products')
       .select('id, name, unit, category_id, product_categories!products_category_id_fkey(name, color)')
       .eq('is_active', true)
       .is('deleted_at', null)
       .order('name'),
     sb.from('product_categories').select('id, name, color').order('order_index').order('name'),
+    isNave
+      ? sb.from('nave_inventory').select('product_id, current_stock, min_stock, last_updated')
+      : sb.from('restaurant_inventory').select('product_id, current_stock, min_stock, last_updated').eq('organization_id', profile.organization_id),
   ])
 
-  // Cargar las entradas de inventario existentes
-  let inventoryMap: Record<string, { current_stock: number; min_stock: number; last_updated: string }> = {}
-
-  if (isNave) {
-    const { data } = await sb
-      .from('nave_inventory')
-      .select('product_id, current_stock, min_stock, last_updated')
-    ;(data ?? []).forEach((row: any) => { inventoryMap[row.product_id] = row })
-  } else {
-    const { data } = await sb
-      .from('restaurant_inventory')
-      .select('product_id, current_stock, min_stock, last_updated')
-      .eq('organization_id', profile.organization_id)
-    ;(data ?? []).forEach((row: any) => { inventoryMap[row.product_id] = row })
-  }
+  const inventoryMap: Record<string, { current_stock: number; min_stock: number; last_updated: string }> = {}
+  ;(inventoryRows ?? []).forEach((row: any) => { inventoryMap[row.product_id] = row })
 
   // Combinar: todos los productos con su stock (0 si no hay entrada)
   const rows = (products ?? []).map((p: any) => ({
