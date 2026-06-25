@@ -4,11 +4,12 @@ import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { ProductCard } from '@/components/products/ProductCard'
 import { Badge } from '@/components/ui/badge'
-import { ShoppingCart, Loader2, Check, X, ChevronUp, ChevronDown, Search } from 'lucide-react'
+import { ShoppingCart, Loader2, Check, X, ChevronUp, ChevronDown, Search, Star } from 'lucide-react'
 import type { Product, ProductCategory } from '@/types/database'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { takeRepeatOrder } from '@/lib/repeatOrder'
+import { setFavoriteProduct } from '@/app/actions/favorites'
 
 type CartItem = { product: Product; quantity: number }
 
@@ -39,18 +40,32 @@ export default function CatalogoPage() {
   const [stockError, setStockError] = useState<string | null>(null)
   const [restockedMap, setRestockedMap] = useState<Record<string, boolean>>({})
   const [repeatedNotice, setRepeatedNotice] = useState(false)
+  const [organizationId, setOrganizationId] = useState<string | null>(null)
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set())
+  const [showFavorites, setShowFavorites] = useState(false)
+  const [favoriteError, setFavoriteError] = useState<string | null>(null)
   const supabase = createClient()
   const router = useRouter()
 
   useEffect(() => {
     async function load() {
-      const [{ data: prods }, { data: cats }, { data: stock }] = await Promise.all([
-        (supabase as any).from('products').select('*, product_categories!products_category_id_fkey(name, color)').eq('is_active', true).is('deleted_at', null).order('name'),
-        (supabase as any).from('product_categories').select('*').order('order_index').order('name'),
-        (supabase as any).from('nave_inventory').select('product_id, current_stock, last_restocked_at'),
+      const { data: { user } } = await supabase.auth.getUser()
+      const sb = supabase as any
+      const { data: profile } = user
+        ? await sb.from('profiles').select('organization_id').eq('id', user.id).single()
+        : { data: null }
+      const orgId = profile?.organization_id ?? null
+      setOrganizationId(orgId)
+
+      const [{ data: prods }, { data: cats }, { data: stock }, { data: favs }] = await Promise.all([
+        sb.from('products').select('*, product_categories!products_category_id_fkey(name, color)').eq('is_active', true).is('deleted_at', null).order('name'),
+        sb.from('product_categories').select('*').order('order_index').order('name'),
+        sb.from('nave_inventory').select('product_id, current_stock, last_restocked_at'),
+        orgId ? sb.from('restaurant_favorite_products').select('product_id').eq('organization_id', orgId) : Promise.resolve({ data: [] }),
       ])
       setProducts(prods ?? [])
       setCategories(cats ?? [])
+      setFavoriteIds(new Set((favs ?? []).map((f: any) => f.product_id)))
       const sMap: Record<string, number> = {}
       const rMap: Record<string, boolean> = {}
       const dayAgo = Date.now() - 48 * 60 * 60 * 1000
@@ -90,6 +105,18 @@ export default function CatalogoPage() {
     })
   }, [])
 
+  async function toggleFavorite(productId: string, next: boolean) {
+    if (!organizationId) return
+    setFavoriteIds(prev => { const n = new Set(prev); next ? n.add(productId) : n.delete(productId); return n })
+    try {
+      await setFavoriteProduct(organizationId, productId, next)
+    } catch {
+      setFavoriteIds(prev => { const n = new Set(prev); next ? n.delete(productId) : n.add(productId); return n })
+      setFavoriteError('No se pudo guardar el favorito, inténtalo de nuevo')
+      setTimeout(() => setFavoriteError(null), 3000)
+    }
+  }
+
   function maxQtyFor(productId: string): number {
     return productId in stockMap ? stockMap[productId] : Infinity
   }
@@ -105,7 +132,8 @@ export default function CatalogoPage() {
     const q = searchQuery.trim().toLowerCase()
     const matchSearch = !q || p.name.toLowerCase().includes(q) || (p.description?.toLowerCase().includes(q) ?? false)
     const matchCat = selectedCategory === 'todos' || (p as any).category_id === selectedCategory
-    return matchSearch && matchCat
+    const matchFav = !showFavorites || favoriteIds.has(p.id)
+    return matchSearch && matchCat && matchFav
   })
 
   // Count per category for badge
@@ -290,6 +318,23 @@ export default function CatalogoPage() {
           )}
         </div>
 
+        {/* Todos / Favoritos */}
+        <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
+          <button
+            onClick={() => setShowFavorites(false)}
+            className={cn('px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors', !showFavorites ? 'bg-white text-black shadow-sm' : 'text-gray-700')}
+          >
+            Todos
+          </button>
+          <button
+            onClick={() => setShowFavorites(true)}
+            className={cn('flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors', showFavorites ? 'bg-white text-black shadow-sm' : 'text-gray-700')}
+          >
+            <Star className="w-3.5 h-3.5" /> Favoritos {favoriteIds.size > 0 && `(${favoriteIds.size})`}
+          </button>
+        </div>
+        {favoriteError && <p className="text-xs text-red-600">{favoriteError}</p>}
+
         {/* Category dropdown */}
         <div className="relative">
           <button
@@ -351,12 +396,14 @@ export default function CatalogoPage() {
           <div className="flex-1 min-w-0 pb-28 lg:pb-6">
             {filteredProducts.length === 0 ? (
               <div className="text-center py-20 text-gray-600">
-                <Search className="h-10 w-10 mx-auto mb-3 opacity-30" />
-                <p className="text-lg font-medium">Sin resultados</p>
+                {showFavorites ? <Star className="h-10 w-10 mx-auto mb-3 opacity-30" /> : <Search className="h-10 w-10 mx-auto mb-3 opacity-30" />}
+                <p className="text-lg font-medium">{showFavorites ? 'Sin favoritos todavía' : 'Sin resultados'}</p>
                 <p className="text-sm mt-1">
-                  {searchQuery ? `No hay productos que coincidan con "${searchQuery}"` : 'No hay productos en esta categoría'}
+                  {showFavorites
+                    ? 'Pulsa la estrella de un producto para añadirlo a tus favoritos'
+                    : searchQuery ? `No hay productos que coincidan con "${searchQuery}"` : 'No hay productos en esta categoría'}
                 </p>
-                {searchQuery && (
+                {searchQuery && !showFavorites && (
                   <button onClick={() => setSearchQuery('')} className="mt-4 text-[#1E2B28] text-sm font-medium underline">
                     Limpiar búsqueda
                   </button>
@@ -376,6 +423,8 @@ export default function CatalogoPage() {
                     categoryName={cat?.name}
                     maxStock={product.id in stockMap ? stockMap[product.id] : undefined}
                     justRestocked={restockedMap[product.id]}
+                    isFavorite={favoriteIds.has(product.id)}
+                    onToggleFavorite={toggleFavorite}
                   />
                   )
                 })}

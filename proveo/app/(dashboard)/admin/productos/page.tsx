@@ -13,13 +13,15 @@ export default async function AdminProductosPage() {
   const supabase = await createClient()
   const sb = supabase as any
 
-  const [{ data: products, error: productsError }, { data: categories }, { data: links }] = await Promise.all([
+  const [{ data: products, error: productsError }, { data: categories }, { data: links }, { data: restaurants }, { data: favorites }] = await Promise.all([
     sb.from('products')
       .select('id, name, description, price, unit, min_order_quantity, order_increment, is_active, category_id, image_url, cost_price, iva_rate, margin, pending_review, product_categories!products_category_id_fkey(name)')
       .is('deleted_at', null)
       .order('name'),
     sb.from('product_categories').select('id, name, color, order_index').order('order_index').order('name'),
     sb.from('product_category_links').select('product_id, category_id'),
+    sb.from('organizations').select('id, name').eq('type', 'restaurante').order('name'),
+    sb.from('restaurant_favorite_products').select('organization_id, product_id'),
   ])
 
   if (productsError) {
@@ -40,7 +42,13 @@ export default async function AdminProductosPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
-      <ProductosManager products={productsWithCats} categories={categories ?? []} isNave />
+      <ProductosManager
+        products={productsWithCats}
+        categories={categories ?? []}
+        restaurants={restaurants ?? []}
+        favorites={favorites ?? []}
+        isNave
+      />
     </div>
   )
 }

@@ -1,18 +1,21 @@
 'use client'
 
 import { useState, useTransition, useMemo } from 'react'
-import { Package, Pencil, Trash2, Eye, EyeOff, Plus, X, Check, ChevronDown, ChevronRight, Sparkles, Tag, Euro, Search, Calculator } from 'lucide-react'
+import { Package, Pencil, Trash2, Eye, EyeOff, Plus, X, Check, ChevronDown, ChevronRight, Sparkles, Tag, Euro, Search, Calculator, Star } from 'lucide-react'
 import {
   toggleProductActive, softDeleteProduct, updateProduct, createProduct,
   createCategory, deleteCategory, updateCategory, seedDefaultCategories,
   mergeCategories, moveProductsToCategory, bulkAdjustPricing,
 } from '@/app/actions/products'
 import type { BulkPricingField, BulkPricingMode } from '@/app/actions/products'
+import { setFavoriteProduct } from '@/app/actions/favorites'
 import { UNIT_OPTIONS, unitLabel } from '@/lib/units'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
 type Category = { id: string; name: string; color: string | null; order_index: number | null }
+type Restaurant = { id: string; name: string }
+type Favorite = { organization_id: string; product_id: string }
 type Product = {
   id: string; name: string; description: string | null
   price: number; unit: string
@@ -666,6 +669,139 @@ function MergeCategoriesPanel({ categories }: { categories: Category[] }) {
   )
 }
 
+// ── Favoritos por restaurante ─────────────────────────────────────────────────
+// Catálogo personalizado: marca qué productos pide habitualmente cada
+// restaurante (o que la nave elabora en exclusiva para él), agrupados por
+// categoría para encontrarlos rápido. El restaurante los verá luego en una
+// pestaña "Favoritos" dentro de su propio catálogo.
+
+function FavoriteCheckbox({ checked, onToggle }: { checked: boolean; onToggle: (next: boolean) => void }) {
+  const [optimistic, setOptimistic] = useState(checked)
+  const [pending, setPending] = useState(false)
+
+  function handleClick() {
+    const next = !optimistic
+    setOptimistic(next)
+    setPending(true)
+    Promise.resolve(onToggle(next)).finally(() => setPending(false))
+  }
+
+  return (
+    <button
+      onClick={handleClick}
+      disabled={pending}
+      className={`flex items-center justify-center w-6 h-6 rounded-md border transition-colors shrink-0 ${
+        optimistic ? 'bg-amber-400 border-amber-400 text-white' : 'border-gray-300 text-transparent hover:border-amber-400'
+      }`}
+      title={optimistic ? 'Quitar de favoritos' : 'Añadir a favoritos'}
+    >
+      <Star className={`w-3.5 h-3.5 ${optimistic ? 'fill-current' : ''}`} />
+    </button>
+  )
+}
+
+function FavoritosManager({
+  products, categories, restaurants, favorites,
+}: {
+  products: Product[]; categories: Category[]; restaurants: Restaurant[]; favorites: Favorite[]
+}) {
+  const [restaurantId, setRestaurantId] = useState(restaurants[0]?.id ?? '')
+  const [search, setSearch] = useState('')
+  const [favSet, setFavSet] = useState(() => new Set(favorites.map(f => `${f.organization_id}:${f.product_id}`)))
+  const [error, setError] = useState<string | null>(null)
+
+  function isFav(productId: string) { return favSet.has(`${restaurantId}:${productId}`) }
+
+  async function toggle(productId: string, next: boolean) {
+    const key = `${restaurantId}:${productId}`
+    setFavSet(prev => { const n = new Set(prev); next ? n.add(key) : n.delete(key); return n })
+    try {
+      await setFavoriteProduct(restaurantId, productId, next)
+    } catch {
+      setFavSet(prev => { const n = new Set(prev); next ? n.delete(key) : n.add(key); return n })
+      setError('No se pudo guardar, inténtalo de nuevo')
+      setTimeout(() => setError(null), 3000)
+    }
+  }
+
+  const filtered = products.filter(p =>
+    p.is_active && p.name.toLowerCase().includes(search.toLowerCase())
+  )
+
+  const byCategory = useMemo(() => {
+    const map: Record<string, Product[]> = {}
+    const uncategorized: Product[] = []
+    for (const p of filtered) {
+      if (p.category_id) { (map[p.category_id] ??= []).push(p) } else { uncategorized.push(p) }
+    }
+    const groups = categories
+      .filter(c => map[c.id]?.length > 0)
+      .map(c => ({ id: c.id, name: c.name, color: c.color, products: map[c.id] }))
+    if (uncategorized.length > 0) groups.push({ id: '__none__', name: 'Sin categoría', color: '#9CA3AF', products: uncategorized })
+    return groups
+  }, [filtered, categories])
+
+  const favCount = products.filter(p => isFav(p.id)).length
+
+  if (restaurants.length === 0) {
+    return <p className="text-sm text-gray-600">No hay restaurantes todavía.</p>
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-3 items-end">
+        <div className="flex-1 min-w-[200px]">
+          <label className="text-xs text-gray-700 font-medium block mb-1">Restaurante</label>
+          <select
+            value={restaurantId}
+            onChange={e => setRestaurantId(e.target.value)}
+            className="w-full border border-[#1E2B28]/25 bg-[#1E2B28]/10 text-black rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
+          >
+            {restaurants.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+          </select>
+        </div>
+        <div className="flex-1 min-w-[200px]">
+          <label className="text-xs text-gray-700 font-medium block mb-1">Buscar producto</label>
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Filtrar por nombre..."
+            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
+          />
+        </div>
+        <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3 py-2 rounded-xl shrink-0">
+          ⭐ {favCount} favorito{favCount !== 1 ? 's' : ''}
+        </span>
+      </div>
+
+      {error && <p className="text-xs text-red-600">{error}</p>}
+
+      <div className="space-y-3">
+        {byCategory.map(group => (
+          <div key={group.id} className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+            <div className="flex items-center gap-2 px-4 py-2.5 bg-gray-50 border-b border-gray-100">
+              <ColorDot color={group.color} />
+              <span className="font-semibold text-sm text-black">{group.name}</span>
+              <span className="text-xs text-gray-600">({group.products.length})</span>
+            </div>
+            <div className="divide-y divide-gray-50">
+              {group.products.map(p => (
+                <div key={p.id} className="flex items-center gap-3 px-4 py-2.5">
+                  <FavoriteCheckbox checked={isFav(p.id)} onToggle={next => toggle(p.id, next)} />
+                  <span className="text-sm text-black flex-1 truncate">{p.name}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+        {byCategory.length === 0 && (
+          <p className="text-sm text-gray-600 text-center py-8">Sin productos que coincidan con la búsqueda.</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function CategoriasManager({ categories, productCountByCat }: { categories: Category[]; productCountByCat: Record<string, number> }) {
   const [showNew, setShowNew]         = useState(false)
   const [editingCat, setEditingCat]   = useState<Category | null>(null)
@@ -967,13 +1103,15 @@ function BulkPricingModal({
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function ProductosManager({
-  products, categories, isNave,
+  products, categories, restaurants = [], favorites = [], isNave,
 }: {
   products: Product[]
   categories: Category[]
+  restaurants?: Restaurant[]
+  favorites?: Favorite[]
   isNave?: boolean
 }) {
-  const [tab, setTab]                 = useState<'productos' | 'buscar' | 'categorias'>('productos')
+  const [tab, setTab]                 = useState<'productos' | 'buscar' | 'categorias' | 'favoritos'>('productos')
   const [editProduct, setEditProduct] = useState<Product | null>(null)
   const [nuevoDefaultCat, setNuevoDefaultCat] = useState<string | undefined>()
   const [showNuevo, setShowNuevo]     = useState(false)
@@ -1106,12 +1244,13 @@ export function ProductosManager({
 
         {/* Tabs */}
         <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
-          {([['productos','Productos'],['buscar','Buscar'],['categorias','Categorías']] as const).map(([k,l]) => (
+          {([['productos','Productos'],['buscar','Buscar'],['categorias','Categorías'],['favoritos','Favoritos']] as const).map(([k,l]) => (
             <button key={k} onClick={() => setTab(k)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
                 tab === k ? 'bg-white text-black shadow-sm' : 'text-gray-700 hover:text-gray-700'
               }`}>
               {k === 'buscar' && <Search className="w-3.5 h-3.5" />}
+              {k === 'favoritos' && <Star className="w-3.5 h-3.5" />}
               {l}
             </button>
           ))}
@@ -1314,6 +1453,10 @@ export function ProductosManager({
         {/* ── Categorías tab ─────────────────────────────────────────────── */}
         {tab === 'categorias' && (
           <CategoriasManager categories={categories} productCountByCat={productCountByCat} />
+        )}
+
+        {tab === 'favoritos' && (
+          <FavoritosManager products={products} categories={categories} restaurants={restaurants} favorites={favorites} />
         )}
       </div>
     </>

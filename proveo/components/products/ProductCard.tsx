@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image'
-import { Plus, Minus, Sparkles } from 'lucide-react'
+import { Plus, Minus, Sparkles, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Product } from '@/types/database'
 import { useState, useEffect } from 'react'
@@ -17,6 +17,8 @@ interface ProductCardProps {
   /** undefined = sin límite de stock controlado por la nave */
   maxStock?: number
   justRestocked?: boolean
+  isFavorite?: boolean
+  onToggleFavorite?: (productId: string, next: boolean) => void
 }
 
 function placeholderStyle(color?: string | null): { background: string } {
@@ -26,6 +28,7 @@ function placeholderStyle(color?: string | null): { background: string } {
 
 export function ProductCard({
   product, quantity, onQuantityChange, categoryColor, categoryName, maxStock, justRestocked,
+  isFavorite, onToggleFavorite,
 }: ProductCardProps) {
   const hasQuantity = quantity > 0
   const increment = Number(product.order_increment) || 1
@@ -123,9 +126,20 @@ export function ProductCard({
 
       {/* ── Product info ─────────────────────────────────────────────── */}
       <div className="p-3 flex flex-col flex-1">
-        <h3 className="font-semibold text-black text-sm leading-tight line-clamp-2 flex-1">
-          {product.name}
-        </h3>
+        <div className="flex items-start gap-1.5">
+          <h3 className="font-semibold text-black text-sm leading-tight line-clamp-2 flex-1">
+            {product.name}
+          </h3>
+          {onToggleFavorite && (
+            <button
+              onClick={() => onToggleFavorite(product.id, !isFavorite)}
+              title={isFavorite ? 'Quitar de favoritos' : 'Añadir a favoritos'}
+              className={cn('shrink-0 p-0.5 -mt-0.5 -mr-0.5', isFavorite ? 'text-amber-400' : 'text-gray-300 hover:text-amber-400')}
+            >
+              <Star className={cn('w-4 h-4', isFavorite && 'fill-current')} />
+            </button>
+          )}
+        </div>
         {product.description && (
           <p className="text-xs text-gray-600 mt-0.5 line-clamp-1">{product.description}</p>
         )}
