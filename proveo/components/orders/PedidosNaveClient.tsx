@@ -70,38 +70,71 @@ function ItemRow({
   const [value, setValue] = useState(String(item.rectified_quantity ?? item.quantity))
   const [note, setNote] = useState(item.rectification_note ?? '')
   const [lot, setLot] = useState(item.lot_number ?? '')
+  const [syncError, setSyncError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
   const isCanceled = item.rectified_quantity != null && Number(item.rectified_quantity) === 0
   const isRectified = item.rectified_quantity != null && Number(item.rectified_quantity) !== Number(item.quantity)
 
-  function togglePrepared() {
+  // Optimista, pero con reversión visible si la escritura en el servidor
+  // falla (en vez de quedarse "marcado" en pantalla sin haberse guardado).
+  async function togglePrepared() {
     const next = !item.prepared
     onPreparedChange(item.id, next)
-    setItemPrepared(item.id, next)
+    try {
+      await setItemPrepared(item.id, next)
+    } catch {
+      onPreparedChange(item.id, !next)
+      setSyncError('No se pudo guardar, inténtalo de nuevo')
+      setTimeout(() => setSyncError(null), 3000)
+    }
   }
 
-  function saveLot() {
-    if (lot === (item.lot_number ?? '')) return
+  async function saveLot() {
+    const previous = item.lot_number ?? ''
+    if (lot === previous) return
     onLotChange(item.id, lot)
-    setItemLot(item.id, lot)
+    try {
+      await setItemLot(item.id, lot)
+    } catch {
+      setLot(previous)
+      onLotChange(item.id, previous)
+      setSyncError('No se pudo guardar el lote, inténtalo de nuevo')
+      setTimeout(() => setSyncError(null), 3000)
+    }
   }
 
   function save() {
     const qty = parseFloat(value.replace(',', '.'))
     if (isNaN(qty) || qty < 0) return
+    const prevQty = item.rectified_quantity ?? item.quantity
+    const prevNote = item.rectification_note
     startTransition(async () => {
       onRectified(item.id, qty, note || undefined)
-      await rectifyOrderItem(item.id, qty, note || undefined)
-      setEditing(false)
+      try {
+        await rectifyOrderItem(item.id, qty, note || undefined)
+        setEditing(false)
+      } catch {
+        onRectified(item.id, prevQty, prevNote ?? undefined)
+        setSyncError('No se pudo guardar, inténtalo de nuevo')
+        setTimeout(() => setSyncError(null), 3000)
+      }
     })
   }
 
   function cancelItem() {
     const reason = note || 'Cancelado por la nave'
+    const prevQty = item.rectified_quantity ?? item.quantity
+    const prevNote = item.rectification_note
     startTransition(async () => {
       onCanceled(item.id, reason)
-      await cancelOrderItem(item.id, reason)
-      setEditing(false)
+      try {
+        await cancelOrderItem(item.id, reason)
+        setEditing(false)
+      } catch {
+        onRectified(item.id, prevQty, prevNote ?? undefined)
+        setSyncError('No se pudo cancelar, inténtalo de nuevo')
+        setTimeout(() => setSyncError(null), 3000)
+      }
     })
   }
 
@@ -189,6 +222,7 @@ function ItemRow({
           className="flex-1 min-w-0 bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-[#1E2B28] placeholder-gray-500"
         />
       </div>
+      {syncError && <p className="text-red-600 pl-6">{syncError}</p>}
     </div>
   )
 }
@@ -346,7 +380,7 @@ function OrderActions({ order, onDeleted, onStatusChange }: { order: Order; onDe
         <div className="flex items-center gap-2 ml-auto">
           <span className="text-xs text-red-600 font-medium">¿Seguro?</span>
           <button
-            onClick={async () => { setLoading(true); await deleteOrder(order.id); onDeleted(order.id) }}
+            onClick={() => { setLoading(true); onDeleted(order.id); deleteOrder(order.id) }}
             disabled={loading}
             className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
           >

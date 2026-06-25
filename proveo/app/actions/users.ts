@@ -30,7 +30,8 @@ export async function updateUserPin(profileId: string, newPin: string) {
   })
   if (error) throw new Error(error.message)
 
-  await (admin as any).from('profiles').update({ pin: newPin }).eq('id', profileId)
+  const { error: pinError } = await (admin as any).from('profiles').update({ pin: newPin }).eq('id', profileId)
+  if (pinError) throw new Error(pinError.message)
   revalidatePath('/admin/usuarios')
 }
 
@@ -40,6 +41,7 @@ export async function updateUserProfile(profileId: string, formData: FormData) {
   const full_name = formData.get('full_name') as string
   const phone = (formData.get('phone') as string) || null
 
-  await (supabase as any).from('profiles').update({ full_name, phone }).eq('id', profileId)
+  const { error } = await (supabase as any).from('profiles').update({ full_name, phone }).eq('id', profileId)
+  if (error) throw new Error(error.message)
   revalidatePath('/admin/usuarios')
 }

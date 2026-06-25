@@ -24,7 +24,7 @@ type UserRow = {
   organizations: { name: string; type: string } | null
 }
 
-function PinCell({ user }: { user: UserRow }) {
+function PinCell({ user, onUpdated }: { user: UserRow; onUpdated: (id: string, patch: Partial<UserRow>) => void }) {
   const [editing, setEditing] = useState(false)
   const [visible, setVisible] = useState(false)
   const [value, setValue] = useState('')
@@ -34,13 +34,19 @@ function PinCell({ user }: { user: UserRow }) {
   function save() {
     setError(null)
     if (!/^\d{4}$/.test(value)) { setError('4 dígitos'); return }
+    const newPin = value
+    const prevPin = user.pin
     startTransition(async () => {
+      onUpdated(user.id, { pin: newPin })
+      setEditing(false)
+      setValue('')
       try {
-        await updateUserPin(user.id, value)
-        setEditing(false)
-        setValue('')
+        await updateUserPin(user.id, newPin)
       } catch (e: any) {
+        onUpdated(user.id, { pin: prevPin })
         setError(e.message ?? 'Error')
+        setEditing(true)
+        setValue(newPin)
       }
     })
   }
@@ -80,14 +86,30 @@ function PinCell({ user }: { user: UserRow }) {
   )
 }
 
-function NameCell({ user }: { user: UserRow }) {
+function NameCell({ user, onUpdated }: { user: UserRow; onUpdated: (id: string, patch: Partial<UserRow>) => void }) {
   const [editing, setEditing] = useState(false)
   const [pending, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
-    startTransition(async () => { await updateUserProfile(user.id, fd); setEditing(false) })
+    const newName = String(fd.get('full_name') ?? '')
+    const newPhone = String(fd.get('phone') ?? '')
+    const prevName = user.full_name
+    const prevPhone = user.phone
+    setError(null)
+    startTransition(async () => {
+      onUpdated(user.id, { full_name: newName, phone: newPhone })
+      setEditing(false)
+      try {
+        await updateUserProfile(user.id, fd)
+      } catch (e: any) {
+        onUpdated(user.id, { full_name: prevName, phone: prevPhone })
+        setError(e.message ?? 'Error')
+        setEditing(true)
+      }
+    })
   }
 
   if (editing) {
@@ -112,11 +134,18 @@ function NameCell({ user }: { user: UserRow }) {
       <button onClick={() => setEditing(true)} title="Editar" className="p-1 rounded text-gray-700 hover:text-[#1E2B28] hover:bg-gray-100">
         <Pencil className="w-3.5 h-3.5" />
       </button>
+      {error && <span className="text-xs text-red-500">{error}</span>}
     </div>
   )
 }
 
-export function UsuariosTable({ users }: { users: UserRow[] }) {
+export function UsuariosTable({ users: initialUsers }: { users: UserRow[] }) {
+  const [users, setUsers] = useState(initialUsers)
+
+  function handleUpdated(id: string, patch: Partial<UserRow>) {
+    setUsers(prev => prev.map(u => u.id === id ? { ...u, ...patch } : u))
+  }
+
   return (
     <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
       <div className="overflow-x-auto">
@@ -133,7 +162,7 @@ export function UsuariosTable({ users }: { users: UserRow[] }) {
           <tbody className="divide-y divide-gray-50">
             {users.map(u => (
               <tr key={u.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3"><NameCell user={u} /></td>
+                <td className="px-4 py-3"><NameCell user={u} onUpdated={handleUpdated} /></td>
                 <td className="px-4 py-3 text-gray-700">
                   <div className="flex items-center gap-1.5">
                     <Building2 className="w-3.5 h-3.5 text-gray-600" />
@@ -146,7 +175,7 @@ export function UsuariosTable({ users }: { users: UserRow[] }) {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-gray-700">{u.phone ?? '—'}</td>
-                <td className="px-4 py-3"><PinCell user={u} /></td>
+                <td className="px-4 py-3"><PinCell user={u} onUpdated={handleUpdated} /></td>
               </tr>
             ))}
           </tbody>

@@ -21,10 +21,10 @@ function NoteRow({ note, isNave, onDeleted }: { note: Note; isNave: boolean; onD
   const [confirm, setConfirm] = useState(false)
   const [loading, setLoading] = useState(false)
 
-  async function handleDelete() {
+  function handleDelete() {
     setLoading(true)
-    await deleteDeliveryNote(note.id)
     onDeleted(note.id)
+    deleteDeliveryNote(note.id)
   }
 
   return (

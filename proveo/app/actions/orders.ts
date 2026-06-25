@@ -102,9 +102,10 @@ export async function rectifyOrderItem(orderItemId: string, newQuantity: number,
   if (!item) return
 
   const total_price = newQuantity * Number(item.unit_price)
-  await sb.from('order_items')
+  const { error } = await sb.from('order_items')
     .update({ rectified_quantity: newQuantity, total_price, rectification_note: note || null })
     .eq('id', orderItemId)
+  if (error) throw new Error(error.message)
 
   const { data: items } = await sb.from('order_items').select('quantity, rectified_quantity, unit_price').eq('order_id', item.order_id)
   const orderTotal = (items ?? []).reduce(
@@ -128,7 +129,8 @@ export async function rectifyOrderItem(orderItemId: string, newQuantity: number,
 export async function setItemPrepared(orderItemId: string, prepared: boolean) {
   const supabase = await createClient()
   const sb = supabase as any
-  await sb.from('order_items').update({ prepared }).eq('id', orderItemId)
+  const { error } = await sb.from('order_items').update({ prepared }).eq('id', orderItemId)
+  if (error) throw new Error(error.message)
   revalidatePath('/pedidos')
 }
 
@@ -137,7 +139,8 @@ export async function setItemLot(orderItemId: string, lotNumber: string) {
   const supabase = await createClient()
   const sb = supabase as any
   const { data: item } = await sb.from('order_items').select('order_id, product_id').eq('id', orderItemId).single()
-  await sb.from('order_items').update({ lot_number: lotNumber || null }).eq('id', orderItemId)
+  const { error } = await sb.from('order_items').update({ lot_number: lotNumber || null }).eq('id', orderItemId)
+  if (error) throw new Error(error.message)
 
   if (item) {
     const { data: deliveryNote } = await sb.from('delivery_notes').select('id').eq('order_id', item.order_id).maybeSingle()

@@ -181,18 +181,21 @@ export async function mergeCategories(fromId: string, toId: string) {
   const supabase = await createClient()
   const sb = supabase as any
 
-  await sb.from('products').update({ category_id: toId }).eq('category_id', fromId)
+  const { error: err1 } = await sb.from('products').update({ category_id: toId }).eq('category_id', fromId)
+  if (err1) throw new Error(err1.message)
 
   const { data: links } = await sb.from('product_category_links').select('product_id').eq('category_id', fromId)
   await sb.from('product_category_links').delete().eq('category_id', fromId)
   if (links?.length) {
-    await sb.from('product_category_links').upsert(
+    const { error: err2 } = await sb.from('product_category_links').upsert(
       links.map((l: any) => ({ product_id: l.product_id, category_id: toId })),
       { onConflict: 'product_id,category_id', ignoreDuplicates: true }
     )
+    if (err2) throw new Error(err2.message)
   }
 
-  await sb.from('product_categories').delete().eq('id', fromId)
+  const { error: err3 } = await sb.from('product_categories').delete().eq('id', fromId)
+  if (err3) throw new Error(err3.message)
   revalidatePath('/admin/productos')
 }
 
@@ -259,12 +262,14 @@ export async function moveProductsToCategory(productIds: string[], targetCategor
   const supabase = await createClient()
   const sb = supabase as any
 
-  await sb.from('products').update({ category_id: targetCategoryId }).in('id', productIds)
+  const { error: err1 } = await sb.from('products').update({ category_id: targetCategoryId }).in('id', productIds)
+  if (err1) throw new Error(err1.message)
 
   await sb.from('product_category_links').delete().in('product_id', productIds).neq('category_id', targetCategoryId)
-  await sb.from('product_category_links').upsert(
+  const { error: err2 } = await sb.from('product_category_links').upsert(
     productIds.map(product_id => ({ product_id, category_id: targetCategoryId })),
     { onConflict: 'product_id,category_id', ignoreDuplicates: true }
   )
+  if (err2) throw new Error(err2.message)
   revalidatePath('/admin/productos')
 }

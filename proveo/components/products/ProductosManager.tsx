@@ -71,15 +71,17 @@ function ToggleActiveButton({ product }: { product: Product }) {
 
 // ── Delete ────────────────────────────────────────────────────────────────────
 
-function DeleteButton({ product }: { product: Product }) {
+function DeleteButton({ product, onDeleted }: { product: Product; onDeleted: () => void }) {
   const [confirming, setConfirming] = useState(false)
-  const [pending, startTransition] = useTransition()
-  function doDelete() { startTransition(async () => { await softDeleteProduct(product.id) }) }
+  function doDelete() {
+    onDeleted()
+    softDeleteProduct(product.id)
+  }
   if (confirming) {
     return (
       <div className="flex items-center gap-1">
         <span className="text-xs text-gray-700 whitespace-nowrap">¿Eliminar?</span>
-        <button onClick={doDelete} disabled={pending} className="p-1 rounded text-red-600 hover:bg-red-50"><Check className="w-4 h-4" /></button>
+        <button onClick={doDelete} className="p-1 rounded text-red-600 hover:bg-red-50"><Check className="w-4 h-4" /></button>
         <button onClick={() => setConfirming(false)} className="p-1 rounded text-gray-600 hover:bg-gray-100"><X className="w-4 h-4" /></button>
       </div>
     )
@@ -441,13 +443,29 @@ function ProductsTable({
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-50">
-          {products.map(p => {
-            const hasCost = Number(p.cost_price) > 0
-            const marginPct = Math.round((Number(p.margin) || 0) * 100)
-            const ivaPct    = Math.round((Number(p.iva_rate) || 0) * 100)
-            const pFinal    = finalPrice(p)
-            return (
-              <tr key={p.id} className={`hover:bg-gray-50 transition-colors ${!p.is_active ? 'opacity-50' : ''}`}>
+          {products.map(p => (
+            <ProductRow key={p.id} p={p} categories={categories} isNave={isNave} onEdit={onEdit} />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function ProductRow({
+  p, categories, isNave, onEdit,
+}: {
+  p: Product; categories: Category[]; isNave?: boolean; onEdit: (p: Product) => void
+}) {
+  const [hidden, setHidden] = useState(false)
+  if (hidden) return null
+
+  const hasCost = Number(p.cost_price) > 0
+  const marginPct = Math.round((Number(p.margin) || 0) * 100)
+  const ivaPct    = Math.round((Number(p.iva_rate) || 0) * 100)
+  const pFinal    = finalPrice(p)
+  return (
+              <tr className={`hover:bg-gray-50 transition-colors ${!p.is_active ? 'opacity-50' : ''}`}>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
                     <Package className="w-3.5 h-3.5 text-gray-700 shrink-0" />
@@ -501,15 +519,10 @@ function ProductsTable({
                       className="p-1.5 rounded-lg text-gray-600 hover:text-[#1E2B28] hover:bg-green-50 transition-colors">
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
-                    <DeleteButton product={p} />
+                    <DeleteButton product={p} onDeleted={() => setHidden(true)} />
                   </div>
                 </td>
               </tr>
-            )
-          })}
-        </tbody>
-      </table>
-    </div>
   )
 }
 
@@ -524,6 +537,7 @@ function CategorySection({
 }) {
   const [open, setOpen] = useState(true)
   const [moving, setMoving] = useState(false)
+  const [moveError, setMoveError] = useState<string | null>(null)
   const [movePending, startMoveTransition] = useTransition()
   const visibleCount = products.filter(p => p.is_active).length
   const hiddenCount  = products.length - visibleCount
@@ -531,9 +545,15 @@ function CategorySection({
 
   function handleMoveAll(targetId: string) {
     if (!targetId) return
+    setMoving(false)
+    setMoveError(null)
     startMoveTransition(async () => {
-      await moveProductsToCategory(products.map(p => p.id), targetId)
-      setMoving(false)
+      try {
+        await moveProductsToCategory(products.map(p => p.id), targetId)
+      } catch (e: any) {
+        setMoveError(e.message ?? 'No se pudo mover')
+        setTimeout(() => setMoveError(null), 3000)
+      }
     })
   }
 
@@ -573,6 +593,7 @@ function CategorySection({
             </button>
           )
         )}
+        {moveError && <span className="text-xs text-red-600">{moveError}</span>}
         <button
           onClick={e => { e.stopPropagation(); onAddProduct(categoryId) }}
           className="flex items-center gap-1 text-xs text-[#1E2B28] hover:bg-green-50 px-2 py-1 rounded-lg transition-colors font-medium"
@@ -598,14 +619,21 @@ function MergeCategoriesPanel({ categories }: { categories: Category[] }) {
   const [toId, setToId]     = useState('')
   const [pending, startTransition] = useTransition()
   const [done, setDone] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   function handleMerge() {
     if (!fromId || !toId || fromId === toId) return
+    setError(null)
     startTransition(async () => {
-      await mergeCategories(fromId, toId)
-      setDone(true)
-      setFromId(''); setToId('')
-      setTimeout(() => setDone(false), 2000)
+      try {
+        await mergeCategories(fromId, toId)
+        setDone(true)
+        setFromId(''); setToId('')
+        setTimeout(() => setDone(false), 2000)
+      } catch (e: any) {
+        setError(e.message ?? 'No se pudo fusionar')
+        setTimeout(() => setError(null), 3000)
+      }
     })
   }
 
@@ -632,6 +660,7 @@ function MergeCategoriesPanel({ categories }: { categories: Category[] }) {
         >
           {done ? '✓ Fusionadas' : pending ? 'Fusionando...' : 'Fusionar'}
         </button>
+        {error && <span className="text-xs text-red-600">{error}</span>}
       </div>
     </div>
   )
