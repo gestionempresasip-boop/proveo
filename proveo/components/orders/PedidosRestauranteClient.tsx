@@ -77,8 +77,12 @@ function ReturnControls({ order, item, onReturned }: { order: Order; item: Order
       product_id: item.product_id, quantity: q, unit: item.unit, unit_price: Number(item.unit_price),
       reason, lot_number: item.lot_number ?? null,
     }])
-      .catch(() => setError('No se pudo registrar la devolución, inténtalo de nuevo'))
-      .finally(() => { setPending(false); setOpen(false); setQty('') })
+      .then(() => { setOpen(false); setQty('') })
+      .catch((e: any) => {
+        onReturned(order.id, item.product_id, -q, reason)
+        setError(e?.message ?? 'No se pudo registrar la devolución, inténtalo de nuevo')
+      })
+      .finally(() => setPending(false))
   }
 
   if (!open) {
