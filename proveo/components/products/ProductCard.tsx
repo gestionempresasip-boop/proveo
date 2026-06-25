@@ -134,12 +134,12 @@ export function ProductCard({
         )}
 
         {/* ── Quantity selector ───────────────────────────────────────── */}
-        <div className="flex items-center gap-2 mt-3">
+        <div className="flex items-center gap-1 mt-3">
           <button
             onClick={decrease}
             disabled={!hasQuantity}
             className={cn(
-              'w-11 h-11 rounded-xl flex items-center justify-center transition-all shrink-0 active:scale-95',
+              'w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all shrink-0 active:scale-95',
               hasQuantity
                 ? 'bg-[#1E2B28] text-white'
                 : 'bg-gray-100 text-gray-700 cursor-not-allowed'
@@ -148,7 +148,7 @@ export function ProductCard({
             <Minus className="h-4 w-4" />
           </button>
 
-          <div className="flex-1 flex flex-col items-center">
+          <div className="flex-1 min-w-0 flex flex-col items-center">
             <input
               type="number"
               inputMode="decimal"
@@ -160,12 +160,12 @@ export function ProductCard({
               onBlur={e => commitInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') { commitInput(inputValue); (e.target as HTMLInputElement).blur() } }}
               className={cn(
-                'w-full text-center text-sm font-semibold tabular-nums bg-transparent border-0 outline-none focus:ring-1 focus:ring-[#1E2B28] rounded-lg py-1',
+                'w-full min-w-0 text-center text-sm font-semibold tabular-nums bg-transparent border-0 outline-none focus:ring-1 focus:ring-[#1E2B28] rounded-lg py-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none',
                 hasQuantity ? 'text-gray-900' : 'text-gray-600 placeholder-gray-500'
               )}
             />
             {hasQuantity && (
-              <span className="text-[10px] text-gray-600 leading-none">{unit}</span>
+              <span className="text-[10px] text-gray-600 leading-none whitespace-nowrap">{unit}</span>
             )}
           </div>
 
@@ -174,7 +174,7 @@ export function ProductCard({
             disabled={outOfStock || atStockLimit}
             title={atStockLimit ? 'Has llegado al stock disponible' : undefined}
             className={cn(
-              'w-11 h-11 rounded-xl flex items-center justify-center active:scale-95 transition-all shrink-0',
+              'w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center active:scale-95 transition-all shrink-0',
               outOfStock || atStockLimit ? 'bg-gray-100 text-gray-700 cursor-not-allowed' : 'bg-[#1E2B28] text-white'
             )}
           >
