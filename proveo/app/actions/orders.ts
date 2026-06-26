@@ -122,7 +122,9 @@ export async function rectifyOrderItem(orderItemId: string, newQuantity: number,
   }
 
   revalidatePath('/pedidos')
-  revalidatePath('/albaranes')
+  // Rectificar/cancelar suele pasar antes de generar el albarán; solo
+  // revalidamos /albaranes cuando de verdad existe uno que mantener al día.
+  if (deliveryNote) revalidatePath('/albaranes')
 }
 
 // Checklist de preparación: marcar un artículo como listo/cargado.
@@ -142,6 +144,7 @@ export async function setItemLot(orderItemId: string, lotNumber: string) {
   const { error } = await sb.from('order_items').update({ lot_number: lotNumber || null }).eq('id', orderItemId)
   if (error) throw new Error(error.message)
 
+  let touchedDeliveryNote = false
   if (item) {
     const { data: deliveryNote } = await sb.from('delivery_notes').select('id').eq('order_id', item.order_id).maybeSingle()
     if (deliveryNote) {
@@ -149,11 +152,14 @@ export async function setItemLot(orderItemId: string, lotNumber: string) {
         .update({ lot_number: lotNumber || null })
         .eq('delivery_note_id', deliveryNote.id)
         .eq('product_id', item.product_id)
+      touchedDeliveryNote = true
     }
   }
 
   revalidatePath('/pedidos')
-  revalidatePath('/albaranes')
+  // El lote casi siempre se rellena antes de generar el albarán, así que la
+  // mayoría de las veces no hace falta revalidar /albaranes también.
+  if (touchedDeliveryNote) revalidatePath('/albaranes')
 }
 
 // Cancela por completo una línea del pedido (rotura de stock, producto en
