@@ -87,7 +87,7 @@ export default async function DashboardPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4">
         {stats.map(s => (
-          <Link key={s.href} href={s.href}>
+          <Link key={s.href} href={s.href} prefetch={false}>
             <div className="bg-white rounded-2xl border border-gray-100 p-5 flex items-center gap-4 hover:shadow-sm transition-shadow">
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${s.color}`}>
                 {s.icon}
@@ -104,7 +104,7 @@ export default async function DashboardPage() {
       {/* Quick actions */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {quickActions.map(action => (
-          <Link key={action.href} href={action.href}>
+          <Link key={action.href} href={action.href} prefetch={false}>
             <div className="bg-white rounded-2xl border border-gray-100 p-5 flex items-center gap-4 hover:border-gray-300 hover:shadow-sm transition-all group">
               <div className="w-11 h-11 rounded-xl bg-[#1E2B28] flex items-center justify-center shrink-0 group-hover:bg-[#A8793A] transition-colors">
                 <span className="text-white">{action.icon}</span>
@@ -125,7 +125,7 @@ export default async function DashboardPage() {
           <h2 className="text-sm font-semibold text-gray-900">
             {isNave ? 'Últimos pedidos' : 'Mis últimos pedidos'}
           </h2>
-          <Link href="/pedidos" className="text-xs text-gray-600 hover:text-gray-600 transition-colors">
+          <Link href="/pedidos" prefetch={false} className="text-xs text-gray-600 hover:text-gray-600 transition-colors">
             Ver todos →
           </Link>
         </div>
