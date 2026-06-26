@@ -49,23 +49,18 @@ export default function CatalogoPage() {
 
   useEffect(() => {
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser()
       const sb = supabase as any
-      const { data: profile } = user
-        ? await sb.from('profiles').select('organization_id').eq('id', user.id).single()
-        : { data: null }
-      const orgId = profile?.organization_id ?? null
-      setOrganizationId(orgId)
 
-      const [{ data: prods }, { data: cats }, { data: stock }, { data: favs }] = await Promise.all([
+      // Productos/categorías/stock primero y en paralelo: es lo que el
+      // restaurante necesita ver al instante. El perfil y los favoritos no
+      // bloquean la primera pintura, se rellenan en segundo plano.
+      const [{ data: prods }, { data: cats }, { data: stock }] = await Promise.all([
         sb.from('products').select('*, product_categories!products_category_id_fkey(name, color)').eq('is_active', true).is('deleted_at', null).order('name'),
         sb.from('product_categories').select('*').order('order_index').order('name'),
         sb.from('nave_inventory').select('product_id, current_stock, last_restocked_at'),
-        orgId ? sb.from('restaurant_favorite_products').select('product_id').eq('organization_id', orgId) : Promise.resolve({ data: [] }),
       ])
       setProducts(prods ?? [])
       setCategories(cats ?? [])
-      setFavoriteIds(new Set((favs ?? []).map((f: any) => f.product_id)))
       const sMap: Record<string, number> = {}
       const rMap: Record<string, boolean> = {}
       const dayAgo = Date.now() - 48 * 60 * 60 * 1000
@@ -93,6 +88,19 @@ export default function CatalogoPage() {
           setCart(nextCart)
           setRepeatedNotice(true)
         }
+      }
+
+      // Perfil + favoritos en segundo plano: no bloquean la pantalla inicial,
+      // la estrella de cada producto simplemente aparece marcada un instante
+      // después si el restaurante tiene favoritos guardados.
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data: profile } = await sb.from('profiles').select('organization_id').eq('id', user.id).single()
+      const orgId = profile?.organization_id ?? null
+      setOrganizationId(orgId)
+      if (orgId) {
+        const { data: favs } = await sb.from('restaurant_favorite_products').select('product_id').eq('organization_id', orgId)
+        setFavoriteIds(new Set((favs ?? []).map((f: any) => f.product_id)))
       }
     }
     load()
