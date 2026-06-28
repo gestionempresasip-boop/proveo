@@ -34,10 +34,14 @@ const CATEGORIES_DEF = [
 ]
 
 export async function GET(req: Request) {
+  if (!process.env.SEED_SECRET) {
+    return NextResponse.json({ error: 'SEED_SECRET no configurado en el entorno' }, { status: 503 })
+  }
+
   const url = new URL(req.url)
   const secret = url.searchParams.get('secret')
-  if (secret !== (process.env.SEED_SECRET ?? 'proveo-seed-2026')) {
-    return NextResponse.json({ error: 'Unauthorized — add ?secret=proveo-seed-2026' }, { status: 401 })
+  if (secret !== process.env.SEED_SECRET) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   const sb = createClient(

@@ -16,7 +16,8 @@ export default async function PedidosPage() {
       sb
         .from('orders')
         .select('*, organizations(id, name), order_items(*, products(name, unit)), delivery_notes(id, note_number, type, delivery_note_items(product_id, delivered_quantity, return_reason, products(name)))')
-        .order('created_at', { ascending: false }),
+        .order('created_at', { ascending: false })
+        .limit(500),
       sb
         .from('organizations')
         .select('id, name')
@@ -38,6 +39,7 @@ export default async function PedidosPage() {
     .select('*, order_items(*, products(name, unit)), delivery_notes(id, type, delivery_note_items(product_id, delivered_quantity, return_reason))')
     .eq('restaurant_id', profile.organization_id)
     .order('created_at', { ascending: false })
+    .limit(200)
 
   return (
     <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">

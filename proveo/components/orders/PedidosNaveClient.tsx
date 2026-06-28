@@ -240,6 +240,7 @@ function ItemRow({
 function OrderActions({ order, onDeleted, onStatusChange }: { order: Order; onDeleted: (id: string) => void; onStatusChange: (id: string, status: OrderStatus) => void }) {
   const [loading, setLoading] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [confirmCancel, setConfirmCancel] = useState(false)
   const [noteId, setNoteId] = useState<string | null>(entregaNote(order)?.id ?? null)
   const [noteNumber, setNoteNumber] = useState<number | null>(entregaNote(order)?.note_number ?? null)
   const [blockedMsg, setBlockedMsg] = useState(false)
@@ -251,6 +252,7 @@ function OrderActions({ order, onDeleted, onStatusChange }: { order: Order; onDe
   const pendingItems = order.order_items.filter(i => Number(i.rectified_quantity ?? -1) !== 0)
   const allPrepared = pendingItems.length > 0 && pendingItems.every(i => i.prepared)
   const needsPrepCheck = status === 'pendiente'
+  const canCancelOrder = status === 'pendiente' || status === 'hecho'
 
   function handleStatus() {
     if (!nextAction) return
@@ -261,6 +263,12 @@ function OrderActions({ order, onDeleted, onStatusChange }: { order: Order; onDe
     }
     onStatusChange(order.id, nextAction.next)
     updateOrderStatus(order.id, nextAction.next)
+  }
+
+  function handleCancelOrder() {
+    setLoading(true)
+    onStatusChange(order.id, 'cancelado')
+    updateOrderStatus(order.id, 'cancelado')
   }
 
   async function handleGenNote() {
@@ -373,6 +381,36 @@ function OrderActions({ order, onDeleted, onStatusChange }: { order: Order; onDe
           <Printer className="w-3.5 h-3.5" />
           Imprimir
         </Link>
+      )}
+
+      {/* Cancelar pedido completo */}
+      {canCancelOrder && (
+        !confirmCancel ? (
+          <button
+            onClick={() => setConfirmCancel(true)}
+            className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-xl border border-red-200 text-red-500 hover:bg-red-50 transition-colors"
+          >
+            <Ban className="w-3.5 h-3.5" />
+            Cancelar pedido
+          </button>
+        ) : (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-red-600 font-medium">¿Seguro?</span>
+            <button
+              onClick={handleCancelOrder}
+              disabled={loading}
+              className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+            >
+              {loading ? 'Cancelando...' : 'Sí, cancelar'}
+            </button>
+            <button
+              onClick={() => setConfirmCancel(false)}
+              className="text-xs font-medium px-3 py-1.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+            >
+              Volver
+            </button>
+          </div>
+        )
       )}
 
       {/* Eliminar */}
