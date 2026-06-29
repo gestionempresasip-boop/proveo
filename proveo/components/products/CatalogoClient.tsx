@@ -433,7 +433,7 @@ export function CatalogoClient({
       {cartOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex flex-col justify-end">
           <div className="absolute inset-0 bg-black/50" onClick={() => setCartOpen(false)} />
-          <div className="relative bg-white rounded-t-3xl shadow-2xl max-h-[75vh] flex flex-col mb-[60px]">
+          <div className="relative bg-white rounded-t-3xl shadow-2xl max-h-[75vh] flex flex-col mb-[60px] md:mb-4">
             <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-gray-100 bg-[#1E2B28] rounded-t-3xl">
               <div className="flex items-center gap-2 text-white">
                 <ShoppingCart className="h-5 w-5" />
@@ -452,7 +452,7 @@ export function CatalogoClient({
 
       {/* Botón flotante del carrito — encima de la tab bar */}
       {cartCount > 0 && !cartOpen && (
-        <div className="lg:hidden fixed bottom-[60px] left-0 right-0 z-50 px-4 pb-3">
+        <div className="lg:hidden fixed bottom-[60px] md:bottom-4 left-0 right-0 z-50 px-4 pb-3">
           <button
             onClick={() => setCartOpen(true)}
             className="w-full flex items-center justify-between bg-[#1E2B28] text-white px-5 py-4 rounded-2xl font-semibold active:scale-[0.98] transition-transform shadow-xl"

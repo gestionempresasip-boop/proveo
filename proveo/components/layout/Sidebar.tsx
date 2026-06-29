@@ -72,10 +72,10 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
     window.location.reload()
   }
 
-  // ── Desktop sidebar (lg+) ────────────────────────────────────────────────
+  // ── Desktop/tablet sidebar (md+) ────────────────────────────────────────────────
   return (
     <>
-      <aside className="hidden lg:flex w-56 min-h-screen bg-[#1E2B28] flex-col border-r border-white/8 shrink-0 print:hidden">
+      <aside className="hidden md:flex w-56 min-h-screen bg-[#1E2B28] flex-col border-r border-white/8 shrink-0 print:hidden">
         {/* Logo */}
         <div className="px-5 py-5 flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center shrink-0 overflow-hidden">
@@ -143,7 +143,7 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
       {/* ── Tablet / Mobile: top header + bottom tab bar ────────────────── */}
       <>
         {/* Top header strip (brand + org) */}
-        <header className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-[#1E2B28] h-12 flex items-center justify-between px-4 border-b border-white/8 print:hidden">
+        <header className="md:hidden fixed top-0 left-0 right-0 z-40 bg-[#1E2B28] h-12 flex items-center justify-between px-4 border-b border-white/8 print:hidden">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-md bg-white flex items-center justify-center overflow-hidden">
               {orgLogo ? (
@@ -177,7 +177,7 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
         </header>
 
         {/* Bottom tab bar */}
-        <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 flex print:hidden">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 flex print:hidden">
           {visible.map(item => {
             const active = isActive(item.href)
             const Icon = item.icon
