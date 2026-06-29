@@ -47,7 +47,13 @@ export async function createProduct(formData: FormData) {
   }).select().single()
 
   if (error) throw new Error(error.message)
-  if (product) await syncProductCategories(sb, product.id, category_ids)
+  if (product) {
+    await syncProductCategories(sb, product.id, category_ids)
+    // Sin esta fila, el catálogo trata al producto como "sin límite de
+    // stock" (en vez de "0 en stock") y deja pedirlo antes de que la nave
+    // lo reponga. Arranca siempre en 0 hasta que se indique stock real.
+    await sb.from('nave_inventory').insert({ product_id: product.id, current_stock: 0, min_stock: 0 })
+  }
   revalidatePath('/admin/productos')
 }
 

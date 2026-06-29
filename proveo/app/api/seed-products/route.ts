@@ -115,6 +115,13 @@ export async function GET(req: Request) {
     } else {
       totalInserted += data?.length ?? 0
       log.push(`  ✓ Lote ${Math.floor(i/BATCH)+1}: ${batch.length} productos (total ${totalInserted})`)
+      // Sin fila en nave_inventory, el catálogo trata al producto como "sin
+      // límite de stock" y deja pedirlo antes de que la nave lo reponga.
+      if (data?.length) {
+        await (sb as any).from('nave_inventory').insert(
+          data.map((p: { id: string }) => ({ product_id: p.id, current_stock: 0, min_stock: 0 }))
+        )
+      }
     }
   }
 
