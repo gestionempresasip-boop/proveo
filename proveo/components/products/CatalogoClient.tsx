@@ -56,6 +56,7 @@ export function CatalogoClient({
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [notes, setNotes] = useState('')
+  const [destination, setDestination] = useState<'sala' | 'cocina' | ''>('')
   const [cartOpen, setCartOpen] = useState(false)
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false)
   const initialMaps = buildStockMaps(initialStock)
@@ -139,7 +140,7 @@ export function CatalogoClient({
   const selectedCatCount = selectedCategory === 'todos' ? products.length : (countByCat[selectedCategory] ?? 0)
 
   async function submitOrder() {
-    if (cartItems.length === 0) return
+    if (cartItems.length === 0 || !destination) return
     const sb = supabase as any
 
     // Revalidar stock con datos frescos justo antes de enviar (por si otro
@@ -162,7 +163,7 @@ export function CatalogoClient({
     setSubmitting(true)
     const { data: order, error } = await sb
       .from('orders')
-      .insert({ restaurant_id: organizationId, created_by: userId, status: 'pendiente', notes: notes || null, total_price: cartTotal })
+      .insert({ restaurant_id: organizationId, created_by: userId, status: 'pendiente', notes: notes || null, total_price: cartTotal, destination })
       .select().single()
     if (error || !order) { setSubmitting(false); return }
     await sb.from('order_items').insert(
@@ -179,7 +180,7 @@ export function CatalogoClient({
     await Promise.all(
       cartItems.map(item => sb.rpc('adjust_nave_stock', { p_product_id: item.product.id, p_delta: -item.quantity }))
     )
-    setSubmitted(true); setCart({}); setCartOpen(false)
+    setSubmitted(true); setCart({}); setCartOpen(false); setDestination('')
     setTimeout(() => router.push('/pedidos'), 2000)
   }
 
@@ -232,6 +233,29 @@ export function CatalogoClient({
       {stockError && (
         <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3">{stockError}</p>
       )}
+      <p className="text-xs text-gray-700 font-medium mb-1.5">¿Para sala o cocina? *</p>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => setDestination('sala')}
+          className={cn(
+            'flex-1 py-2 rounded-xl text-sm font-medium border transition-colors',
+            destination === 'sala' ? 'bg-[#1E2B28] text-white border-[#1E2B28]' : 'border-gray-200 text-gray-700 hover:border-gray-300'
+          )}
+        >
+          Sala
+        </button>
+        <button
+          type="button"
+          onClick={() => setDestination('cocina')}
+          className={cn(
+            'flex-1 py-2 rounded-xl text-sm font-medium border transition-colors',
+            destination === 'cocina' ? 'bg-[#1E2B28] text-white border-[#1E2B28]' : 'border-gray-200 text-gray-700 hover:border-gray-300'
+          )}
+        >
+          Cocina
+        </button>
+      </div>
       <textarea
         placeholder="Notas o instrucciones (opcional)"
         value={notes}
@@ -240,7 +264,8 @@ export function CatalogoClient({
       />
       <button
         onClick={submitOrder}
-        disabled={submitting}
+        disabled={submitting || !destination}
+        title={!destination ? 'Indica si el pedido es para sala o cocina' : undefined}
         className="w-full mt-3 bg-[#A8793A] hover:bg-[#8C6430] disabled:opacity-60 text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
       >
         {submitting

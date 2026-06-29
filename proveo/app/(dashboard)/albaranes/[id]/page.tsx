@@ -18,7 +18,7 @@ export default async function AlbaranDetailPage({ params }: { params: Promise<{ 
     .from('delivery_notes')
     .select(`
       *,
-      orders(order_number, total_price, notes, created_at,
+      orders(order_number, total_price, notes, created_at, destination,
         organizations(name, address, phone, email)
       ),
       delivery_note_items(*, products(name, unit, iva_rate))
@@ -80,10 +80,19 @@ export default async function AlbaranDetailPage({ params }: { params: Promise<{ 
 
         {/* Destinatario */}
         <div className="bg-gray-50 rounded-xl p-4 mb-8">
-          <p className="text-xs text-gray-600 uppercase font-medium mb-2">Destinatario</p>
-          <p className="font-semibold text-black">{restaurant?.name ?? 'Restaurante'}</p>
-          {restaurant?.phone && <p className="text-sm text-gray-700">{restaurant.phone}</p>}
-          <p className="text-sm text-gray-600 mt-1">Pedido #{order?.order_number}</p>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs text-gray-600 uppercase font-medium mb-2">Destinatario</p>
+              <p className="font-semibold text-black">{restaurant?.name ?? 'Restaurante'}</p>
+              {restaurant?.phone && <p className="text-sm text-gray-700">{restaurant.phone}</p>}
+              <p className="text-sm text-gray-600 mt-1">Pedido #{order?.order_number}</p>
+            </div>
+            {order?.destination && (
+              <span className="text-xs font-semibold uppercase px-3 py-1.5 rounded-full bg-[#1E2B28] text-white shrink-0">
+                {order.destination === 'sala' ? 'Sala' : 'Cocina'}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Líneas */}
