@@ -153,7 +153,12 @@ export default async function AlbaranDetailPage({ params }: { params: Promise<{ 
                     )}
                   </td>
                   <td className="text-right py-2.5 text-gray-700">{item.ordered_quantity} {unitLabel(item.unit)}</td>
-                  <td className="text-right py-2.5 font-medium">{item.delivered_quantity} {unitLabel(item.unit)}</td>
+                  <td className="text-right py-2.5 font-medium">
+                    {item.delivered_quantity} {unitLabel(item.unit)}
+                    {item.actual_weight != null && (
+                      <span className="block text-xs text-gray-600 font-normal">({Number(item.actual_weight).toFixed(2)} kg)</span>
+                    )}
+                  </td>
                   {showPrices && <td className="text-right py-2.5 text-gray-700">{base.toFixed(2)} €</td>}
                   {showPrices && <td className="text-right py-2.5 text-gray-700">{Math.round(ivaRate * 100)}%</td>}
                   {showPrices && <td className="text-right py-2.5 text-gray-700">{ivaAmount.toFixed(2)} €</td>}

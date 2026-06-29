@@ -8,7 +8,7 @@ import {
   mergeCategories, moveProductsToCategory, bulkAdjustPricing,
 } from '@/app/actions/products'
 import type { BulkPricingField, BulkPricingMode } from '@/app/actions/products'
-import { setFavoriteProduct } from '@/app/actions/favorites'
+import { setFavoriteProduct, setFavoriteProductsBatch } from '@/app/actions/favorites'
 import { UNIT_OPTIONS, unitLabel } from '@/lib/units'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -675,31 +675,6 @@ function MergeCategoriesPanel({ categories }: { categories: Category[] }) {
 // categoría para encontrarlos rápido. El restaurante los verá luego en una
 // pestaña "Favoritos" dentro de su propio catálogo.
 
-function FavoriteCheckbox({ checked, onToggle }: { checked: boolean; onToggle: (next: boolean) => void }) {
-  const [optimistic, setOptimistic] = useState(checked)
-  const [pending, setPending] = useState(false)
-
-  function handleClick() {
-    const next = !optimistic
-    setOptimistic(next)
-    setPending(true)
-    Promise.resolve(onToggle(next)).finally(() => setPending(false))
-  }
-
-  return (
-    <button
-      onClick={handleClick}
-      disabled={pending}
-      className={`flex items-center justify-center w-6 h-6 rounded-md border transition-colors shrink-0 ${
-        optimistic ? 'bg-amber-400 border-amber-400 text-white' : 'border-gray-300 text-transparent hover:border-amber-400'
-      }`}
-      title={optimistic ? 'Quitar de favoritos' : 'Añadir a favoritos'}
-    >
-      <Star className={`w-3.5 h-3.5 ${optimistic ? 'fill-current' : ''}`} />
-    </button>
-  )
-}
-
 function FavoritosManager({
   products, categories, restaurants, favorites,
 }: {
@@ -708,19 +683,58 @@ function FavoritosManager({
   const [restaurantId, setRestaurantId] = useState(restaurants[0]?.id ?? '')
   const [search, setSearch] = useState('')
   const [favSet, setFavSet] = useState(() => new Set(favorites.map(f => `${f.organization_id}:${f.product_id}`)))
+  // Selección "en curso" de esta tanda — no se guarda hasta pulsar Guardar.
+  const [staged, setStaged] = useState<Set<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
 
   function isFav(productId: string) { return favSet.has(`${restaurantId}:${productId}`) }
 
-  async function toggle(productId: string, next: boolean) {
+  function selectRestaurant(id: string) {
+    setRestaurantId(id)
+    setStaged(new Set())
+  }
+
+  function toggleStaged(productId: string) {
+    setStaged(prev => {
+      const n = new Set(prev)
+      n.has(productId) ? n.delete(productId) : n.add(productId)
+      return n
+    })
+  }
+
+  async function removeFavorite(productId: string) {
     const key = `${restaurantId}:${productId}`
-    setFavSet(prev => { const n = new Set(prev); next ? n.add(key) : n.delete(key); return n })
+    setFavSet(prev => { const n = new Set(prev); n.delete(key); return n })
     try {
-      await setFavoriteProduct(restaurantId, productId, next)
+      await setFavoriteProduct(restaurantId, productId, false)
     } catch {
-      setFavSet(prev => { const n = new Set(prev); next ? n.delete(key) : n.add(key); return n })
+      setFavSet(prev => new Set(prev).add(key))
+      setError('No se pudo quitar, inténtalo de nuevo')
+      setTimeout(() => setError(null), 3000)
+    }
+  }
+
+  async function handleSave() {
+    if (staged.size === 0) return
+    setSaving(true)
+    const ids = [...staged]
+    try {
+      await setFavoriteProductsBatch(restaurantId, ids)
+      setFavSet(prev => {
+        const n = new Set(prev)
+        ids.forEach(id => n.add(`${restaurantId}:${id}`))
+        return n
+      })
+      // Limpia la selección: los recién guardados pasan a verse como
+      // favoritos confirmados, y la lista de casillas queda vacía para
+      // seguir marcando la siguiente tanda sin desmarcar nada a mano.
+      setStaged(new Set())
+    } catch {
       setError('No se pudo guardar, inténtalo de nuevo')
       setTimeout(() => setError(null), 3000)
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -748,13 +762,13 @@ function FavoritosManager({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-16">
       <div className="flex flex-wrap gap-3 items-end">
         <div className="flex-1 min-w-[200px]">
           <label className="text-xs text-gray-700 font-medium block mb-1">Restaurante</label>
           <select
             value={restaurantId}
-            onChange={e => setRestaurantId(e.target.value)}
+            onChange={e => selectRestaurant(e.target.value)}
             className="w-full border border-[#1E2B28]/25 bg-[#1E2B28]/10 text-black rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
           >
             {restaurants.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
@@ -775,6 +789,9 @@ function FavoritosManager({
       </div>
 
       {error && <p className="text-xs text-red-600">{error}</p>}
+      <p className="text-xs text-gray-600">
+        Marca los productos nuevos a añadir y pulsa <strong>Guardar</strong>. Los que ya son favoritos aparecen con la estrella rellena — pulsa la <X className="inline w-3 h-3 -mt-0.5" /> para quitarlos.
+      </p>
 
       <div className="space-y-3">
         {byCategory.map(group => (
@@ -785,12 +802,34 @@ function FavoritosManager({
               <span className="text-xs text-gray-600">({group.products.length})</span>
             </div>
             <div className="divide-y divide-gray-50">
-              {group.products.map(p => (
-                <div key={p.id} className="flex items-center gap-3 px-4 py-2.5">
-                  <FavoriteCheckbox checked={isFav(p.id)} onToggle={next => toggle(p.id, next)} />
-                  <span className="text-sm text-black flex-1 truncate">{p.name}</span>
-                </div>
-              ))}
+              {group.products.map(p => {
+                const already = isFav(p.id)
+                return (
+                  <div key={p.id} className="flex items-center gap-3 px-4 py-2.5">
+                    {already ? (
+                      <button
+                        onClick={() => removeFavorite(p.id)}
+                        title="Quitar de favoritos"
+                        className="flex items-center justify-center w-6 h-6 rounded-md border border-amber-400 bg-amber-400 text-white shrink-0 group"
+                      >
+                        <Star className="w-3.5 h-3.5 fill-current group-hover:hidden" />
+                        <X className="w-3.5 h-3.5 hidden group-hover:block" />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => toggleStaged(p.id)}
+                        title="Marcar para añadir"
+                        className={`flex items-center justify-center w-6 h-6 rounded-md border transition-colors shrink-0 ${
+                          staged.has(p.id) ? 'bg-[#1E2B28] border-[#1E2B28] text-white' : 'border-gray-300 text-transparent hover:border-[#1E2B28]'
+                        }`}
+                      >
+                        <Star className={`w-3.5 h-3.5 ${staged.has(p.id) ? 'fill-current' : ''}`} />
+                      </button>
+                    )}
+                    <span className="text-sm text-black flex-1 truncate">{p.name}</span>
+                  </div>
+                )
+              })}
             </div>
           </div>
         ))}
@@ -798,6 +837,26 @@ function FavoritosManager({
           <p className="text-sm text-gray-600 text-center py-8">Sin productos que coincidan con la búsqueda.</p>
         )}
       </div>
+
+      {staged.size > 0 && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 bg-white shadow-lg border border-gray-200 rounded-2xl px-4 py-3">
+          <span className="text-sm font-medium text-black">{staged.size} producto{staged.size !== 1 ? 's' : ''} seleccionado{staged.size !== 1 ? 's' : ''}</span>
+          <button
+            onClick={() => setStaged(new Set())}
+            disabled={saving}
+            className="text-sm text-gray-600 hover:text-gray-700 px-2"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="bg-[#1E2B28] hover:bg-[#141F1C] text-white text-sm font-medium px-4 py-2 rounded-xl disabled:opacity-60"
+          >
+            {saving ? 'Guardando...' : 'Guardar'}
+          </button>
+        </div>
+      )}
     </div>
   )
 }

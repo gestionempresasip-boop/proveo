@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useMemo } from 'react'
 import Link from 'next/link'
-import { updateOrderStatus, generateDeliveryNote, deleteOrder, rectifyOrderItem, cancelOrderItem, setItemPrepared, setItemLot } from '@/app/actions/orders'
+import { updateOrderStatus, generateDeliveryNote, deleteOrder, rectifyOrderItem, cancelOrderItem, setItemPrepared, setItemLot, setItemWeight } from '@/app/actions/orders'
 import type { OrderStatus } from '@/app/actions/orders'
 import { unitLabel } from '@/lib/units'
 import {
@@ -42,7 +42,7 @@ function isToday(d: Date) { const t = startOfDay(new Date()); return d >= t && d
 type OrderItem = {
   id: string; product_id: string; quantity: number; rectified_quantity?: number | null
   rectification_note?: string | null
-  prepared?: boolean; lot_number?: string | null
+  prepared?: boolean; lot_number?: string | null; actual_weight?: number | null
   unit: string; unit_price: number; total_price: number; products: { name: string } | null
 }
 type ReturnItem = { product_id: string; delivered_quantity: number; return_reason: 'reutilizable' | 'no_utilizable' | null; products: { name: string } | null }
@@ -66,18 +66,20 @@ type Restaurant = { id: string; name: string }
 // ── Línea de pedido rectificable ──────────────────────────────────────────────
 
 function ItemRow({
-  item, onRectified, onCanceled, onPreparedChange, onLotChange,
+  item, onRectified, onCanceled, onPreparedChange, onLotChange, onWeightChange,
 }: {
   item: OrderItem
   onRectified: (itemId: string, qty: number, note?: string) => void
   onCanceled: (itemId: string, reason?: string) => void
   onPreparedChange: (itemId: string, prepared: boolean) => void
   onLotChange: (itemId: string, lot: string) => void
+  onWeightChange: (itemId: string, weight: number | null) => void
 }) {
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState(String(item.rectified_quantity ?? item.quantity))
   const [note, setNote] = useState(item.rectification_note ?? '')
   const [lot, setLot] = useState(item.lot_number ?? '')
+  const [weight, setWeight] = useState(item.actual_weight != null ? String(item.actual_weight) : '')
   const [syncError, setSyncError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
   const isCanceled = item.rectified_quantity != null && Number(item.rectified_quantity) === 0
@@ -107,6 +109,25 @@ function ItemRow({
       setLot(previous)
       onLotChange(item.id, previous)
       setSyncError('No se pudo guardar el lote, inténtalo de nuevo')
+      setTimeout(() => setSyncError(null), 3000)
+    }
+  }
+
+  // Peso real de la línea (ej: "3 ud" pedidas, pero pesan 2,4 kg en total) —
+  // opcional, para productos que se piden por unidad pero se facturan/anotan
+  // también por peso real servido.
+  async function saveWeight() {
+    const previousNum = item.actual_weight ?? null
+    const parsed = weight.trim() === '' ? null : parseFloat(weight.replace(',', '.'))
+    const next = parsed != null && !isNaN(parsed) ? parsed : null
+    if (next === previousNum) return
+    onWeightChange(item.id, next)
+    try {
+      await setItemWeight(item.id, next)
+    } catch {
+      setWeight(previousNum != null ? String(previousNum) : '')
+      onWeightChange(item.id, previousNum)
+      setSyncError('No se pudo guardar el peso, inténtalo de nuevo')
       setTimeout(() => setSyncError(null), 3000)
     }
   }
@@ -229,6 +250,19 @@ function ItemRow({
           placeholder="Sin especificar"
           className="flex-1 min-w-0 bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-[#1E2B28] placeholder-gray-500"
         />
+      </div>
+      <div className="flex items-center gap-1.5 pl-6">
+        <span className="text-gray-600 shrink-0">Peso real:</span>
+        <input
+          type="number" step="0.001" min="0"
+          value={weight}
+          onChange={e => setWeight(e.target.value)}
+          onBlur={saveWeight}
+          onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+          placeholder="Si pesa distinto a lo pedido"
+          className="flex-1 min-w-0 bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-[#1E2B28] placeholder-gray-500"
+        />
+        <span className="text-gray-600 shrink-0">kg</span>
       </div>
       {syncError && <p className="text-red-600 pl-6">{syncError}</p>}
     </div>
@@ -448,7 +482,7 @@ function OrderActions({ order, onDeleted, onStatusChange }: { order: Order; onDe
 // ── Order card ───────────────────────────────────────────────────────────────
 
 function OrderCard({
-  order, onDeleted, onStatusChange, onRectified, onItemCanceled, onPreparedChange, onLotChange,
+  order, onDeleted, onStatusChange, onRectified, onItemCanceled, onPreparedChange, onLotChange, onWeightChange,
 }: {
   order: Order; onDeleted: (id: string) => void
   onStatusChange: (id: string, status: OrderStatus) => void
@@ -456,6 +490,7 @@ function OrderCard({
   onItemCanceled: (orderId: string, itemId: string, reason?: string) => void
   onPreparedChange: (orderId: string, itemId: string, prepared: boolean) => void
   onLotChange: (orderId: string, itemId: string, lot: string) => void
+  onWeightChange: (orderId: string, itemId: string, weight: number | null) => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const status = normalizeStatus(order.status)
@@ -514,6 +549,7 @@ function OrderCard({
                 onCanceled={(itemId, reason) => onItemCanceled(order.id, itemId, reason)}
                 onPreparedChange={(itemId, prepared) => onPreparedChange(order.id, itemId, prepared)}
                 onLotChange={(itemId, lot) => onLotChange(order.id, itemId, lot)}
+                onWeightChange={(itemId, weight) => onWeightChange(order.id, itemId, weight)}
               />
             ))}
           </div>
@@ -575,6 +611,11 @@ export function PedidosNaveClient({ orders: initialOrders, restaurants }: { orde
   function handleLotChange(orderId: string, itemId: string, lot: string) {
     setOrders(prev => prev.map(o => o.id !== orderId ? o : {
       ...o, order_items: o.order_items.map(it => it.id === itemId ? { ...it, lot_number: lot } : it),
+    }))
+  }
+  function handleWeightChange(orderId: string, itemId: string, weight: number | null) {
+    setOrders(prev => prev.map(o => o.id !== orderId ? o : {
+      ...o, order_items: o.order_items.map(it => it.id === itemId ? { ...it, actual_weight: weight } : it),
     }))
   }
   const [dateFrom, setDateFrom] = useState('')
@@ -725,7 +766,7 @@ export function PedidosNaveClient({ orders: initialOrders, restaurants }: { orde
             Pendientes de días anteriores ({pastPending.length})
           </h2>
           <div className="space-y-3">
-            {pastPending.map(o => <OrderCard key={o.id} order={o} onDeleted={handleDeleted} onStatusChange={handleStatusChange} onRectified={handleRectified} onItemCanceled={handleItemCanceled} onPreparedChange={handlePreparedChange} onLotChange={handleLotChange} />)}
+            {pastPending.map(o => <OrderCard key={o.id} order={o} onDeleted={handleDeleted} onStatusChange={handleStatusChange} onRectified={handleRectified} onItemCanceled={handleItemCanceled} onPreparedChange={handlePreparedChange} onLotChange={handleLotChange} onWeightChange={handleWeightChange} />)}
           </div>
         </section>
       )}
@@ -746,7 +787,7 @@ export function PedidosNaveClient({ orders: initialOrders, restaurants }: { orde
           </div>
         ) : (
           <div className="space-y-3">
-            {todayOrders.map(o => <OrderCard key={o.id} order={o} onDeleted={handleDeleted} onStatusChange={handleStatusChange} onRectified={handleRectified} onItemCanceled={handleItemCanceled} onPreparedChange={handlePreparedChange} onLotChange={handleLotChange} />)}
+            {todayOrders.map(o => <OrderCard key={o.id} order={o} onDeleted={handleDeleted} onStatusChange={handleStatusChange} onRectified={handleRectified} onItemCanceled={handleItemCanceled} onPreparedChange={handlePreparedChange} onLotChange={handleLotChange} onWeightChange={handleWeightChange} />)}
           </div>
         )}
       </section>

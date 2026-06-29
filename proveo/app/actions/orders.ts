@@ -79,6 +79,7 @@ export async function generateDeliveryNote(orderId: string) {
       unit_price: item.unit_price,
       total_price: deliveredQty * Number(item.unit_price),
       lot_number: item.lot_number || null,
+      actual_weight: item.actual_weight ?? null,
     }
   })
 
@@ -159,6 +160,33 @@ export async function setItemLot(orderItemId: string, lotNumber: string) {
   revalidatePath('/pedidos')
   // El lote casi siempre se rellena antes de generar el albarán, así que la
   // mayoría de las veces no hace falta revalidar /albaranes también.
+  if (touchedDeliveryNote) revalidatePath('/albaranes')
+}
+
+// Peso real de la línea (productos que se piden por unidad — "3 ud" — pero
+// que en realidad pesan distinto cada vez, ej. piezas de carne o pescado).
+// La nave anota el peso real al preparar el pedido; se ve junto a la
+// cantidad en pedidos y en el albarán, tanto de la nave como del restaurante.
+export async function setItemWeight(orderItemId: string, weight: number | null) {
+  const supabase = await createClient()
+  const sb = supabase as any
+  const { data: item } = await sb.from('order_items').select('order_id, product_id').eq('id', orderItemId).single()
+  const { error } = await sb.from('order_items').update({ actual_weight: weight }).eq('id', orderItemId)
+  if (error) throw new Error(error.message)
+
+  let touchedDeliveryNote = false
+  if (item) {
+    const { data: deliveryNote } = await sb.from('delivery_notes').select('id').eq('order_id', item.order_id).maybeSingle()
+    if (deliveryNote) {
+      await sb.from('delivery_note_items')
+        .update({ actual_weight: weight })
+        .eq('delivery_note_id', deliveryNote.id)
+        .eq('product_id', item.product_id)
+      touchedDeliveryNote = true
+    }
+  }
+
+  revalidatePath('/pedidos')
   if (touchedDeliveryNote) revalidatePath('/albaranes')
 }
 

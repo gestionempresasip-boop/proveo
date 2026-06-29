@@ -31,7 +31,8 @@ const STATUS_LABELS: Record<string, string> = {
 
 type OrderItem = {
   id: string; product_id: string; quantity: number; rectified_quantity?: number | null; rectification_note?: string | null
-  unit: string; unit_price: number; lot_number?: string | null; products: { name: string; unit: string } | null
+  unit: string; unit_price: number; lot_number?: string | null; actual_weight?: number | null
+  products: { name: string; unit: string } | null
 }
 type ReturnDeliveryNoteItem = { product_id: string; delivered_quantity: number; return_reason: ReturnReason | null }
 type ReturnDeliveryNote = { id: string; type: 'entrega' | 'devolucion'; delivery_note_items: ReturnDeliveryNoteItem[] }
@@ -218,6 +219,9 @@ function OrderRow({ order, onCanceled, onReturned }: { order: Order; onCanceled:
                     <span className="text-gray-600 shrink-0 ml-2">{item.quantity} {unitLabel(item.unit)}</span>
                   )}
                 </div>
+                {item.actual_weight != null && (
+                  <p className="text-gray-600 mt-0.5">Peso real: {Number(item.actual_weight).toFixed(2)} kg</p>
+                )}
                 {canReturn && <ReturnControls order={order} item={item} onReturned={onReturned} />}
               </div>
             )
