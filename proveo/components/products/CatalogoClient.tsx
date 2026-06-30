@@ -4,15 +4,24 @@ import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { ProductCard } from '@/components/products/ProductCard'
 import { Badge } from '@/components/ui/badge'
-import { ShoppingCart, Loader2, Check, X, ChevronUp, ChevronDown, Search, Star } from 'lucide-react'
+import { ShoppingCart, Loader2, Check, X, ChevronUp, ChevronDown, Search, Star, Plus, Minus } from 'lucide-react'
 import type { Product, ProductCategory } from '@/types/database'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { takeRepeatOrder } from '@/lib/repeatOrder'
 import { setFavoriteProduct } from '@/app/actions/favorites'
+import { unitLabel } from '@/lib/units'
 
 type CartItem = { product: Product; quantity: number }
 type StockRow = { product_id: string; current_stock: number; last_restocked_at: string | null }
+type PromoRow = {
+  id: string
+  product_id: string
+  label: string
+  notes: string | null
+  expires_at: string | null
+  products: Product & { product_categories?: { name: string; color: string } | null }
+}
 
 function priceWithIva(product: Product): number {
   const iva = Number((product as any).iva_rate) || 0
@@ -41,12 +50,14 @@ interface CatalogoClientProps {
   initialCategories: ProductCategory[]
   initialStock: StockRow[]
   initialFavoriteIds: string[]
+  initialPromotions: PromoRow[]
   organizationId: string
   userId: string
 }
 
 export function CatalogoClient({
-  initialProducts, initialCategories, initialStock, initialFavoriteIds, organizationId, userId,
+  initialProducts, initialCategories, initialStock, initialFavoriteIds, initialPromotions,
+  organizationId, userId,
 }: CatalogoClientProps) {
   const products = initialProducts
   const categories = initialCategories
@@ -394,6 +405,108 @@ export function CatalogoClient({
       {/* ── Main content: products grid + desktop cart ───────────────────
           This section scrolls independently */}
       <div className="flex-1 overflow-y-auto">
+
+        {/* ── Sección de promociones — aparece antes del catálogo normal ── */}
+        {initialPromotions.length > 0 && (
+          <div className="px-4 sm:px-6 pt-4 pb-2">
+            <div className="rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-lg select-none">🔥</span>
+                <h2 className="font-bold text-amber-900 text-base">Promociones y sugerencias</h2>
+                <span className="text-xs bg-amber-200 text-amber-800 font-semibold px-2 py-0.5 rounded-full shrink-0">
+                  {initialPromotions.length}
+                </span>
+              </div>
+              {/* Scroll horizontal en móvil, grid en md+ */}
+              <div className="flex gap-3 overflow-x-auto pb-1 snap-x snap-mandatory md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 md:overflow-x-visible">
+                {initialPromotions.map(promo => {
+                  const product = promo.products
+                  if (!product) return null
+                  const qty = cart[product.id] ?? 0
+                  const max = product.id in stockMap ? stockMap[product.id] : undefined
+                  const outOfStock = max !== undefined && max <= 0
+                  const atLimit = max !== undefined && qty >= max
+                  const hasQty = qty > 0
+                  const unit = unitLabel(product.unit)
+                  const increment = Number(product.order_increment) || 1
+                  const minQty = Number(product.min_order_quantity) || 1
+
+                  function increase() {
+                    const next = qty === 0 ? minQty : qty + increment
+                    const clamped = max !== undefined ? Math.min(next, max) : next
+                    handleQuantityChange(product.id, Math.round(clamped * 1000) / 1000)
+                  }
+                  function decrease() {
+                    if (qty <= 0) return
+                    const next = qty - increment
+                    handleQuantityChange(product.id, next < minQty ? 0 : Math.round(next * 1000) / 1000)
+                  }
+
+                  return (
+                    <div
+                      key={promo.id}
+                      className={cn(
+                        'shrink-0 snap-start min-w-[190px] md:min-w-0 bg-white rounded-xl border-2 p-3 flex flex-col gap-2 transition-all',
+                        hasQty ? 'border-[#A8793A] shadow-sm' : 'border-amber-100'
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-1">
+                        <div className="flex-1 min-w-0">
+                          <span className="inline-block text-[10px] bg-amber-100 text-amber-800 font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-md">
+                            {promo.label}
+                          </span>
+                          <p className="font-semibold text-black text-sm mt-1 leading-tight">{product.name}</p>
+                          {promo.notes && (
+                            <p className="text-xs text-gray-600 mt-0.5 line-clamp-2">{promo.notes}</p>
+                          )}
+                        </div>
+                        {hasQty && (
+                          <span className="shrink-0 text-xs bg-[#A8793A] text-white font-bold px-1.5 py-0.5 rounded-md whitespace-nowrap">
+                            {qty} {unit}
+                          </span>
+                        )}
+                      </div>
+
+                      {max !== undefined && !outOfStock && (
+                        <p className="text-[10px] text-gray-500">Quedan {max} {unit}</p>
+                      )}
+                      {outOfStock && (
+                        <p className="text-[10px] text-red-500 font-medium">Sin stock</p>
+                      )}
+
+                      <div className="flex items-center gap-1.5 mt-auto">
+                        <button
+                          onClick={decrease}
+                          disabled={!hasQty}
+                          className={cn(
+                            'w-8 h-8 rounded-lg flex items-center justify-center transition-all active:scale-95',
+                            hasQty ? 'bg-[#1E2B28] text-white' : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          )}
+                        >
+                          <Minus className="h-3.5 w-3.5" />
+                        </button>
+                        <span className="flex-1 text-center text-sm font-semibold text-gray-900 tabular-nums">
+                          {qty > 0 ? `${qty} ${unit}` : '—'}
+                        </span>
+                        <button
+                          onClick={increase}
+                          disabled={outOfStock || atLimit}
+                          className={cn(
+                            'w-8 h-8 rounded-lg flex items-center justify-center transition-all active:scale-95',
+                            outOfStock || atLimit ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-[#1E2B28] text-white'
+                          )}
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="flex gap-0 lg:gap-6 px-4 sm:px-6 py-4 max-w-7xl mx-auto">
 
           {/* Products grid */}
