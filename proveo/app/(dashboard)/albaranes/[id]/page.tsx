@@ -8,7 +8,7 @@ import { unitLabel } from '@/lib/units'
 
 export default async function AlbaranDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const profile = await getAuthProfile()
-  const showPrices = profile.organizations.type === 'nave'
+  const showPrices = true
   const { id } = await params
 
   const supabase = await createClient()
