@@ -90,9 +90,10 @@ export async function updateProduct(productId: string, formData: FormData) {
     margin: margin || null,
     iva_rate,
   }
-  // Editar un producto solo puede SACARLO de "pendientes" (al ponerle coste
-  // Y margen), nunca volver a metérselo si ya estaba categorizado y en uso.
-  if (cost_price > 0 && margin > 0) updates.pending_review = false
+  // El estado "pendiente" se recalcula en cada edición de precio: si falta
+  // coste o margen vuelve arriba, aunque el producto ya estuviera categorizado.
+  // Solo se toca si el formulario trae los campos de precio (vista nave).
+  if (formData.has('cost_price')) updates.pending_review = !(cost_price > 0 && margin > 0)
 
   const { error } = await sb.from('products').update(updates).eq('id', productId)
 
