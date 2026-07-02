@@ -43,7 +43,7 @@ export async function createProduct(formData: FormData) {
     iva_rate,
     is_active: true,
     visibility: 'todos',
-    pending_review: !(cost_price > 0),
+    pending_review: !(cost_price > 0 && margin > 0),
   }).select().single()
 
   if (error) throw new Error(error.message)
@@ -90,9 +90,9 @@ export async function updateProduct(productId: string, formData: FormData) {
     margin: margin || null,
     iva_rate,
   }
-  // Editar un producto solo puede SACARLO de "pendientes" (al ponerle coste),
-  // nunca volver a metérselo si ya estaba categorizado y en uso.
-  if (cost_price > 0) updates.pending_review = false
+  // Editar un producto solo puede SACARLO de "pendientes" (al ponerle coste
+  // Y margen), nunca volver a metérselo si ya estaba categorizado y en uso.
+  if (cost_price > 0 && margin > 0) updates.pending_review = false
 
   const { error } = await sb.from('products').update(updates).eq('id', productId)
 

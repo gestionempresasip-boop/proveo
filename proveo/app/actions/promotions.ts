@@ -24,7 +24,7 @@ export async function createProductAndPromote(
     iva_rate: product.iva_rate,
     is_active: true,
     visibility: 'todos',
-    pending_review: false,
+    pending_review: !(product.cost_price > 0 && product.margin > 0),
   }).select('id, name, unit').single()
 
   if (pErr) throw new Error(pErr.message)
