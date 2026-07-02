@@ -87,9 +87,11 @@ export function InventoryClosures({ isNave, organizationId }: { isNave: boolean;
   const [closures, setClosures] = useState<Closure[] | null>(null)
   const [periodType, setPeriodType] = useState<ClosurePeriodType>('mes')
   const today = new Date().toISOString().slice(0, 10)
+  const currentMonth = today.slice(0, 7)
+  const currentYear = new Date().getFullYear()
   const [dayValue, setDayValue] = useState(today)
-  const [monthValue, setMonthValue] = useState(today.slice(0, 7))
-  const [yearValue, setYearValue] = useState(String(new Date().getFullYear()))
+  const [monthValue, setMonthValue] = useState(currentMonth)
+  const [yearValue, setYearValue] = useState(String(currentYear))
   const [customFrom, setCustomFrom] = useState(today)
   const [customTo, setCustomTo] = useState(today)
   const [pending, startTransition] = useTransition()
@@ -105,11 +107,16 @@ export function InventoryClosures({ isNave, organizationId }: { isNave: boolean;
 
   useEffect(() => { loadClosures() }, [organizationId])
 
+  // Un cierre fechado en el futuro capturaría el stock de hoy con una
+  // etiqueta engañosa (aún no ha pasado ese día/mes/año). Por eso ningún
+  // periodo puede terminar después de hoy.
   function computeRange(): { dateFrom: string; dateTo: string; label: string } | null {
     if (periodType === 'dia') {
+      if (dayValue > today) return null
       return { dateFrom: dayValue, dateTo: dayValue, label: fmtDate(dayValue) }
     }
     if (periodType === 'mes') {
+      if (monthValue > currentMonth) return null
       const [y, m] = monthValue.split('-').map(Number)
       const lastDay = new Date(y, m, 0).getDate()
       return {
@@ -120,11 +127,11 @@ export function InventoryClosures({ isNave, organizationId }: { isNave: boolean;
     }
     if (periodType === 'anual') {
       const y = Number(yearValue)
-      if (!y) return null
+      if (!y || y > currentYear) return null
       return { dateFrom: `${y}-01-01`, dateTo: `${y}-12-31`, label: String(y) }
     }
     // personalizado
-    if (!customFrom || !customTo || customFrom > customTo) return null
+    if (!customFrom || !customTo || customFrom > customTo || customTo > today) return null
     return { dateFrom: customFrom, dateTo: customTo, label: `${fmtDate(customFrom)} – ${fmtDate(customTo)}` }
   }
 
@@ -157,7 +164,7 @@ export function InventoryClosures({ isNave, organizationId }: { isNave: boolean;
       <div className="bg-white rounded-xl border border-gray-100 p-4 space-y-3">
         <p className="text-sm font-medium text-black">Nuevo cierre de inventario</p>
         <p className="text-xs text-gray-600">
-          Guarda una foto del stock actual valorada al precio de coste. Elige qué periodo representa — no recalcula stock de fechas pasadas.
+          Guarda una foto del stock actual valorada al precio de coste. No se pueden generar cierres de periodos que aún no han terminado — para el cierre de un mes, hazlo el último día de ese mes.
         </p>
 
         <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
@@ -173,21 +180,21 @@ export function InventoryClosures({ isNave, organizationId }: { isNave: boolean;
           {periodType === 'dia' && (
             <div>
               <label className="text-xs text-gray-600 block mb-1">Fecha</label>
-              <input type="date" value={dayValue} onChange={e => setDayValue(e.target.value)}
+              <input type="date" value={dayValue} max={today} onChange={e => setDayValue(e.target.value)}
                 className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
             </div>
           )}
           {periodType === 'mes' && (
             <div>
               <label className="text-xs text-gray-600 block mb-1">Mes</label>
-              <input type="month" value={monthValue} onChange={e => setMonthValue(e.target.value)}
+              <input type="month" value={monthValue} max={currentMonth} onChange={e => setMonthValue(e.target.value)}
                 className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
             </div>
           )}
           {periodType === 'anual' && (
             <div>
               <label className="text-xs text-gray-600 block mb-1">Año</label>
-              <input type="number" value={yearValue} onChange={e => setYearValue(e.target.value)}
+              <input type="number" value={yearValue} max={currentYear} onChange={e => setYearValue(e.target.value)}
                 className="border border-gray-200 rounded-lg px-3 py-2 text-sm w-28 focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
             </div>
           )}
@@ -195,12 +202,12 @@ export function InventoryClosures({ isNave, organizationId }: { isNave: boolean;
             <>
               <div>
                 <label className="text-xs text-gray-600 block mb-1">Desde</label>
-                <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)}
+                <input type="date" value={customFrom} max={today} onChange={e => setCustomFrom(e.target.value)}
                   className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
               </div>
               <div>
                 <label className="text-xs text-gray-600 block mb-1">Hasta</label>
-                <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)}
+                <input type="date" value={customTo} max={today} onChange={e => setCustomTo(e.target.value)}
                   className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
               </div>
             </>
