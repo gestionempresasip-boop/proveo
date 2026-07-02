@@ -3,7 +3,8 @@
 import { useState, useEffect, useTransition, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { upsertInventory, getInventoryHistory, bulkSetMinStock, bulkUpsertInventory } from '@/app/actions/inventory'
-import { AlertTriangle, CheckCircle2, XCircle, Save, ChevronDown, ChevronUp, History, Package, Download, ListChecks, X, Check } from 'lucide-react'
+import { InventoryClosures } from './InventoryClosures'
+import { AlertTriangle, CheckCircle2, XCircle, Save, ChevronDown, ChevronUp, History, Package, Download, ListChecks, X, Check, FileSpreadsheet } from 'lucide-react'
 
 type InventoryRow = {
   product_id: string
@@ -399,7 +400,7 @@ export function InventarioTable({
   // servidor devuelve props frescas, se sincroniza el estado local con la
   // verdad confirmada (sin esto, el cambio en masa no se vería reflejado).
   useEffect(() => { setRows(initialRows) }, [initialRows])
-  const [tab, setTab] = useState<'stock' | 'historial'>('stock')
+  const [tab, setTab] = useState<'stock' | 'historial' | 'valorado'>('stock')
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'todos' | 'bajo' | 'sinstock'>('todos')
   const [categoryFilter, setCategoryFilter] = useState<string>('todas')
@@ -527,10 +528,21 @@ export function InventarioTable({
           <History className="w-4 h-4" />
           Historial
         </button>
+        <button
+          onClick={() => setTab('valorado')}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            tab === 'valorado' ? 'bg-white text-black shadow-sm' : 'text-gray-700 hover:text-gray-700'
+          }`}
+        >
+          <FileSpreadsheet className="w-4 h-4" />
+          Inventario valorado
+        </button>
       </div>
 
       {tab === 'historial' ? (
         <HistorialTab organizationId={organizationId} />
+      ) : tab === 'valorado' ? (
+        <InventoryClosures isNave={isNave} organizationId={organizationId} />
       ) : (
         <>
           {/* Resumen */}
