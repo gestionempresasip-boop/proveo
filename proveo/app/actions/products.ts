@@ -121,6 +121,19 @@ export async function softDeleteProduct(productId: string) {
   revalidatePath('/inventario')
 }
 
+export async function bulkSoftDeleteProducts(productIds: string[]) {
+  if (productIds.length === 0) return { deleted: 0 }
+  const supabase = await createClient()
+  const { error } = await (supabase as any)
+    .from('products')
+    .update({ deleted_at: new Date().toISOString(), is_active: false })
+    .in('id', productIds)
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/productos')
+  revalidatePath('/inventario')
+  return { deleted: productIds.length }
+}
+
 // ── Category actions ─────────────────────────────────────────────────────────
 
 const DEFAULT_CATEGORIES = [

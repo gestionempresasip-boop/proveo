@@ -3,8 +3,9 @@
 import { useState, useEffect, useTransition, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { upsertInventory, getInventoryHistory, bulkSetMinStock, bulkUpsertInventory } from '@/app/actions/inventory'
+import { softDeleteProduct, bulkSoftDeleteProducts } from '@/app/actions/products'
 import { InventoryClosures } from './InventoryClosures'
-import { AlertTriangle, CheckCircle2, XCircle, Save, ChevronDown, ChevronUp, History, Package, Download, ListChecks, X, Check, FileSpreadsheet } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, XCircle, Save, ChevronDown, ChevronUp, History, Package, Download, ListChecks, X, Check, FileSpreadsheet, Trash2 } from 'lucide-react'
 
 type InventoryRow = {
   product_id: string
@@ -39,18 +40,45 @@ function StockStatus({ current, min }: { current: number; min: number }) {
   return <span className="flex items-center gap-1 text-xs font-medium text-green-600"><CheckCircle2 className="w-3.5 h-3.5" />OK</span>
 }
 
+// Botón de borrar producto con confirmación inline (mismo patrón que el de
+// Gestión de Productos): un clic pide confirmar, el segundo clic borra.
+function DeleteProductButton({ productName, deleting, onDelete }: { productName: string; deleting: boolean; onDelete: () => void }) {
+  const [confirming, setConfirming] = useState(false)
+
+  if (confirming) {
+    return (
+      <div className="flex items-center gap-1">
+        <span className="text-xs text-gray-700 whitespace-nowrap">¿Eliminar?</span>
+        <button disabled={deleting} onClick={onDelete} className="p-1 rounded text-red-600 hover:bg-red-50">
+          <Check className="w-4 h-4" />
+        </button>
+        <button onClick={() => setConfirming(false)} className="p-1 rounded text-gray-600 hover:bg-gray-100">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    )
+  }
+  return (
+    <button onClick={() => setConfirming(true)} title={`Eliminar ${productName}`}
+      className="p-1.5 rounded-lg text-gray-700 hover:text-red-500 hover:bg-red-50 transition-colors">
+      <Trash2 className="w-4 h-4" />
+    </button>
+  )
+}
+
 // Componente controlado: no guarda su propio estado, todo viene del padre.
 // Así un guardado en masa (o el botón "Guardar todo") siempre se refleja al
 // instante, sin depender de que el campo se "entere" de los nuevos props.
 function InventoryRowItem({
-  row, stockValue, minValue, dirty, saving, saved, onStockChange, onMinChange, onSave,
+  row, stockValue, minValue, dirty, saving, saved, isNave, deleting, onStockChange, onMinChange, onSave, onDelete,
 }: {
   row: InventoryRow
   stockValue: string; minValue: string
-  dirty: boolean; saving: boolean; saved: boolean
+  dirty: boolean; saving: boolean; saved: boolean; isNave: boolean; deleting: boolean
   onStockChange: (v: string) => void
   onMinChange: (v: string) => void
   onSave: () => void
+  onDelete: () => void
 }) {
   const currentNum = parseFloat(stockValue) || 0
   const minNum = parseFloat(minValue) || 0
@@ -101,22 +129,25 @@ function InventoryRowItem({
           : '—'}
       </td>
       <td className="px-4 py-3 text-right">
-        {saved ? (
-          <span className="text-xs text-green-600 font-medium">✓ Guardado</span>
-        ) : (
-          <button
-            onClick={onSave}
-            disabled={saving || !dirty}
-            className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
-              dirty
-                ? 'bg-[#1E2B28] text-white hover:bg-[#141F1C]'
-                : 'text-gray-700 cursor-default'
-            }`}
-          >
-            <Save className="w-3.5 h-3.5" />
-            {saving ? 'Guardando...' : 'Guardar'}
-          </button>
-        )}
+        <div className="flex items-center justify-end gap-1">
+          {saved ? (
+            <span className="text-xs text-green-600 font-medium">✓ Guardado</span>
+          ) : (
+            <button
+              onClick={onSave}
+              disabled={saving || !dirty}
+              className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
+                dirty
+                  ? 'bg-[#1E2B28] text-white hover:bg-[#141F1C]'
+                  : 'text-gray-700 cursor-default'
+              }`}
+            >
+              <Save className="w-3.5 h-3.5" />
+              {saving ? 'Guardando...' : 'Guardar'}
+            </button>
+          )}
+          {isNave && <DeleteProductButton productName={row.product_name} deleting={deleting} onDelete={onDelete} />}
+        </div>
       </td>
     </tr>
   )
@@ -390,6 +421,142 @@ function BulkMinStockModal({
   )
 }
 
+// ── Borrar productos en masa ──────────────────────────────────────────────────
+
+function BulkDeleteProductsModal({
+  rows, categories, onClose, onDeleted,
+}: {
+  rows: InventoryRow[]; categories: Category[]; onClose: () => void; onDeleted: (deletedIds: string[]) => void
+}) {
+  const [scope, setScope] = useState<'todos' | 'categoria' | 'seleccion'>('seleccion')
+  const [selectedCats, setSelectedCats] = useState<Set<string>>(new Set())
+  const [selectedProds, setSelectedProds] = useState<Set<string>>(new Set())
+  const [prodSearch, setProdSearch] = useState('')
+  const [pending, startTransition] = useTransition()
+  const [confirmStep, setConfirmStep] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const targetIds = useMemo(() => {
+    if (scope === 'todos') return rows.map(r => r.product_id)
+    if (scope === 'categoria') return rows.filter(r => r.category_id && selectedCats.has(r.category_id)).map(r => r.product_id)
+    return [...selectedProds]
+  }, [scope, rows, selectedCats, selectedProds])
+
+  const filteredRows = useMemo(() =>
+    rows.filter(r => r.product_name.toLowerCase().includes(prodSearch.toLowerCase())),
+    [rows, prodSearch]
+  )
+
+  function toggleCat(id: string) {
+    setSelectedCats(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  }
+  function toggleProd(id: string) {
+    setSelectedProds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  }
+
+  function handleDelete() {
+    if (targetIds.length === 0) return
+    setError(null)
+    startTransition(async () => {
+      try {
+        await bulkSoftDeleteProducts(targetIds)
+        onDeleted(targetIds)
+      } catch {
+        setError('No se pudieron borrar los productos, inténtalo de nuevo')
+      }
+    })
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg my-4">
+        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
+          <h2 className="font-semibold text-black flex items-center gap-2">
+            <Trash2 className="w-4 h-4 text-red-500" /> Borrar productos
+          </h2>
+          <button onClick={onClose} className="text-gray-600 hover:text-gray-600"><X className="w-5 h-5" /></button>
+        </div>
+
+        <div className="px-6 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
+          <p className="text-xs text-gray-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+            Los productos borrados desaparecen del catálogo, pedidos y stock. No se puede deshacer desde aquí.
+          </p>
+
+          <div>
+            <label className="text-xs text-gray-700 font-medium block mb-1.5">¿Qué productos borrar?</label>
+            <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
+              {([['seleccion', 'Selección manual'], ['categoria', 'Por categoría'], ['todos', 'Todos']] as const).map(([k, l]) => (
+                <button key={k} onClick={() => { setScope(k); setConfirmStep(false) }}
+                  className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    scope === k ? 'bg-white text-black shadow-sm' : 'text-gray-700 hover:text-gray-700'
+                  }`}>{l}</button>
+              ))}
+            </div>
+          </div>
+
+          {scope === 'categoria' && (
+            <div className="border border-gray-200 rounded-xl p-2.5 max-h-40 overflow-y-auto space-y-1">
+              {categories.map(c => (
+                <label key={c.id} className="flex items-center gap-2 px-1 py-1 rounded hover:bg-gray-50 cursor-pointer text-sm">
+                  <input type="checkbox" checked={selectedCats.has(c.id)} onChange={() => { toggleCat(c.id); setConfirmStep(false) }} className="accent-[#1E2B28]" />
+                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: c.color ?? '#9CA3AF' }} />
+                  {c.name}
+                </label>
+              ))}
+              {categories.length === 0 && <p className="text-xs text-gray-600 px-1">No hay categorías</p>}
+            </div>
+          )}
+
+          {scope === 'seleccion' && (
+            <div className="space-y-2">
+              <input type="text" placeholder="Buscar producto..." value={prodSearch} onChange={e => setProdSearch(e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
+              <div className="border border-gray-200 rounded-xl p-2.5 max-h-40 overflow-y-auto space-y-1">
+                {filteredRows.map(r => (
+                  <label key={r.product_id} className="flex items-center gap-2 px-1 py-1 rounded hover:bg-gray-50 cursor-pointer text-sm">
+                    <input type="checkbox" checked={selectedProds.has(r.product_id)} onChange={() => { toggleProd(r.product_id); setConfirmStep(false) }} className="accent-[#1E2B28]" />
+                    <span className="truncate">{r.product_name}</span>
+                  </label>
+                ))}
+                {filteredRows.length === 0 && <p className="text-xs text-gray-600 px-1">Sin resultados</p>}
+              </div>
+            </div>
+          )}
+
+          <p className="text-xs text-gray-700 bg-gray-50 rounded-lg px-3 py-2">
+            Se borrarán <strong>{targetIds.length}</strong> producto{targetIds.length !== 1 ? 's' : ''}.
+          </p>
+
+          {error && <p className="text-sm text-red-600">{error}</p>}
+        </div>
+
+        <div className="flex gap-2 px-6 py-4 border-t border-gray-100">
+          <button onClick={onClose} className="flex-1 border border-gray-200 text-gray-600 rounded-lg py-2 text-sm font-medium hover:bg-gray-50">
+            Cancelar
+          </button>
+          {confirmStep ? (
+            <button
+              onClick={handleDelete}
+              disabled={pending || targetIds.length === 0}
+              className="flex-1 bg-red-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+            >
+              {pending ? 'Borrando...' : `Sí, borrar ${targetIds.length}`}
+            </button>
+          ) : (
+            <button
+              onClick={() => setConfirmStep(true)}
+              disabled={targetIds.length === 0}
+              className="flex-1 bg-red-50 text-red-600 border border-red-200 rounded-lg py-2 text-sm font-medium hover:bg-red-100 disabled:opacity-50"
+            >
+              Borrar {targetIds.length} producto{targetIds.length !== 1 ? 's' : ''}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function InventarioTable({
   rows: initialRows, categories, isNave, organizationId,
 }: {
@@ -406,6 +573,8 @@ export function InventarioTable({
   const [categoryFilter, setCategoryFilter] = useState<string>('todas')
   const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({})
   const [showBulkMin, setShowBulkMin] = useState(false)
+  const [showBulkDelete, setShowBulkDelete] = useState(false)
+  const [deletingRow, setDeletingRow] = useState<string | null>(null)
   const [edits, setEdits] = useState<Record<string, { stock: string; min: string }>>({})
   const [savingAll, setSavingAll] = useState(false)
   const [savingRow, setSavingRow] = useState<string | null>(null)
@@ -450,6 +619,20 @@ export function InventarioTable({
       setSavingRow(null)
     }
     setTimeout(() => setSavedRows(prev => { const n = new Set(prev); n.delete(row.product_id); return n }), 2000)
+  }
+
+  async function deleteRow(row: InventoryRow) {
+    setDeletingRow(row.product_id)
+    setSaveError(null)
+    try {
+      await softDeleteProduct(row.product_id)
+      setRows(prev => prev.filter(r => r.product_id !== row.product_id))
+      router.refresh()
+    } catch {
+      setSaveError(`No se pudo borrar "${row.product_name}", inténtalo de nuevo`)
+    } finally {
+      setDeletingRow(null)
+    }
   }
 
   const dirtyRows = rows.filter(isDirty)
@@ -596,6 +779,14 @@ export function InventarioTable({
                 <ListChecks className="w-4 h-4" /> Mínimo en masa
               </button>
             )}
+            {isNave && (
+              <button
+                onClick={() => setShowBulkDelete(true)}
+                className="flex items-center justify-center gap-2 border border-red-200 text-red-600 text-sm font-medium px-4 py-2.5 rounded-xl hover:bg-red-50 transition-colors shrink-0"
+              >
+                <Trash2 className="w-4 h-4" /> Borrar productos
+              </button>
+            )}
           </div>
 
           {saveError && (
@@ -627,6 +818,19 @@ export function InventarioTable({
               isNave={isNave}
               organizationId={organizationId}
               onClose={() => setShowBulkMin(false)}
+            />
+          )}
+
+          {showBulkDelete && (
+            <BulkDeleteProductsModal
+              rows={rows}
+              categories={categories}
+              onClose={() => setShowBulkDelete(false)}
+              onDeleted={deletedIds => {
+                setRows(prev => prev.filter(r => !deletedIds.includes(r.product_id)))
+                setShowBulkDelete(false)
+                router.refresh()
+              }}
             />
           )}
 
@@ -673,9 +877,12 @@ export function InventarioTable({
                           dirty={isDirty(row)}
                           saving={savingRow === row.product_id}
                           saved={savedRows.has(row.product_id)}
+                          isNave={isNave}
+                          deleting={deletingRow === row.product_id}
                           onStockChange={v => setStockEdit(row, v)}
                           onMinChange={v => setMinEdit(row, v)}
                           onSave={() => saveRow(row)}
+                          onDelete={() => deleteRow(row)}
                         />
                       ))}
                     </tbody>
