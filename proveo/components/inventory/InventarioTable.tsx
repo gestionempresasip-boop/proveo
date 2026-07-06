@@ -673,7 +673,7 @@ export function InventarioTable({
     const min = r.min_stock
     if (!matchCategory) return false
     if (filter === 'sinstock') return matchSearch && stock === 0
-    if (filter === 'bajo') return matchSearch && min > 0 && stock <= min
+    if (filter === 'bajo') return matchSearch && stock > 0 && min > 0 && stock <= min
     return matchSearch
   })
 
@@ -684,7 +684,7 @@ export function InventarioTable({
     byCategory[cat].rows.push(r)
   })
 
-  const alertCount = rows.filter(r => r.min_stock > 0 && r.current_stock <= r.min_stock).length
+  const alertCount = rows.filter(r => r.current_stock > 0 && r.min_stock > 0 && r.current_stock <= r.min_stock).length
   const emptyCount = rows.filter(r => r.current_stock === 0).length
 
   function toggleCategory(cat: string) {
