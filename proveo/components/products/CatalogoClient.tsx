@@ -131,17 +131,27 @@ export function CatalogoClient({
   const cartTotal = cartItems.reduce((sum, item) => sum + item.quantity * priceWithIva(item.product), 0)
   const cartCount = cartItems.length
 
+  // Categorías de un producto: usa la tabla puente (multi-categoría) y cae en
+  // category_id si por lo que sea no llegan los enlaces. Así un producto
+  // aparece en TODAS las categorías en las que se ha clasificado, no solo en una.
+  const catIdsOf = (p: Product): string[] => {
+    const ids = (p as any).category_ids as string[] | undefined
+    if (ids && ids.length > 0) return ids
+    const single = (p as any).category_id
+    return single ? [single] : []
+  }
+
   const filteredProducts = products.filter(p => {
     const q = searchQuery.trim().toLowerCase()
     const matchSearch = !q || p.name.toLowerCase().includes(q) || (p.description?.toLowerCase().includes(q) ?? false)
-    const matchCat = selectedCategory === 'todos' || (p as any).category_id === selectedCategory
+    const matchCat = selectedCategory === 'todos' || catIdsOf(p).includes(selectedCategory)
     const matchFav = !showFavorites || favoriteIds.has(p.id)
     return matchSearch && matchCat && matchFav
   })
 
   // Count per category for badge
   const countByCat = categories.reduce<Record<string, number>>((acc, c) => {
-    acc[c.id] = products.filter(p => (p as any).category_id === c.id).length
+    acc[c.id] = products.filter(p => catIdsOf(p).includes(c.id)).length
     return acc
   }, {})
 

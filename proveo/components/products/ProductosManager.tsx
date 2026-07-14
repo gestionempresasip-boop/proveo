@@ -53,6 +53,15 @@ function finalPrice(p: Product) {
   return Number(p.price) * (1 + iva)
 }
 
+// Categorías a las que pertenece un producto. Un producto puede estar en
+// varias (tabla puente product_category_links → category_ids); si por lo que
+// sea no llegan, cae en la categoría principal category_id. Así el producto
+// aparece en TODAS las categorías en las que se ha clasificado, no solo en una.
+function catIdsOf(p: Product): string[] {
+  if (p.category_ids && p.category_ids.length > 0) return p.category_ids
+  return p.category_id ? [p.category_id] : []
+}
+
 // ── Toggle active ─────────────────────────────────────────────────────────────
 
 function ToggleActiveButton({ product }: { product: Product }) {
@@ -746,7 +755,8 @@ function FavoritosManager({
     const map: Record<string, Product[]> = {}
     const uncategorized: Product[] = []
     for (const p of filtered) {
-      if (p.category_id) { (map[p.category_id] ??= []).push(p) } else { uncategorized.push(p) }
+      const ids = catIdsOf(p)
+      if (ids.length > 0) { for (const id of ids) (map[id] ??= []).push(p) } else { uncategorized.push(p) }
     }
     const groups = categories
       .filter(c => map[c.id]?.length > 0)
@@ -1191,7 +1201,7 @@ export function ProductosManager({
   const productCountByCat = useMemo(() => {
     const counts: Record<string, number> = {}
     for (const p of products) {
-      if (p.category_id) counts[p.category_id] = (counts[p.category_id] ?? 0) + 1
+      for (const cid of catIdsOf(p)) counts[cid] = (counts[cid] ?? 0) + 1
     }
     return counts
   }, [products])
@@ -1211,9 +1221,13 @@ export function ProductosManager({
     const uncategorized: Product[] = []
     for (const p of filtered) {
       if (p.pending_review) continue
-      if (p.category_id && categoriesById[p.category_id]) {
-        if (!map[p.category_id]) map[p.category_id] = []
-        map[p.category_id].push(p)
+      const ids = catIdsOf(p).filter(id => categoriesById[id])
+      if (ids.length > 0) {
+        // Un producto multi-categoría se añade a cada una de sus categorías.
+        for (const id of ids) {
+          if (!map[id]) map[id] = []
+          map[id].push(p)
+        }
       } else {
         uncategorized.push(p)
       }
@@ -1243,12 +1257,12 @@ export function ProductosManager({
     const q = buscarQuery.trim().toLowerCase()
     return products.filter(p => {
       const matchQuery = !q || p.name.toLowerCase().includes(q) || (p.description?.toLowerCase().includes(q) ?? false)
-      const matchCat = !buscarCategory || (buscarCategory === '__none__' ? !p.category_id : p.category_id === buscarCategory)
+      const matchCat = !buscarCategory || (buscarCategory === '__none__' ? catIdsOf(p).length === 0 : catIdsOf(p).includes(buscarCategory))
       return matchQuery && matchCat
     })
   }, [products, buscarQuery, buscarCategory])
 
-  const uncategorizedCount = products.filter(p => !p.category_id).length
+  const uncategorizedCount = products.filter(p => catIdsOf(p).length === 0).length
 
   return (
     <>
