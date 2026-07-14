@@ -12,6 +12,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import { ORG_LOGOS } from '@/lib/orgLogos'
 
 interface NavItem {
   href: string
@@ -19,16 +20,6 @@ interface NavItem {
   icon: React.ElementType
   roles?: string[]
   orgTypes?: string[]
-}
-
-const ORG_LOGOS: Record<string, string> = {
-  'Nave Obrador Central': '/logos/depot.png',
-  'Barranco Playa': '/logos/barranco.png',
-  'Va Bene Cala': '/logos/va-bene-cala.png',
-  'Va Bene Centro': '/logos/va-bene-centro.png',
-  'Aruba': '/logos/aruba.png',
-  'Conbrassa': '/logos/conbrassa.png',
-  'Season': '/logos/season.png',
 }
 
 const navItems: NavItem[] = [
@@ -76,7 +67,7 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
   // ── Desktop/tablet sidebar (md+) ────────────────────────────────────────────────
   return (
     <>
-      <aside className="hidden md:flex w-56 h-full overflow-y-auto bg-[#1E2B28] flex-col border-r border-white/8 shrink-0 print:hidden">
+      <aside className="hidden md:flex w-56 self-start sticky top-0 h-dvh overflow-y-auto bg-[#1E2B28] flex-col border-r border-white/8 shrink-0 print:hidden">
         {/* Logo */}
         <div className="px-5 py-5 flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center shrink-0 overflow-hidden">
@@ -141,42 +132,9 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
         </nav>
       </aside>
 
-      {/* ── Tablet / Mobile: top header + bottom tab bar ────────────────── */}
+      {/* ── Mobile: bottom tab bar (la barra superior vive en MobileTopBar,
+           dentro del scroll, para que se desplace al deslizar) ─────────── */}
       <>
-        {/* Top header strip (brand + org) */}
-        <header className="md:hidden fixed top-0 left-0 right-0 z-40 bg-[#1E2B28] h-12 flex items-center justify-between px-4 border-b border-white/8 print:hidden">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-md bg-white flex items-center justify-center overflow-hidden">
-              {orgLogo ? (
-                <div className="relative w-full h-full p-0.5">
-                  <Image src={orgLogo} alt={orgLabel} fill className="object-contain" />
-                </div>
-              ) : (
-                <ChefHat className="h-3.5 w-3.5 text-gray-900" />
-              )}
-            </div>
-            <span className="text-white font-bold text-sm tracking-tight">Proveo</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-gray-600 text-xs">{orgLabel}</span>
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="text-gray-700 hover:text-white transition-colors p-1 disabled:opacity-50"
-              title="Actualizar datos"
-            >
-              <RefreshCw className={cn('h-4 w-4', refreshing && 'animate-spin')} />
-            </button>
-            <button
-              onClick={handleLogout}
-              className="text-gray-700 hover:text-red-400 transition-colors p-1"
-              title="Cerrar sesión"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
-          </div>
-        </header>
-
         {/* Bottom tab bar */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 flex print:hidden">
           {visible.map(item => {

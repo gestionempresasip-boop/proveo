@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { ProductCard } from '@/components/products/ProductCard'
 import { Badge } from '@/components/ui/badge'
@@ -91,34 +91,21 @@ export function CatalogoClient({
   const supabase = createClient()
   const router = useRouter()
 
-  // Botón "volver arriba": el catálogo es muy largo y en el dashboard el scroll
-  // ocurre dentro de <main> (contenedor acotado en el layout), no en la ventana.
-  // Localizamos ese contenedor desde el root y mostramos el botón al bajar.
-  const rootRef = useRef<HTMLDivElement>(null)
-  const scrollerRef = useRef<HTMLElement | null>(null)
+  // Botón "volver arriba": el catálogo es muy largo. El scroll es el del
+  // documento (la página entera), así que escuchamos el scroll de la ventana y
+  // mostramos el botón al bajar.
   const [showScrollTop, setShowScrollTop] = useState(false)
 
   useEffect(() => {
-    const scroller = (rootRef.current?.closest('main') as HTMLElement | null) ?? null
-    scrollerRef.current = scroller
-    const currentTop = () =>
-      scroller ? scroller.scrollTop : (window.scrollY || document.documentElement.scrollTop || 0)
+    const currentTop = () => window.scrollY || document.documentElement.scrollTop || 0
     const onScroll = () => setShowScrollTop(currentTop() > 300)
     onScroll()
-    // El evento scroll no burbujea: en fase de captura sobre document captamos
-    // el scroll de <main> aunque no sea la ventana. window cubre el fallback.
-    document.addEventListener('scroll', onScroll, true)
     window.addEventListener('scroll', onScroll, { passive: true })
-    return () => {
-      document.removeEventListener('scroll', onScroll, true)
-      window.removeEventListener('scroll', onScroll)
-    }
+    return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
   const scrollToTop = useCallback(() => {
-    const scroller = scrollerRef.current
-    if (scroller) scroller.scrollTo({ top: 0, behavior: 'smooth' })
-    else window.scrollTo({ top: 0, behavior: 'smooth' })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [])
 
   // "Repetir pedido": viene de Mis pedidos con product_id + cantidad del
@@ -355,7 +342,7 @@ export function CatalogoClient({
 
   return (
     // Extra bottom padding on mobile so content clears the fixed cart bar
-    <div ref={rootRef} className="flex flex-col h-full">
+    <div className="flex flex-col">
 
       {/* ── Page header ─────────────────────────────────────────────────── */}
       <div className="px-4 sm:px-6 pt-4 pb-3">
