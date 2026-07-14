@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { ProductCard } from '@/components/products/ProductCard'
 import { Badge } from '@/components/ui/badge'
-import { ShoppingCart, Loader2, Check, X, ChevronUp, ChevronDown, Search, Star, Plus, Minus } from 'lucide-react'
+import { ShoppingCart, Loader2, Check, X, ChevronUp, ChevronDown, Search, Star, Plus, Minus, ArrowUp } from 'lucide-react'
 import type { Product, ProductCategory } from '@/types/database'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
@@ -26,6 +26,16 @@ type PromoRow = {
 function priceWithIva(product: Product): number {
   const iva = Number((product as any).iva_rate) || 0
   return Number(product.price) * (1 + iva)
+}
+
+// Categorías de un producto: usa la tabla puente (multi-categoría) y cae en
+// category_id si no llegan los enlaces. Así un producto aparece en TODAS las
+// categorías en las que se ha clasificado, no solo en una.
+function catIdsOf(p: Product): string[] {
+  const ids = (p as any).category_ids as string[] | undefined
+  if (ids && ids.length > 0) return ids
+  const single = (p as any).category_id
+  return single ? [single] : []
 }
 
 // Category color dot
@@ -81,6 +91,36 @@ export function CatalogoClient({
   const supabase = createClient()
   const router = useRouter()
 
+  // Botón "volver arriba": el catálogo es muy largo y en el dashboard el scroll
+  // ocurre dentro de <main> (contenedor acotado en el layout), no en la ventana.
+  // Localizamos ese contenedor desde el root y mostramos el botón al bajar.
+  const rootRef = useRef<HTMLDivElement>(null)
+  const scrollerRef = useRef<HTMLElement | null>(null)
+  const [showScrollTop, setShowScrollTop] = useState(false)
+
+  useEffect(() => {
+    const scroller = (rootRef.current?.closest('main') as HTMLElement | null) ?? null
+    scrollerRef.current = scroller
+    const currentTop = () =>
+      scroller ? scroller.scrollTop : (window.scrollY || document.documentElement.scrollTop || 0)
+    const onScroll = () => setShowScrollTop(currentTop() > 300)
+    onScroll()
+    // El evento scroll no burbujea: en fase de captura sobre document captamos
+    // el scroll de <main> aunque no sea la ventana. window cubre el fallback.
+    document.addEventListener('scroll', onScroll, true)
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      document.removeEventListener('scroll', onScroll, true)
+      window.removeEventListener('scroll', onScroll)
+    }
+  }, [])
+
+  const scrollToTop = useCallback(() => {
+    const scroller = scrollerRef.current
+    if (scroller) scroller.scrollTo({ top: 0, behavior: 'smooth' })
+    else window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [])
+
   // "Repetir pedido": viene de Mis pedidos con product_id + cantidad del
   // pedido anterior. Se rellena el carrito (recortando al stock
   // disponible) para que el restaurante solo revise y envíe.
@@ -113,7 +153,9 @@ export function CatalogoClient({
     })
   }, [])
 
-  async function toggleFavorite(productId: string, next: boolean) {
+  // useCallback: referencia estable para que React.memo de ProductCard no se
+  // rompa y las tarjetas no se re-rendericen en cada cambio del carrito.
+  const toggleFavorite = useCallback(async (productId: string, next: boolean) => {
     setFavoriteIds(prev => { const n = new Set(prev); next ? n.add(productId) : n.delete(productId); return n })
     try {
       await setFavoriteProduct(organizationId, productId, next)
@@ -122,40 +164,55 @@ export function CatalogoClient({
       setFavoriteError('No se pudo guardar el favorito, inténtalo de nuevo')
       setTimeout(() => setFavoriteError(null), 3000)
     }
-  }
+  }, [organizationId])
 
-  const cartItems: CartItem[] = Object.entries(cart)
-    .map(([id, qty]) => ({ product: products.find(p => p.id === id)!, quantity: qty }))
-    .filter(item => item.product)
+  // Índice id → producto para no recorrer los 439 en cada línea del carrito.
+  const productById = useMemo(() => {
+    const m = new Map<string, Product>()
+    for (const p of products) m.set(p.id, p)
+    return m
+  }, [products])
 
-  const cartTotal = cartItems.reduce((sum, item) => sum + item.quantity * priceWithIva(item.product), 0)
+  const cartItems: CartItem[] = useMemo(() =>
+    Object.entries(cart)
+      .map(([id, qty]) => ({ product: productById.get(id)!, quantity: qty }))
+      .filter(item => item.product),
+    [cart, productById]
+  )
+
+  const cartTotal = useMemo(
+    () => cartItems.reduce((sum, item) => sum + item.quantity * priceWithIva(item.product), 0),
+    [cartItems]
+  )
   const cartCount = cartItems.length
 
-  // Categorías de un producto: usa la tabla puente (multi-categoría) y cae en
-  // category_id si por lo que sea no llegan los enlaces. Así un producto
-  // aparece en TODAS las categorías en las que se ha clasificado, no solo en una.
-  const catIdsOf = (p: Product): string[] => {
-    const ids = (p as any).category_ids as string[] | undefined
-    if (ids && ids.length > 0) return ids
-    const single = (p as any).category_id
-    return single ? [single] : []
-  }
-
-  const filteredProducts = products.filter(p => {
+  // Filtro de productos: solo se recalcula cuando cambian búsqueda/categoría/
+  // favoritos, no en cada clic del carrito. Junto con React.memo en ProductCard,
+  // esto hace que añadir al carrito re-renderice solo la tarjeta tocada.
+  const filteredProducts = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
-    const matchSearch = !q || p.name.toLowerCase().includes(q) || (p.description?.toLowerCase().includes(q) ?? false)
-    const matchCat = selectedCategory === 'todos' || catIdsOf(p).includes(selectedCategory)
-    const matchFav = !showFavorites || favoriteIds.has(p.id)
-    return matchSearch && matchCat && matchFav
-  })
+    return products.filter(p => {
+      const matchSearch = !q || p.name.toLowerCase().includes(q) || (p.description?.toLowerCase().includes(q) ?? false)
+      const matchCat = selectedCategory === 'todos' || catIdsOf(p).includes(selectedCategory)
+      const matchFav = !showFavorites || favoriteIds.has(p.id)
+      return matchSearch && matchCat && matchFav
+    })
+  }, [products, searchQuery, selectedCategory, showFavorites, favoriteIds])
 
-  // Count per category for badge
-  const countByCat = categories.reduce<Record<string, number>>((acc, c) => {
-    acc[c.id] = products.filter(p => catIdsOf(p).includes(c.id)).length
+  // Conteo por categoría para el badge — no depende del carrito.
+  const countByCat = useMemo(() => {
+    const acc: Record<string, number> = {}
+    for (const c of categories) acc[c.id] = 0
+    for (const p of products) {
+      for (const cid of catIdsOf(p)) if (cid in acc) acc[cid]++
+    }
     return acc
-  }, {})
+  }, [products, categories])
 
-  const visibleCategories = categories.filter(c => countByCat[c.id] > 0)
+  const visibleCategories = useMemo(
+    () => categories.filter(c => countByCat[c.id] > 0),
+    [categories, countByCat]
+  )
   const selectedCatObj = visibleCategories.find(c => c.id === selectedCategory)
   const selectedCatLabel = selectedCategory === 'todos' ? 'Todas las categorías' : (selectedCatObj?.name ?? 'Todas las categorías')
   const selectedCatCount = selectedCategory === 'todos' ? products.length : (countByCat[selectedCategory] ?? 0)
@@ -298,7 +355,7 @@ export function CatalogoClient({
 
   return (
     // Extra bottom padding on mobile so content clears the fixed cart bar
-    <div className="flex flex-col h-full">
+    <div ref={rootRef} className="flex flex-col h-full">
 
       {/* ── Page header ─────────────────────────────────────────────────── */}
       <div className="px-4 sm:px-6 pt-4 pb-3">
@@ -614,6 +671,25 @@ export function CatalogoClient({
             <ChevronUp className="h-4 w-4" />
           </button>
         </div>
+      )}
+
+      {/* Botón "volver arriba" — se coloca por encima de las barras inferiores
+          (tab bar y barra del carrito) y las esquiva cuando el carrito tiene
+          productos. En lg+ no hay barras inferiores. */}
+      {showScrollTop && (
+        <button
+          onClick={scrollToTop}
+          aria-label="Volver arriba"
+          title="Volver arriba"
+          className={cn(
+            'fixed right-4 md:right-6 z-40 w-11 h-11 rounded-full bg-[#1E2B28] text-white shadow-lg flex items-center justify-center active:scale-95 transition-all hover:bg-[#2a3d39]',
+            cartCount > 0 && !cartOpen
+              ? 'bottom-[136px] md:bottom-[96px] lg:bottom-6'
+              : 'bottom-[72px] md:bottom-6'
+          )}
+        >
+          <ArrowUp className="h-5 w-5" />
+        </button>
       )}
     </div>
   )

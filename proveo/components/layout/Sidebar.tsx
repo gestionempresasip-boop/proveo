@@ -76,7 +76,7 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
   // ── Desktop/tablet sidebar (md+) ────────────────────────────────────────────────
   return (
     <>
-      <aside className="hidden md:flex w-56 min-h-screen bg-[#1E2B28] flex-col border-r border-white/8 shrink-0 print:hidden">
+      <aside className="hidden md:flex w-56 h-full overflow-y-auto bg-[#1E2B28] flex-col border-r border-white/8 shrink-0 print:hidden">
         {/* Logo */}
         <div className="px-5 py-5 flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center shrink-0 overflow-hidden">

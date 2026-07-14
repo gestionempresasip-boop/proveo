@@ -4,7 +4,7 @@ import Image from 'next/image'
 import { Plus, Minus, Sparkles, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Product } from '@/types/database'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, memo } from 'react'
 import { unitLabel } from '@/lib/units'
 import { productEmoji } from '@/lib/productEmoji'
 
@@ -26,7 +26,7 @@ function placeholderStyle(color?: string | null): { background: string } {
   return { background: `linear-gradient(135deg, ${color}18, ${color}30)` }
 }
 
-export function ProductCard({
+export const ProductCard = memo(function ProductCard({
   product, quantity, onQuantityChange, categoryColor, categoryName, maxStock, justRestocked,
   isFavorite, onToggleFavorite,
 }: ProductCardProps) {
@@ -198,4 +198,4 @@ export function ProductCard({
       </div>
     </div>
   )
-}
+})
