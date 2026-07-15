@@ -1,6 +1,5 @@
 'use client'
 
-import Image from 'next/image'
 import { Plus, Minus, Sparkles, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Product } from '@/types/database'
@@ -80,32 +79,39 @@ export const ProductCard = memo(function ProductCard({
         ? 'border-[#A8793A] shadow-[0_4px_20px_rgba(245,158,11,0.2)]'
         : 'border-transparent hover:border-gray-200 hover:shadow-md'
     )}>
-      {/* ── Image area ──────────────────────────────────────────────── */}
-      <div className="relative aspect-[4/3] w-full shrink-0">
-        {(product as any).image_url ? (
-          <Image
-            src={(product as any).image_url}
-            alt={product.name}
-            fill
-            className="object-cover"
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-          />
-        ) : (
-          <div
-            className="w-full h-full flex flex-col items-center justify-center gap-1 select-none"
-            style={placeholderStyle(categoryColor)}
+      {/* ── Name header (reemplaza la imagen) ──────────────────────── */}
+      <div
+        className="relative px-3 pt-3 pb-2 shrink-0 overflow-hidden"
+        style={placeholderStyle(categoryColor)}
+      >
+        {/* Emoji decorativo de fondo */}
+        <span className="absolute bottom-1 right-2 text-4xl opacity-10 select-none pointer-events-none leading-none">
+          {productEmoji(product.name, categoryName)}
+        </span>
+
+        {categoryName && (
+          <span
+            className="text-[10px] font-semibold uppercase tracking-widest opacity-50 block mb-1"
+            style={{ color: categoryColor ?? '#1E2B28' }}
           >
-            <span className="text-4xl sm:text-5xl leading-none">
-              {productEmoji(product.name, categoryName)}
-            </span>
-            {categoryName && (
-              <span className="text-[10px] font-medium uppercase tracking-wide opacity-50"
-                style={{ color: categoryColor ?? '#1E2B28' }}>
-                {categoryName}
-              </span>
-            )}
-          </div>
+            {categoryName}
+          </span>
         )}
+
+        <div className="flex items-start gap-1.5">
+          <h3 className="font-bold text-gray-900 text-sm leading-snug flex-1">
+            {product.name}
+          </h3>
+          {onToggleFavorite && (
+            <button
+              onClick={() => onToggleFavorite(product.id, !isFavorite)}
+              title={isFavorite ? 'Quitar de favoritos' : 'Añadir a favoritos'}
+              className={cn('shrink-0 p-0.5 -mt-0.5 -mr-0.5', isFavorite ? 'text-amber-400' : 'text-gray-300 hover:text-amber-400')}
+            >
+              <Star className={cn('w-4 h-4', isFavorite && 'fill-current')} />
+            </button>
+          )}
+        </div>
 
         {hasQuantity && (
           <div className="absolute top-2 right-2 bg-[#A8793A] text-white text-xs font-bold px-2 py-1 rounded-full shadow-sm">
@@ -124,27 +130,13 @@ export const ProductCard = memo(function ProductCard({
         )}
       </div>
 
-      {/* ── Product info ─────────────────────────────────────────────── */}
+      {/* ── Descripción e info ───────────────────────────────────────── */}
       <div className="p-3 flex flex-col flex-1">
-        <div className="flex items-start gap-1.5">
-          <h3 className="font-semibold text-black text-sm leading-tight line-clamp-2 flex-1">
-            {product.name}
-          </h3>
-          {onToggleFavorite && (
-            <button
-              onClick={() => onToggleFavorite(product.id, !isFavorite)}
-              title={isFavorite ? 'Quitar de favoritos' : 'Añadir a favoritos'}
-              className={cn('shrink-0 p-0.5 -mt-0.5 -mr-0.5', isFavorite ? 'text-amber-400' : 'text-gray-300 hover:text-amber-400')}
-            >
-              <Star className={cn('w-4 h-4', isFavorite && 'fill-current')} />
-            </button>
-          )}
-        </div>
         {product.description && (
-          <p className="text-xs text-gray-600 mt-0.5 line-clamp-1">{product.description}</p>
+          <p className="text-xs text-gray-600 mb-1 line-clamp-2">{product.description}</p>
         )}
         {!outOfStock && maxStock !== undefined && (
-          <p className="text-[10px] text-gray-600 mt-0.5">Quedan {maxStock} {unit}</p>
+          <p className="text-[10px] text-gray-600 mb-1">Quedan {maxStock} {unit}</p>
         )}
 
         {/* ── Quantity selector ───────────────────────────────────────── */}

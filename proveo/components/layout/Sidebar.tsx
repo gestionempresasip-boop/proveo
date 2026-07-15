@@ -117,7 +117,6 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
               <Link
                 key={item.href + item.label}
                 href={item.href}
-                prefetch={false}
                 className={cn(
                   'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all',
                   active ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-white hover:bg-white/8'
@@ -144,7 +143,6 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
               <Link
                 key={item.href + item.label}
                 href={item.href}
-                prefetch={false}
                 className={cn(
                   'flex-1 flex flex-col items-center justify-center gap-1 py-2.5 transition-colors min-h-[60px]',
                   active ? 'text-[#A8793A]' : 'text-gray-600 hover:text-gray-600'
