@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useTransition, useMemo } from 'react'
-import { Package, Pencil, Trash2, Eye, EyeOff, Plus, X, Check, ChevronDown, ChevronRight, Sparkles, Tag, Euro, Search, Calculator, Star } from 'lucide-react'
+import { useState, useTransition, useMemo, useEffect, useCallback } from 'react'
+import { Package, Pencil, Trash2, Eye, EyeOff, Plus, X, Check, ChevronDown, ChevronRight, Sparkles, Tag, Euro, Search, Calculator, Star, ShieldCheck, ArrowUp } from 'lucide-react'
 import {
   toggleProductActive, softDeleteProduct, updateProduct, createProduct,
   createCategory, deleteCategory, updateCategory, seedDefaultCategories,
   mergeCategories, moveProductsToCategory, bulkAdjustPricing,
+  approveProductWithoutCost,
 } from '@/app/actions/products'
 import type { BulkPricingField, BulkPricingMode } from '@/app/actions/products'
 import { setFavoriteProduct, setFavoriteProductsBatch } from '@/app/actions/favorites'
@@ -102,6 +103,46 @@ function DeleteButton({ product, onDeleted }: { product: Product; onDeleted: () 
     <button onClick={() => setConfirming(true)} title={`Eliminar ${product.name}`}
       className="p-1.5 rounded-lg text-gray-700 hover:text-red-500 hover:bg-red-50 transition-colors">
       <Trash2 className="w-4 h-4" />
+    </button>
+  )
+}
+
+// ── Approve without cost ──────────────────────────────────────────────────────
+
+function ApproveWithoutCostButton({ product, onApproved }: { product: Product; onApproved: () => void }) {
+  const [confirming, setConfirming] = useState(false)
+  const [pending, startTransition] = useTransition()
+
+  function doApprove() {
+    startTransition(async () => {
+      await approveProductWithoutCost(product.id)
+      onApproved()
+    })
+  }
+
+  if (confirming) {
+    return (
+      <div className="flex items-center gap-1">
+        <span className="text-xs text-amber-800 whitespace-nowrap">¿Sin coste?</span>
+        <button onClick={doApprove} disabled={pending}
+          className="p-1 rounded text-amber-700 hover:bg-amber-100 disabled:opacity-50">
+          <Check className="w-4 h-4" />
+        </button>
+        <button onClick={() => setConfirming(false)} className="p-1 rounded text-gray-600 hover:bg-gray-100">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <button
+      onClick={() => setConfirming(true)}
+      title="Archivar en su categoría sin asignar coste"
+      className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 transition-colors"
+    >
+      <ShieldCheck className="w-3.5 h-3.5" />
+      Archivar sin coste
     </button>
   )
 }
@@ -429,9 +470,9 @@ function NuevoModal({
 // ── Products table ────────────────────────────────────────────────────────────
 
 function ProductsTable({
-  products, categories, isNave, onEdit,
+  products, categories, isNave, onEdit, showApprove,
 }: {
-  products: Product[]; categories: Category[]; isNave?: boolean; onEdit: (p: Product) => void
+  products: Product[]; categories: Category[]; isNave?: boolean; onEdit: (p: Product) => void; showApprove?: boolean
 }) {
   return (
     <div className="overflow-x-auto">
@@ -456,7 +497,7 @@ function ProductsTable({
         </thead>
         <tbody className="divide-y divide-gray-50">
           {products.map(p => (
-            <ProductRow key={p.id} p={p} categories={categories} isNave={isNave} onEdit={onEdit} />
+            <ProductRow key={p.id} p={p} categories={categories} isNave={isNave} onEdit={onEdit} showApprove={showApprove} />
           ))}
         </tbody>
       </table>
@@ -465,9 +506,9 @@ function ProductsTable({
 }
 
 function ProductRow({
-  p, categories, isNave, onEdit,
+  p, categories, isNave, onEdit, showApprove,
 }: {
-  p: Product; categories: Category[]; isNave?: boolean; onEdit: (p: Product) => void
+  p: Product; categories: Category[]; isNave?: boolean; onEdit: (p: Product) => void; showApprove?: boolean
 }) {
   const [hidden, setHidden] = useState(false)
   if (hidden) return null
@@ -526,7 +567,10 @@ function ProductRow({
                 <td className="px-3 py-3 text-gray-700 text-xs">{unitLabel(p.unit)}</td>
                 <td className="px-3 py-3 text-center"><ToggleActiveButton product={p} /></td>
                 <td className="px-4 py-3">
-                  <div className="flex items-center justify-end gap-1">
+                  <div className="flex items-center justify-end gap-2 flex-wrap">
+                    {showApprove && (
+                      <ApproveWithoutCostButton product={p} onApproved={() => setHidden(true)} />
+                    )}
                     <button onClick={() => onEdit(p)} title="Editar"
                       className="p-1.5 rounded-lg text-gray-600 hover:text-[#1E2B28] hover:bg-green-50 transition-colors">
                       <Pencil className="w-3.5 h-3.5" />
@@ -1247,6 +1291,15 @@ export function ProductosManager({
   const activeCount = products.filter(p => p.is_active).length
   const hiddenCount = products.filter(p => !p.is_active).length
 
+  const [showScrollTop, setShowScrollTop] = useState(false)
+  useEffect(() => {
+    const onScroll = () => setShowScrollTop((window.scrollY || document.documentElement.scrollTop) > 300)
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+  const scrollToTop = useCallback(() => window.scrollTo({ top: 0, behavior: 'smooth' }), [])
+
   function handleAddProduct(catId: string) {
     setNuevoDefaultCat(catId === '__none__' ? undefined : catId)
     setShowNuevo(true)
@@ -1401,7 +1454,7 @@ export function ProductosManager({
                 <p className="text-xs text-amber-700 px-4 pt-2">
                   Recién creados. Quedan aquí arriba hasta que alguien les pone coste y margen — luego se categorizan automáticamente.
                 </p>
-                <ProductsTable products={pendingProducts} categories={categories} isNave={isNave} onEdit={setEditProduct} />
+                <ProductsTable products={pendingProducts} categories={categories} isNave={isNave} onEdit={setEditProduct} showApprove />
               </div>
             )}
 
@@ -1532,6 +1585,17 @@ export function ProductosManager({
           <FavoritosManager products={products} categories={categories} restaurants={restaurants} favorites={favorites} />
         )}
       </div>
+
+      {showScrollTop && (
+        <button
+          onClick={scrollToTop}
+          aria-label="Volver arriba"
+          title="Volver arriba"
+          className="fixed bottom-6 right-4 md:right-6 z-40 w-11 h-11 rounded-full bg-[#1E2B28] text-white shadow-lg flex items-center justify-center active:scale-95 transition-all hover:bg-[#2a3d39]"
+        >
+          <ArrowUp className="w-5 h-5" />
+        </button>
+      )}
     </>
   )
 }

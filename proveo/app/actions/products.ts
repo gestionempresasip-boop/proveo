@@ -111,6 +111,16 @@ export async function toggleProductActive(productId: string, isActive: boolean) 
   revalidatePath('/admin/productos')
 }
 
+export async function approveProductWithoutCost(productId: string) {
+  const supabase = await createClient()
+  const { error } = await (supabase as any)
+    .from('products')
+    .update({ pending_review: false })
+    .eq('id', productId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/productos')
+}
+
 export async function softDeleteProduct(productId: string) {
   const supabase = await createClient()
   await (supabase as any)

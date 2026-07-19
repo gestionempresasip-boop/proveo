@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect, useTransition, useMemo } from 'react'
+import { useState, useEffect, useTransition, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { upsertInventory, getInventoryHistory, bulkSetMinStock, bulkUpsertInventory } from '@/app/actions/inventory'
 import { softDeleteProduct, bulkSoftDeleteProducts } from '@/app/actions/products'
 import { InventoryClosures } from './InventoryClosures'
 import { BackupsPanel } from './BackupsPanel'
-import { AlertTriangle, CheckCircle2, XCircle, Save, ChevronDown, ChevronUp, History, Package, Download, ListChecks, X, Check, FileSpreadsheet, Trash2, Shield } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, XCircle, Save, ChevronDown, ChevronUp, History, Package, Download, ListChecks, X, Check, FileSpreadsheet, Trash2, Shield, ArrowUp } from 'lucide-react'
 
 type InventoryRow = {
   product_id: string
@@ -583,6 +583,15 @@ export function InventarioTable({
   const [saveError, setSaveError] = useState<string | null>(null)
   const router = useRouter()
 
+  const [showScrollTop, setShowScrollTop] = useState(false)
+  useEffect(() => {
+    const onScroll = () => setShowScrollTop((window.scrollY || document.documentElement.scrollTop) > 300)
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+  const scrollToTop = useCallback(() => window.scrollTo({ top: 0, behavior: 'smooth' }), [])
+
   function getStockValue(row: InventoryRow) { return edits[row.product_id]?.stock ?? String(row.current_stock) }
   function getMinValue(row: InventoryRow) { return edits[row.product_id]?.min ?? String(row.min_stock) }
   function isDirty(row: InventoryRow) {
@@ -911,6 +920,17 @@ export function InventarioTable({
             <div className="text-center py-12 text-gray-600">No se encontraron productos</div>
           )}
         </>
+      )}
+
+      {showScrollTop && (
+        <button
+          onClick={scrollToTop}
+          aria-label="Volver arriba"
+          title="Volver arriba"
+          className="fixed bottom-6 right-4 md:right-6 z-40 w-11 h-11 rounded-full bg-[#1E2B28] text-white shadow-lg flex items-center justify-center active:scale-95 transition-all hover:bg-[#2a3d39]"
+        >
+          <ArrowUp className="h-5 w-5" />
+        </button>
       )}
     </div>
   )
