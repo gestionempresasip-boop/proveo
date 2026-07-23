@@ -12,6 +12,8 @@ export const UNIT_OPTIONS = [
   { value: 'barqueta_2kg', label: 'barqueta 2 kg' },
   { value: 'barqueta_4kg', label: 'barqueta 4 kg' },
   { value: 'racion',       label: 'ración' },
+  { value: 'bolsa',        label: 'bolsa' },
+  { value: 'paquete',      label: 'paquete' },
 ] as const
 
 export const UNITS = UNIT_OPTIONS.map(u => u.value)

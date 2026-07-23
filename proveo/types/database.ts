@@ -8,7 +8,7 @@ export type Json =
 
 export type OrgType = 'nave' | 'restaurante'
 export type UserRole = 'admin' | 'nave_manager' | 'restaurante_manager' | 'restaurante_staff'
-export type ProductUnit = 'kg' | 'g' | 'l' | 'ml' | 'unidad' | 'caja' | 'bandeja'
+export type ProductUnit = 'kg' | 'g' | 'l' | 'ml' | 'unidad' | 'caja' | 'bandeja' | 'bolsa_500g' | 'bolsa_1kg' | 'barqueta_2kg' | 'barqueta_4kg' | 'racion' | 'bolsa' | 'paquete'
 export type ProductVisibility = 'todos' | 'restringido'
 export type OrderStatus = 'pendiente' | 'en_preparacion' | 'listo' | 'entregado' | 'cancelado'
 export type NotifType = 'nuevo_pedido' | 'pedido_listo' | 'stock_minimo' | 'albaran_generado'
