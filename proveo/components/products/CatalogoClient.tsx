@@ -269,24 +269,59 @@ export function CatalogoClient({
           Pulsa + en cualquier producto para añadirlo
         </p>
       ) : (
-        <div className="space-y-2">
-          {cartItems.map(({ product, quantity }) => (
-            <div key={product.id} className="flex items-start justify-between gap-2 text-sm">
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-black leading-tight">{product.name}</p>
-                <p className="text-gray-600 text-xs mt-0.5">
-                  {quantity} {product.unit}
-                </p>
+        <div className="space-y-3">
+          {cartItems.map(({ product, quantity }) => {
+            const max = product.id in stockMap ? stockMap[product.id] : undefined
+            const increment = Number(product.order_increment) || 1
+            const minQty = Number(product.min_order_quantity) || 1
+            const atLimit = max !== undefined && quantity >= max
+            function increaseCart() {
+              const next = quantity + increment
+              const clamped = max !== undefined ? Math.min(next, max) : next
+              handleQuantityChange(product.id, Math.round(clamped * 1000) / 1000)
+            }
+            function decreaseCart() {
+              const next = quantity - increment
+              handleQuantityChange(product.id, next < minQty ? 0 : Math.round(next * 1000) / 1000)
+            }
+            return (
+              <div key={product.id} className="flex items-center gap-2 text-sm">
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-black leading-tight text-xs">{product.name}</p>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={decreaseCart}
+                    className="w-6 h-6 rounded-md bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors active:scale-95"
+                    title="Reducir cantidad"
+                  >
+                    <Minus className="h-3 w-3 text-gray-700" />
+                  </button>
+                  <span className="w-14 text-center text-xs font-semibold tabular-nums text-gray-900">
+                    {quantity} {unitLabel(product.unit)}
+                  </span>
+                  <button
+                    onClick={increaseCart}
+                    disabled={atLimit}
+                    className={cn(
+                      'w-6 h-6 rounded-md flex items-center justify-center transition-colors active:scale-95',
+                      atLimit ? 'bg-gray-100 text-gray-300 cursor-not-allowed' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                    )}
+                    title="Aumentar cantidad"
+                  >
+                    <Plus className="h-3 w-3" />
+                  </button>
+                  <button
+                    onClick={() => handleQuantityChange(product.id, 0)}
+                    className="w-6 h-6 rounded-md flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors ml-0.5"
+                    title="Eliminar del pedido"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
-              <button
-                onClick={() => handleQuantityChange(product.id, 0)}
-                className="text-gray-700 hover:text-red-500 transition-colors shrink-0"
-                title="Eliminar del pedido"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
