@@ -3,6 +3,12 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
+function computePrice(costPrice: number, margin: number, priceOverride: number, priceManual: number): number {
+  if (priceOverride > 0) return priceOverride
+  if (costPrice > 0) return costPrice * (1 + margin)
+  return priceManual
+}
+
 async function syncProductCategories(sb: any, productId: string, categoryIds: string[]) {
   await sb.from('product_category_links').delete().eq('product_id', productId)
   if (categoryIds.length > 0) {
@@ -28,10 +34,7 @@ export async function createProduct(formData: FormData) {
   const iva_rate   = Number(formData.get('iva_rate'))   || 0.10
   const price_override = Number(formData.get('price_override')) || 0
   const price_manual   = Number(formData.get('price')) || 0
-  // price sin IVA: prefer calculator override, else manual, else cost+margin
-  const price = price_override > 0 ? price_override
-    : cost_price > 0 ? cost_price * (1 + margin)
-    : price_manual
+  const price = computePrice(cost_price, margin, price_override, price_manual)
 
   const { data: product, error } = await sb.from('products').insert({
     name, price, unit,
@@ -75,9 +78,7 @@ export async function updateProduct(productId: string, formData: FormData) {
   const iva_rate   = Number(formData.get('iva_rate'))   || 0.10
   const price_override = Number(formData.get('price_override')) || 0
   const price_manual   = Number(formData.get('price')) || 0
-  const price = price_override > 0 ? price_override
-    : cost_price > 0 ? cost_price * (1 + margin)
-    : price_manual
+  const price = computePrice(cost_price, margin, price_override, price_manual)
 
   const updates: Record<string, unknown> = {
     name, price, unit,

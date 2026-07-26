@@ -41,16 +41,10 @@ export async function upsertInventory(
 
   // Log snapshot for history (graceful — table may not exist yet)
   try {
-    const { data: product } = await sb
-      .from('products')
-      .select('name, unit')
-      .eq('id', productId)
-      .single()
-    const { data: org } = await sb
-      .from('organizations')
-      .select('name')
-      .eq('id', organizationId)
-      .single()
+    const [{ data: product }, { data: org }] = await Promise.all([
+      sb.from('products').select('name, unit').eq('id', productId).single(),
+      sb.from('organizations').select('name').eq('id', organizationId).single(),
+    ])
     if (product && org) {
       await sb.from('inventory_log').insert({
         product_id: productId,

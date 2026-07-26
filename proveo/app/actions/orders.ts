@@ -11,8 +11,12 @@ export async function updateOrderStatus(orderId: string, newStatus: OrderStatus)
   const supabase = await createClient()
   const sb = supabase as any
 
-  const { data: current } = await sb.from('orders').select('status').eq('id', orderId).single()
-  const wasAlreadyCancelled = current?.status === 'cancelado'
+  // Only fetch current status when cancelling (to avoid double-restocking stock)
+  let wasAlreadyCancelled = false
+  if (newStatus === 'cancelado') {
+    const { data: current } = await sb.from('orders').select('status').eq('id', orderId).single()
+    wasAlreadyCancelled = current?.status === 'cancelado'
+  }
 
   const { error } = await sb
     .from('orders')
@@ -103,24 +107,32 @@ export async function rectifyOrderItem(orderItemId: string, newQuantity: number,
   if (!item) return
 
   const total_price = newQuantity * Number(item.unit_price)
-  const { error } = await sb.from('order_items')
-    .update({ rectified_quantity: newQuantity, total_price, rectification_note: note || null })
-    .eq('id', orderItemId)
+
+  // Update item and look up delivery note in parallel (independent operations)
+  const [{ error }, { data: deliveryNote }] = await Promise.all([
+    sb.from('order_items')
+      .update({ rectified_quantity: newQuantity, total_price, rectification_note: note || null })
+      .eq('id', orderItemId),
+    sb.from('delivery_notes').select('id').eq('order_id', item.order_id).maybeSingle(),
+  ])
   if (error) throw new Error(error.message)
 
+  // Recalculate order total after the item update has committed
   const { data: items } = await sb.from('order_items').select('quantity, rectified_quantity, unit_price').eq('order_id', item.order_id)
   const orderTotal = (items ?? []).reduce(
     (s: number, it: any) => s + Number(it.rectified_quantity ?? it.quantity) * Number(it.unit_price), 0
   )
-  await sb.from('orders').update({ total_price: orderTotal }).eq('id', item.order_id)
 
-  const { data: deliveryNote } = await sb.from('delivery_notes').select('id').eq('order_id', item.order_id).maybeSingle()
-  if (deliveryNote) {
-    await sb.from('delivery_note_items')
-      .update({ delivered_quantity: newQuantity, total_price, note: note || null })
-      .eq('delivery_note_id', deliveryNote.id)
-      .eq('product_id', item.product_id)
-  }
+  // Write order total and delivery note item in parallel
+  await Promise.all([
+    sb.from('orders').update({ total_price: orderTotal }).eq('id', item.order_id),
+    deliveryNote
+      ? sb.from('delivery_note_items')
+          .update({ delivered_quantity: newQuantity, total_price, note: note || null })
+          .eq('delivery_note_id', deliveryNote.id)
+          .eq('product_id', item.product_id)
+      : Promise.resolve(),
+  ])
 
   revalidatePath('/pedidos')
   // Rectificar/cancelar suele pasar antes de generar el albarán; solo
@@ -141,8 +153,12 @@ export async function setItemPrepared(orderItemId: string, prepared: boolean) {
 export async function setItemLot(orderItemId: string, lotNumber: string) {
   const supabase = await createClient()
   const sb = supabase as any
-  const { data: item } = await sb.from('order_items').select('order_id, product_id').eq('id', orderItemId).single()
-  const { error } = await sb.from('order_items').update({ lot_number: lotNumber || null }).eq('id', orderItemId)
+
+  // Select and update are independent — run in parallel
+  const [{ data: item }, { error }] = await Promise.all([
+    sb.from('order_items').select('order_id, product_id').eq('id', orderItemId).single(),
+    sb.from('order_items').update({ lot_number: lotNumber || null }).eq('id', orderItemId),
+  ])
   if (error) throw new Error(error.message)
 
   let touchedDeliveryNote = false
@@ -170,8 +186,12 @@ export async function setItemLot(orderItemId: string, lotNumber: string) {
 export async function setItemWeight(orderItemId: string, weight: number | null) {
   const supabase = await createClient()
   const sb = supabase as any
-  const { data: item } = await sb.from('order_items').select('order_id, product_id').eq('id', orderItemId).single()
-  const { error } = await sb.from('order_items').update({ actual_weight: weight }).eq('id', orderItemId)
+
+  // Select and update are independent — run in parallel
+  const [{ data: item }, { error }] = await Promise.all([
+    sb.from('order_items').select('order_id, product_id').eq('id', orderItemId).single(),
+    sb.from('order_items').update({ actual_weight: weight }).eq('id', orderItemId),
+  ])
   if (error) throw new Error(error.message)
 
   let touchedDeliveryNote = false
@@ -227,14 +247,21 @@ export async function deleteOrder(orderId: string) {
   const supabase = await createClient()
   const sb = supabase as any
 
-  // Remove linked delivery notes first
   const { data: notes } = await sb.from('delivery_notes').select('id').eq('order_id', orderId)
-  if (notes?.length) {
-    await sb.from('delivery_note_items').delete().in('delivery_note_id', notes.map((n: any) => n.id))
-    await sb.from('delivery_notes').delete().eq('order_id', orderId)
-  }
-  await sb.from('order_items').delete().eq('order_id', orderId)
-  await sb.from('orders').delete().eq('id', orderId)
+
+  // Delete child rows in parallel, then delete parents in parallel
+  await Promise.all([
+    notes?.length
+      ? sb.from('delivery_note_items').delete().in('delivery_note_id', notes.map((n: any) => n.id))
+      : Promise.resolve(),
+    sb.from('order_items').delete().eq('order_id', orderId),
+  ])
+  await Promise.all([
+    notes?.length
+      ? sb.from('delivery_notes').delete().eq('order_id', orderId)
+      : Promise.resolve(),
+    sb.from('orders').delete().eq('id', orderId),
+  ])
 
   revalidatePath('/pedidos')
   revalidatePath('/albaranes')

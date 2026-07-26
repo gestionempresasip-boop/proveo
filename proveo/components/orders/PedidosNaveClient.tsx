@@ -659,11 +659,14 @@ export function PedidosNaveClient({ orders: initialOrders, restaurants }: { orde
   const todayOrders = dateFilter === 'hoy' ? filtered.filter(o => isToday(new Date(o.created_at))) : filtered
   const pastPending = dateFilter === 'hoy' ? filtered.filter(o => !isToday(new Date(o.created_at))) : []
 
-  const counts = {
-    pendiente: orders.filter(o => normalizeStatus(o.status) === 'pendiente').length,
-    hecho:     orders.filter(o => normalizeStatus(o.status) === 'hecho').length,
-    enviado:   orders.filter(o => normalizeStatus(o.status) === 'enviado').length,
-  }
+  const counts = useMemo(() => {
+    const acc = { pendiente: 0, hecho: 0, enviado: 0 }
+    for (const o of orders) {
+      const s = normalizeStatus(o.status)
+      if (s in acc) acc[s as keyof typeof acc]++
+    }
+    return acc
+  }, [orders])
 
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-5">
