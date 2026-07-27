@@ -335,10 +335,20 @@ function EditModal({
 }) {
   const [pending, startTransition] = useTransition()
   const [done, setDone] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
-    startTransition(async () => { await updateProduct(product.id, fd); setDone(true); setTimeout(onClose, 600) })
+    setSaveError(null)
+    startTransition(async () => {
+      try {
+        await updateProduct(product.id, fd)
+        setDone(true)
+        setTimeout(onClose, 600)
+      } catch (err: any) {
+        setSaveError(err?.message ?? 'No se pudo guardar el producto')
+      }
+    })
   }
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 overflow-y-auto">
@@ -357,6 +367,9 @@ function EditModal({
             />
           )}
           <ProductFields product={product} categories={categories} isNave={isNave} />
+          {saveError && (
+            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{saveError}</p>
+          )}
           <div className="flex gap-2">
             <button type="button" onClick={onClose} className="flex-1 border border-gray-200 text-gray-600 rounded-lg py-2 text-sm font-medium hover:bg-gray-50">Cancelar</button>
             <button type="submit" disabled={pending || done} className="flex-1 bg-[#1E2B28] text-white rounded-lg py-2 text-sm font-medium hover:bg-[#141F1C] disabled:opacity-60">
