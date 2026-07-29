@@ -107,6 +107,10 @@ export async function rectifyOrderItem(orderItemId: string, newQuantity: number,
   if (!item) return
 
   const total_price = newQuantity * Number(item.unit_price)
+  // Lo que estaba reservado antes de esta rectificación
+  const prevReserved = Number(item.rectified_quantity ?? item.quantity)
+  // Diferencia a devolver al stock: positivo = vuelve a nave, negativo = sale más
+  const stockDelta = prevReserved - newQuantity
 
   // Update item and look up delivery note in parallel (independent operations)
   const [{ error }, { data: deliveryNote }] = await Promise.all([
@@ -123,7 +127,7 @@ export async function rectifyOrderItem(orderItemId: string, newQuantity: number,
     (s: number, it: any) => s + Number(it.rectified_quantity ?? it.quantity) * Number(it.unit_price), 0
   )
 
-  // Write order total and delivery note item in parallel
+  // Write order total, sync delivery note, and adjust stock — all in parallel
   await Promise.all([
     sb.from('orders').update({ total_price: orderTotal }).eq('id', item.order_id),
     deliveryNote
@@ -132,11 +136,12 @@ export async function rectifyOrderItem(orderItemId: string, newQuantity: number,
           .eq('delivery_note_id', deliveryNote.id)
           .eq('product_id', item.product_id)
       : Promise.resolve(),
+    stockDelta !== 0
+      ? sb.rpc('adjust_nave_stock', { p_product_id: item.product_id, p_delta: stockDelta })
+      : Promise.resolve(),
   ])
 
   revalidatePath('/pedidos')
-  // Rectificar/cancelar suele pasar antes de generar el albarán; solo
-  // revalidamos /albaranes cuando de verdad existe uno que mantener al día.
   if (deliveryNote) revalidatePath('/albaranes')
 }
 
