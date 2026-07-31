@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { ProductCard } from '@/components/products/ProductCard'
+import { ProductRow } from '@/components/products/ProductRow'
 import { Badge } from '@/components/ui/badge'
 import { ShoppingCart, Loader2, Check, X, ChevronUp, ChevronDown, Search, Star, Plus, Minus, ArrowUp } from 'lucide-react'
 import type { Product, ProductCategory } from '@/types/database'
@@ -656,32 +657,67 @@ export function CatalogoClient({
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
-                {filteredProducts.map(product => {
-                  const cat = (product as any).product_categories
-                  return (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    quantity={cart[product.id] ?? 0}
-                    onQuantityChange={handleQuantityChange}
-                    categoryColor={cat?.color}
-                    categoryName={cat?.name}
-                    maxStock={(() => {
-                      if (!(product.id in stockMap)) return undefined
-                      const mode = cartModes[product.id] ?? 'unidad'
-                      const boxUnits = (product as any).box_units as number ?? 1
-                      return mode === 'cajon' ? Math.floor(stockMap[product.id] / boxUnits) : stockMap[product.id]
-                    })()}
-                    justRestocked={restockedMap[product.id]}
-                    isFavorite={favoriteIds.has(product.id)}
-                    onToggleFavorite={toggleFavorite}
-                    boxMode={cartModes[product.id] ?? 'unidad'}
-                    onBoxModeChange={handleBoxModeChange}
-                  />
-                  )
-                })}
-              </div>
+              <>
+                {/* ── Mobile / tablet: compact list ──────────────────────── */}
+                <div className="lg:hidden bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                  {filteredProducts.map(product => {
+                    const cat = (product as any).product_categories
+                    const mode = cartModes[product.id] ?? 'unidad'
+                    const boxUnits = (product as any).box_units as number ?? 1
+                    const maxStock = !(product.id in stockMap)
+                      ? undefined
+                      : mode === 'cajon'
+                        ? Math.floor(stockMap[product.id] / boxUnits)
+                        : stockMap[product.id]
+                    return (
+                      <ProductRow
+                        key={product.id}
+                        product={product}
+                        quantity={cart[product.id] ?? 0}
+                        onQuantityChange={handleQuantityChange}
+                        categoryColor={cat?.color}
+                        categoryName={cat?.name}
+                        maxStock={maxStock}
+                        justRestocked={restockedMap[product.id]}
+                        isFavorite={favoriteIds.has(product.id)}
+                        onToggleFavorite={toggleFavorite}
+                        boxMode={mode}
+                        onBoxModeChange={handleBoxModeChange}
+                      />
+                    )
+                  })}
+                </div>
+
+                {/* ── Desktop: card grid ─────────────────────────────────── */}
+                <div className="hidden lg:grid grid-cols-3 xl:grid-cols-4 gap-4">
+                  {filteredProducts.map(product => {
+                    const cat = (product as any).product_categories
+                    const mode = cartModes[product.id] ?? 'unidad'
+                    const boxUnits = (product as any).box_units as number ?? 1
+                    const maxStock = !(product.id in stockMap)
+                      ? undefined
+                      : mode === 'cajon'
+                        ? Math.floor(stockMap[product.id] / boxUnits)
+                        : stockMap[product.id]
+                    return (
+                      <ProductCard
+                        key={product.id}
+                        product={product}
+                        quantity={cart[product.id] ?? 0}
+                        onQuantityChange={handleQuantityChange}
+                        categoryColor={cat?.color}
+                        categoryName={cat?.name}
+                        maxStock={maxStock}
+                        justRestocked={restockedMap[product.id]}
+                        isFavorite={favoriteIds.has(product.id)}
+                        onToggleFavorite={toggleFavorite}
+                        boxMode={mode}
+                        onBoxModeChange={handleBoxModeChange}
+                      />
+                    )
+                  })}
+                </div>
+              </>
             )}
           </div>
 
