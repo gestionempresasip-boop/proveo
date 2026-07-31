@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useMemo } from 'react'
 import Link from 'next/link'
-import { updateOrderStatus, generateDeliveryNote, deleteOrder, rectifyOrderItem, cancelOrderItem, setItemPrepared, setItemLot, setItemWeight } from '@/app/actions/orders'
+import { updateOrderStatus, generateDeliveryNote, deleteOrder, rectifyOrderItem, cancelOrderItem, setItemPrepared, setItemLot, setItemWeight, setItemBoxExactUnits } from '@/app/actions/orders'
 import type { OrderStatus } from '@/app/actions/orders'
 import { unitLabel } from '@/lib/units'
 import {
@@ -44,6 +44,10 @@ type OrderItem = {
   rectification_note?: string | null
   prepared?: boolean; lot_number?: string | null; actual_weight?: number | null
   unit: string; unit_price: number; total_price: number; products: { name: string } | null
+  order_mode?: 'unidad' | 'cajon' | null
+  box_count?: number | null
+  box_approximate_units?: number | null
+  box_exact_units?: number | null
 }
 type ReturnItem = { product_id: string; delivered_quantity: number; return_reason: 'reutilizable' | 'no_utilizable' | null; products: { name: string } | null }
 type DeliveryNote = { id: string; note_number: number; type?: 'entrega' | 'devolucion'; delivery_note_items?: ReturnItem[] }
@@ -66,7 +70,7 @@ type Restaurant = { id: string; name: string }
 // ── Línea de pedido rectificable ──────────────────────────────────────────────
 
 function ItemRow({
-  item, onRectified, onCanceled, onPreparedChange, onLotChange, onWeightChange,
+  item, onRectified, onCanceled, onPreparedChange, onLotChange, onWeightChange, onBoxExactUnitsChange,
 }: {
   item: OrderItem
   onRectified: (itemId: string, qty: number, note?: string) => void
@@ -74,14 +78,19 @@ function ItemRow({
   onPreparedChange: (itemId: string, prepared: boolean) => void
   onLotChange: (itemId: string, lot: string) => void
   onWeightChange: (itemId: string, weight: number | null) => void
+  onBoxExactUnitsChange: (itemId: string, exactUnits: number) => void
 }) {
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState(String(item.rectified_quantity ?? item.quantity))
   const [note, setNote] = useState(item.rectification_note ?? '')
   const [lot, setLot] = useState(item.lot_number ?? '')
   const [weight, setWeight] = useState(item.actual_weight != null ? String(item.actual_weight) : '')
+  const [boxExact, setBoxExact] = useState(item.box_exact_units != null ? String(item.box_exact_units) : '')
   const [syncError, setSyncError] = useState<string | null>(null)
+  const [boxSyncError, setBoxSyncError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
+
+  const isCajon = item.order_mode === 'cajon'
   const isCanceled = item.rectified_quantity != null && Number(item.rectified_quantity) === 0
   const isRectified = item.rectified_quantity != null && Number(item.rectified_quantity) !== Number(item.quantity)
 
@@ -129,6 +138,22 @@ function ItemRow({
       onWeightChange(item.id, previousNum)
       setSyncError('No se pudo guardar el peso, inténtalo de nuevo')
       setTimeout(() => setSyncError(null), 3000)
+    }
+  }
+
+  async function saveBoxExactUnits() {
+    const parsed = parseInt(boxExact.trim(), 10)
+    if (isNaN(parsed) || parsed <= 0) return
+    const prev = item.box_exact_units
+    if (parsed === prev) return
+    onBoxExactUnitsChange(item.id, parsed)
+    try {
+      await setItemBoxExactUnits(item.id, parsed)
+    } catch {
+      setBoxExact(prev != null ? String(prev) : '')
+      onBoxExactUnitsChange(item.id, prev ?? 0)
+      setBoxSyncError('No se pudo guardar las unidades exactas, inténtalo de nuevo')
+      setTimeout(() => setBoxSyncError(null), 3000)
     }
   }
 
@@ -227,16 +252,27 @@ function ItemRow({
           </span>
         </label>
         <div className="flex items-center gap-1.5 shrink-0">
-          {isRectified ? (
+          {isCajon ? (
+            <span className="text-blue-800 text-[11px]">
+              {item.box_count} cajón{(item.box_count ?? 1) !== 1 ? 'es' : ''}
+              {' '}
+              {item.box_exact_units != null
+                ? <span className="font-semibold">· {item.box_exact_units} und/caj.</span>
+                : <span className="text-gray-500">≈{item.box_approximate_units} und/caj.</span>
+              }
+            </span>
+          ) : isRectified ? (
             <span className="text-amber-700">
               <span className="line-through text-gray-600">{item.quantity}</span> → <span className="font-semibold">{item.rectified_quantity} {unitLabel(item.unit)}</span>
             </span>
           ) : (
             <span className="text-gray-700">{item.quantity} {unitLabel(item.unit)}</span>
           )}
-          <button onClick={() => setEditing(true)} title="Rectificar cantidad" className="p-1 rounded text-gray-600 hover:text-amber-600 hover:bg-amber-50">
-            <Pencil className="w-3 h-3" />
-          </button>
+          {!isCajon && (
+            <button onClick={() => setEditing(true)} title="Rectificar cantidad" className="p-1 rounded text-gray-600 hover:text-amber-600 hover:bg-amber-50">
+              <Pencil className="w-3 h-3" />
+            </button>
+          )}
         </div>
       </div>
       <div className="flex items-center gap-1.5 pl-6">
@@ -264,6 +300,29 @@ function ItemRow({
         />
         <span className="text-gray-600 shrink-0">kg</span>
       </div>
+      {isCajon && (
+        <div className="flex items-center gap-1.5 pl-6 bg-blue-50 rounded-lg py-1.5 px-2 -mx-0 mt-0.5">
+          <span className="text-blue-800 shrink-0 text-[11px] font-medium">
+            Unidades exactas/cajón:
+          </span>
+          <input
+            type="number" step="1" min="1"
+            value={boxExact}
+            onChange={e => setBoxExact(e.target.value)}
+            onBlur={saveBoxExactUnits}
+            onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+            placeholder={String(item.box_approximate_units ?? '≈')}
+            className="flex-1 min-w-0 bg-white border border-blue-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400"
+          />
+          <span className="text-blue-700 shrink-0 text-[11px]">und</span>
+          {item.box_count != null && boxExact && !isNaN(parseInt(boxExact)) && (
+            <span className="text-blue-600 shrink-0 text-[11px]">
+              = {item.box_count * parseInt(boxExact)} tot.
+            </span>
+          )}
+        </div>
+      )}
+      {boxSyncError && <p className="text-red-600 pl-6 text-[11px]">{boxSyncError}</p>}
       {syncError && <p className="text-red-600 pl-6">{syncError}</p>}
     </div>
   )
@@ -482,7 +541,7 @@ function OrderActions({ order, onDeleted, onStatusChange }: { order: Order; onDe
 // ── Order card ───────────────────────────────────────────────────────────────
 
 function OrderCard({
-  order, onDeleted, onStatusChange, onRectified, onItemCanceled, onPreparedChange, onLotChange, onWeightChange,
+  order, onDeleted, onStatusChange, onRectified, onItemCanceled, onPreparedChange, onLotChange, onWeightChange, onBoxExactUnitsChange,
 }: {
   order: Order; onDeleted: (id: string) => void
   onStatusChange: (id: string, status: OrderStatus) => void
@@ -491,6 +550,7 @@ function OrderCard({
   onPreparedChange: (orderId: string, itemId: string, prepared: boolean) => void
   onLotChange: (orderId: string, itemId: string, lot: string) => void
   onWeightChange: (orderId: string, itemId: string, weight: number | null) => void
+  onBoxExactUnitsChange: (orderId: string, itemId: string, exactUnits: number) => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const status = normalizeStatus(order.status)
@@ -550,6 +610,7 @@ function OrderCard({
                 onPreparedChange={(itemId, prepared) => onPreparedChange(order.id, itemId, prepared)}
                 onLotChange={(itemId, lot) => onLotChange(order.id, itemId, lot)}
                 onWeightChange={(itemId, weight) => onWeightChange(order.id, itemId, weight)}
+                onBoxExactUnitsChange={(itemId, exactUnits) => onBoxExactUnitsChange(order.id, itemId, exactUnits)}
               />
             ))}
           </div>
@@ -616,6 +677,15 @@ export function PedidosNaveClient({ orders: initialOrders, restaurants }: { orde
   function handleWeightChange(orderId: string, itemId: string, weight: number | null) {
     setOrders(prev => prev.map(o => o.id !== orderId ? o : {
       ...o, order_items: o.order_items.map(it => it.id === itemId ? { ...it, actual_weight: weight } : it),
+    }))
+  }
+  function handleBoxExactUnitsChange(orderId: string, itemId: string, exactUnits: number) {
+    setOrders(prev => prev.map(o => o.id !== orderId ? o : {
+      ...o, order_items: o.order_items.map(it => {
+        if (it.id !== itemId) return it
+        const boxCount = it.box_count ?? 1
+        return { ...it, box_exact_units: exactUnits, rectified_quantity: boxCount * exactUnits }
+      }),
     }))
   }
   const [dateFrom, setDateFrom] = useState('')
@@ -769,7 +839,7 @@ export function PedidosNaveClient({ orders: initialOrders, restaurants }: { orde
             Pendientes de días anteriores ({pastPending.length})
           </h2>
           <div className="space-y-3">
-            {pastPending.map(o => <OrderCard key={o.id} order={o} onDeleted={handleDeleted} onStatusChange={handleStatusChange} onRectified={handleRectified} onItemCanceled={handleItemCanceled} onPreparedChange={handlePreparedChange} onLotChange={handleLotChange} onWeightChange={handleWeightChange} />)}
+            {pastPending.map(o => <OrderCard key={o.id} order={o} onDeleted={handleDeleted} onStatusChange={handleStatusChange} onRectified={handleRectified} onItemCanceled={handleItemCanceled} onPreparedChange={handlePreparedChange} onLotChange={handleLotChange} onWeightChange={handleWeightChange} onBoxExactUnitsChange={handleBoxExactUnitsChange} />)}
           </div>
         </section>
       )}
@@ -790,7 +860,7 @@ export function PedidosNaveClient({ orders: initialOrders, restaurants }: { orde
           </div>
         ) : (
           <div className="space-y-3">
-            {todayOrders.map(o => <OrderCard key={o.id} order={o} onDeleted={handleDeleted} onStatusChange={handleStatusChange} onRectified={handleRectified} onItemCanceled={handleItemCanceled} onPreparedChange={handlePreparedChange} onLotChange={handleLotChange} onWeightChange={handleWeightChange} />)}
+            {todayOrders.map(o => <OrderCard key={o.id} order={o} onDeleted={handleDeleted} onStatusChange={handleStatusChange} onRectified={handleRectified} onItemCanceled={handleItemCanceled} onPreparedChange={handlePreparedChange} onLotChange={handleLotChange} onWeightChange={handleWeightChange} onBoxExactUnitsChange={handleBoxExactUnitsChange} />)}
           </div>
         )}
       </section>

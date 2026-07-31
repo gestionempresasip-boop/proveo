@@ -72,6 +72,7 @@ export function CatalogoClient({
   const products = initialProducts
   const categories = initialCategories
   const [cart, setCart] = useState<Record<string, number>>({})
+  const [cartModes, setCartModes] = useState<Record<string, 'unidad' | 'cajon'>>({})
   const [selectedCategory, setSelectedCategory] = useState<string>('todos')
   const [searchQuery, setSearchQuery] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -140,6 +141,11 @@ export function CatalogoClient({
     })
   }, [])
 
+  const handleBoxModeChange = useCallback((productId: string, mode: 'unidad' | 'cajon') => {
+    setCartModes(prev => ({ ...prev, [productId]: mode }))
+    setCart(prev => { const next = { ...prev }; delete next[productId]; return next })
+  }, [])
+
   // useCallback: referencia estable para que React.memo de ProductCard no se
   // rompa y las tarjetas no se re-rendericen en cada cambio del carrito.
   const toggleFavorite = useCallback(async (productId: string, next: boolean) => {
@@ -168,8 +174,13 @@ export function CatalogoClient({
   )
 
   const cartTotal = useMemo(
-    () => cartItems.reduce((sum, item) => sum + item.quantity * priceWithIva(item.product), 0),
-    [cartItems]
+    () => cartItems.reduce((sum, item) => {
+      const mode = cartModes[item.product.id] ?? 'unidad'
+      const boxUnits = (item.product as any).box_units as number ?? 1
+      const units = mode === 'cajon' ? item.quantity * boxUnits : item.quantity
+      return sum + units * priceWithIva(item.product)
+    }, 0),
+    [cartItems, cartModes]
   )
   const cartCount = cartItems.length
 
@@ -217,11 +228,21 @@ export function CatalogoClient({
       freshStock = Object.fromEntries((fresh ?? []).map((r: any) => [r.product_id, Number(r.current_stock)]))
       setStockMap(prev => ({ ...prev, ...freshStock }))
     }
-    const overStock = cartItems.find(item => item.product.id in freshStock && item.quantity > freshStock[item.product.id])
+    const overStock = cartItems.find(item => {
+      if (!(item.product.id in freshStock)) return false
+      const mode = cartModes[item.product.id] ?? 'unidad'
+      const boxUnits = (item.product as any).box_units as number ?? 1
+      const totalUnits = mode === 'cajon' ? item.quantity * boxUnits : item.quantity
+      return totalUnits > freshStock[item.product.id]
+    })
     if (overStock) {
-      const left = freshStock[overStock.product.id]
-      setStockError(`No queda suficiente stock de "${overStock.product.name}" (quedan ${left} ${overStock.product.unit})`)
-      handleQuantityChange(overStock.product.id, Math.max(0, left))
+      const mode = cartModes[overStock.product.id] ?? 'unidad'
+      const boxUnits = (overStock.product as any).box_units as number ?? 1
+      const leftUnits = freshStock[overStock.product.id]
+      const leftDisplay = mode === 'cajon' ? Math.floor(leftUnits / boxUnits) : leftUnits
+      const unitDisplay = mode === 'cajon' ? 'cajón' : overStock.product.unit
+      setStockError(`No queda suficiente stock de "${overStock.product.name}" (quedan ${leftDisplay} ${unitDisplay})`)
+      handleQuantityChange(overStock.product.id, Math.max(0, leftDisplay))
       return
     }
     setStockError(null)
@@ -233,17 +254,31 @@ export function CatalogoClient({
     if (error || !order) { setSubmitting(false); return }
     await sb.from('order_items').insert(
       cartItems.map((item: CartItem) => {
+        const mode = cartModes[item.product.id] ?? 'unidad'
+        const boxUnits = (item.product as any).box_units as number ?? 1
+        const totalUnits = mode === 'cajon' ? item.quantity * boxUnits : item.quantity
         const unitPrice = priceWithIva(item.product)
         return {
-          order_id: order.id, product_id: item.product.id, quantity: item.quantity,
-          unit: item.product.unit, unit_price: unitPrice,
-          total_price: item.quantity * unitPrice,
+          order_id: order.id,
+          product_id: item.product.id,
+          quantity: totalUnits,
+          unit: item.product.unit,
+          unit_price: unitPrice,
+          total_price: totalUnits * unitPrice,
+          order_mode: mode,
+          box_count: mode === 'cajon' ? item.quantity : null,
+          box_approximate_units: mode === 'cajon' ? boxUnits : null,
         }
       })
     )
     // Descontar del stock de la nave (atómico, seguro ante pedidos simultáneos)
     await Promise.all(
-      cartItems.map(item => sb.rpc('adjust_nave_stock', { p_product_id: item.product.id, p_delta: -item.quantity }))
+      cartItems.map(item => {
+        const mode = cartModes[item.product.id] ?? 'unidad'
+        const boxUnits = (item.product as any).box_units as number ?? 1
+        const totalUnits = mode === 'cajon' ? item.quantity * boxUnits : item.quantity
+        return sb.rpc('adjust_nave_stock', { p_product_id: item.product.id, p_delta: -totalUnits })
+      })
     )
     setSubmitted(true); setCart({}); setCartOpen(false); setDestination('')
     setTimeout(() => router.push('/pedidos'), 2000)
@@ -271,9 +306,13 @@ export function CatalogoClient({
       ) : (
         <div className="space-y-3">
           {cartItems.map(({ product, quantity }) => {
-            const max = product.id in stockMap ? stockMap[product.id] : undefined
-            const increment = Number(product.order_increment) || 1
-            const minQty = Number(product.min_order_quantity) || 1
+            const mode = cartModes[product.id] ?? 'unidad'
+            const boxUnits = (product as any).box_units as number ?? 1
+            const isBox = mode === 'cajon'
+            const stockInUnits = product.id in stockMap ? stockMap[product.id] : undefined
+            const max = stockInUnits !== undefined ? (isBox ? Math.floor(stockInUnits / boxUnits) : stockInUnits) : undefined
+            const increment = isBox ? 1 : (Number(product.order_increment) || 1)
+            const minQty    = isBox ? 1 : (Number(product.min_order_quantity) || 1)
             const atLimit = max !== undefined && quantity >= max
             function increaseCart() {
               const next = quantity + increment
@@ -288,6 +327,7 @@ export function CatalogoClient({
               <div key={product.id} className="flex items-center gap-2 text-sm">
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-black leading-tight text-xs">{product.name}</p>
+                  {isBox && <p className="text-[10px] text-gray-500">≈ {quantity * boxUnits} unidades</p>}
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <button
@@ -298,7 +338,7 @@ export function CatalogoClient({
                     <Minus className="h-3 w-3 text-gray-700" />
                   </button>
                   <span className="w-14 text-center text-xs font-semibold tabular-nums text-gray-900">
-                    {quantity} {unitLabel(product.unit)}
+                    {isBox ? `${quantity} caj.` : `${quantity} ${unitLabel(product.unit)}`}
                   </span>
                   <button
                     onClick={increaseCart}
@@ -627,10 +667,17 @@ export function CatalogoClient({
                     onQuantityChange={handleQuantityChange}
                     categoryColor={cat?.color}
                     categoryName={cat?.name}
-                    maxStock={product.id in stockMap ? stockMap[product.id] : undefined}
+                    maxStock={(() => {
+                      if (!(product.id in stockMap)) return undefined
+                      const mode = cartModes[product.id] ?? 'unidad'
+                      const boxUnits = (product as any).box_units as number ?? 1
+                      return mode === 'cajon' ? Math.floor(stockMap[product.id] / boxUnits) : stockMap[product.id]
+                    })()}
                     justRestocked={restockedMap[product.id]}
                     isFavorite={favoriteIds.has(product.id)}
                     onToggleFavorite={toggleFavorite}
+                    boxMode={cartModes[product.id] ?? 'unidad'}
+                    onBoxModeChange={handleBoxModeChange}
                   />
                   )
                 })}

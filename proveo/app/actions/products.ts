@@ -36,6 +36,9 @@ export async function createProduct(formData: FormData) {
   const price_manual   = Number(formData.get('price')) || 0
   const price = computePrice(cost_price, margin, price_override, price_manual)
 
+  const allows_box_order = formData.get('allows_box_order') === 'true'
+  const box_units = Number(formData.get('box_units')) || null
+
   const { data: product, error } = await sb.from('products').insert({
     name, price, unit,
     category_id,
@@ -47,6 +50,8 @@ export async function createProduct(formData: FormData) {
     is_active: true,
     visibility: 'todos',
     pending_review: !(cost_price > 0 && margin > 0),
+    allows_box_order,
+    box_units: allows_box_order ? box_units : null,
   }).select().single()
 
   if (error) throw new Error(error.message)
@@ -80,6 +85,9 @@ export async function updateProduct(productId: string, formData: FormData) {
   const price_manual   = Number(formData.get('price')) || 0
   const price = computePrice(cost_price, margin, price_override, price_manual)
 
+  const allows_box_order = formData.get('allows_box_order') === 'true'
+  const box_units = Number(formData.get('box_units')) || null
+
   const updates: Record<string, unknown> = {
     name, price, unit,
     category_id,
@@ -90,6 +98,8 @@ export async function updateProduct(productId: string, formData: FormData) {
     cost_price: cost_price || null,
     margin: margin || null,
     iva_rate,
+    allows_box_order,
+    box_units: allows_box_order ? box_units : null,
   }
   // El estado "pendiente" se recalcula en cada edición de precio: si falta
   // coste o margen vuelve arriba, aunque el producto ya estuviera categorizado.

@@ -63,6 +63,8 @@ export interface ProductRow {
   visibility: ProductVisibility
   is_active: boolean
   created_at: string
+  allows_box_order: boolean
+  box_units: number | null
 }
 
 export interface OrderRow {
@@ -86,6 +88,10 @@ export interface OrderItemRow {
   unit_price: number
   total_price: number
   notes: string | null
+  order_mode: 'unidad' | 'cajon'
+  box_count: number | null
+  box_approximate_units: number | null
+  box_exact_units: number | null
 }
 
 export interface NaveInventoryRow {

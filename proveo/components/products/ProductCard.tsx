@@ -18,6 +18,9 @@ interface ProductCardProps {
   justRestocked?: boolean
   isFavorite?: boolean
   onToggleFavorite?: (productId: string, next: boolean) => void
+  /** Cajón mode */
+  boxMode?: 'unidad' | 'cajon'
+  onBoxModeChange?: (productId: string, mode: 'unidad' | 'cajon') => void
 }
 
 function placeholderStyle(color?: string | null): { background: string } {
@@ -27,14 +30,18 @@ function placeholderStyle(color?: string | null): { background: string } {
 
 export const ProductCard = memo(function ProductCard({
   product, quantity, onQuantityChange, categoryColor, categoryName, maxStock, justRestocked,
-  isFavorite, onToggleFavorite,
+  isFavorite, onToggleFavorite, boxMode, onBoxModeChange,
 }: ProductCardProps) {
+  const allowsBox = (product as any).allows_box_order as boolean | undefined
+  const boxUnits  = (product as any).box_units as number | null | undefined
+  const isBoxMode = allowsBox && boxMode === 'cajon'
+
   const hasQuantity = quantity > 0
-  const increment = Number(product.order_increment) || 1
-  const minQty = Number(product.min_order_quantity) || 1
-  const unit = unitLabel(product.unit)
-  const outOfStock = maxStock !== undefined && maxStock <= 0
-  const atStockLimit = maxStock !== undefined && quantity >= maxStock
+  const increment = isBoxMode ? 1 : (Number(product.order_increment) || 1)
+  const minQty    = isBoxMode ? 1 : (Number(product.min_order_quantity) || 1)
+  const unit      = isBoxMode ? 'cajón' : unitLabel(product.unit)
+  const outOfStock    = maxStock !== undefined && maxStock <= 0
+  const atStockLimit  = maxStock !== undefined && quantity >= maxStock
 
   const [inputValue, setInputValue] = useState(quantity > 0 ? String(quantity) : '')
 
@@ -115,7 +122,7 @@ export const ProductCard = memo(function ProductCard({
 
         {hasQuantity && (
           <div className="absolute top-2 right-2 bg-[#A8793A] text-white text-xs font-bold px-2 py-1 rounded-full shadow-sm">
-            {quantity} {unit}
+            {isBoxMode ? `${quantity} caj.` : `${quantity} ${unit}`}
           </div>
         )}
         {outOfStock && (
@@ -136,7 +143,30 @@ export const ProductCard = memo(function ProductCard({
           <p className="text-xs text-gray-600 mb-1 line-clamp-2">{product.description}</p>
         )}
         {!outOfStock && maxStock !== undefined && (
-          <p className="text-[10px] text-gray-600 mb-1">Quedan {maxStock} {unit}</p>
+          <p className="text-[10px] text-gray-600 mb-1">
+            Quedan {maxStock} {unit}{isBoxMode && boxUnits ? ` (≈${maxStock * boxUnits} und)` : ''}
+          </p>
+        )}
+        {/* Toggle cajón / unidad */}
+        {allowsBox && onBoxModeChange && (
+          <div className="flex gap-0.5 bg-gray-100 rounded-lg p-0.5 mb-2">
+            <button
+              onClick={() => { onBoxModeChange(product.id, 'unidad'); onQuantityChange(product.id, 0) }}
+              className={cn('flex-1 text-[10px] py-1 rounded-md font-semibold transition-colors',
+                !isBoxMode ? 'bg-white text-black shadow-sm' : 'text-gray-600 hover:text-gray-800'
+              )}
+            >
+              Unidad
+            </button>
+            <button
+              onClick={() => { onBoxModeChange(product.id, 'cajon'); onQuantityChange(product.id, 0) }}
+              className={cn('flex-1 text-[10px] py-1 rounded-md font-semibold transition-colors',
+                isBoxMode ? 'bg-white text-black shadow-sm' : 'text-gray-600 hover:text-gray-800'
+              )}
+            >
+              Cajón{boxUnits ? ` ≈${boxUnits}` : ''}
+            </button>
+          </div>
         )}
 
         {/* ── Quantity selector ───────────────────────────────────────── */}
@@ -157,8 +187,9 @@ export const ProductCard = memo(function ProductCard({
           <div className="flex-1 min-w-0 flex flex-col items-center">
             <input
               type="number"
-              inputMode="decimal"
+              inputMode={isBoxMode ? 'numeric' : 'decimal'}
               min="0"
+              step={isBoxMode ? '1' : undefined}
               value={inputValue}
               placeholder="—"
               disabled={outOfStock}
@@ -171,7 +202,9 @@ export const ProductCard = memo(function ProductCard({
               )}
             />
             {hasQuantity && (
-              <span className="text-[10px] text-gray-600 leading-none whitespace-nowrap">{unit}</span>
+              <span className="text-[10px] text-gray-600 leading-none whitespace-nowrap">
+                {unit}{isBoxMode && boxUnits ? ` ≈${quantity * boxUnits} und` : ''}
+              </span>
             )}
           </div>
 

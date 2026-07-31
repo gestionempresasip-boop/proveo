@@ -272,6 +272,56 @@ export async function deleteOrder(orderId: string) {
   revalidatePath('/albaranes')
 }
 
+// Cuando el repartidor anota las unidades exactas de un cajón, el stock se
+// ajusta: se descuenta (o repone) la diferencia respecto al aproximado que
+// ya se dedujo al hacer el pedido. Si ya había un valor exacto previo, la
+// corrección se calcula desde ese valor, no desde el aproximado.
+export async function setItemBoxExactUnits(orderItemId: string, exactUnitsPerBox: number) {
+  const supabase = await createClient()
+  const sb = supabase as any
+
+  const { data: item } = await sb.from('order_items').select('*').eq('id', orderItemId).single()
+  if (!item || item.order_mode !== 'cajon') return
+
+  const boxCount   = Number(item.box_count   ?? 1)
+  const approxPer  = Number(item.box_approximate_units ?? 0)
+  const approxTotal = boxCount * approxPer
+
+  const prevExactPer  = item.box_exact_units != null ? Number(item.box_exact_units) : null
+  const prevExactTotal = prevExactPer != null ? boxCount * prevExactPer : approxTotal
+
+  const newExactTotal = boxCount * exactUnitsPerBox
+  // delta negativo = deducir más stock; positivo = devolver stock
+  const stockDelta = prevExactTotal - newExactTotal
+
+  const newTotalPrice = newExactTotal * Number(item.unit_price)
+
+  const [{ error }, { data: deliveryNote }] = await Promise.all([
+    sb.from('order_items').update({
+      box_exact_units: exactUnitsPerBox,
+      rectified_quantity: newExactTotal,
+      total_price: newTotalPrice,
+    }).eq('id', orderItemId),
+    sb.from('delivery_notes').select('id').eq('order_id', item.order_id).maybeSingle(),
+  ])
+  if (error) throw new Error(error.message)
+
+  await Promise.all([
+    stockDelta !== 0
+      ? sb.rpc('adjust_nave_stock', { p_product_id: item.product_id, p_delta: stockDelta })
+      : Promise.resolve(),
+    deliveryNote
+      ? sb.from('delivery_note_items')
+          .update({ delivered_quantity: newExactTotal, total_price: newTotalPrice })
+          .eq('delivery_note_id', deliveryNote.id)
+          .eq('product_id', item.product_id)
+      : Promise.resolve(),
+  ])
+
+  revalidatePath('/pedidos')
+  if (deliveryNote) revalidatePath('/albaranes')
+}
+
 export async function deleteDeliveryNote(noteId: string) {
   const supabase = await createClient()
   const sb = supabase as any

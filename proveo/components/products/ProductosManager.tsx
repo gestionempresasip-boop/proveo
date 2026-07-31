@@ -28,6 +28,8 @@ type Product = {
   iva_rate?: number | null
   margin?: number | null
   pending_review?: boolean
+  allows_box_order?: boolean
+  box_units?: number | null
   product_categories: { name: string } | null
 }
 
@@ -251,6 +253,8 @@ function ProductFields({
   categories: Category[]
   isNave?: boolean
 }) {
+  const [allowsBox, setAllowsBox] = useState(product?.allows_box_order ?? false)
+
   return (
     <div className="space-y-3">
       <div>
@@ -322,6 +326,40 @@ function ProductFields({
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
         </div>
       </div>
+      {/* ── Cajón ──────────────────────────────────────────────────────── */}
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 space-y-2">
+        <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-blue-900">
+          <input
+            type="checkbox"
+            name="allows_box_order"
+            value="true"
+            checked={allowsBox}
+            onChange={e => setAllowsBox(e.target.checked)}
+            className="accent-[#1E2B28] w-4 h-4"
+          />
+          Se puede pedir también por cajón
+        </label>
+        {allowsBox && (
+          <div>
+            <label className="text-xs text-blue-800 font-medium block mb-1">
+              Unidades aproximadas por cajón *
+            </label>
+            <input
+              name="box_units"
+              type="number"
+              min="1"
+              step="1"
+              required={allowsBox}
+              defaultValue={product?.box_units ?? ''}
+              placeholder="Ej: 700"
+              className="w-full border border-blue-200 bg-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
+            />
+            <p className="text-xs text-blue-700 mt-1">
+              El restaurante pedirá cajones enteros. La nave ajustará las unidades exactas al preparar.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -391,6 +429,7 @@ function NuevoModal({
 }) {
   const [pending, startTransition] = useTransition()
   const [done, setDone] = useState(false)
+  const [allowsBox, setAllowsBox] = useState(false)
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
@@ -465,6 +504,39 @@ function NuevoModal({
                 <input name="order_increment" type="number" step="0.001" min="0" defaultValue="1"
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
               </div>
+            </div>
+            {/* ── Cajón ──────────────────────────────────────────────── */}
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 space-y-2">
+              <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-blue-900">
+                <input
+                  type="checkbox"
+                  name="allows_box_order"
+                  value="true"
+                  checked={allowsBox}
+                  onChange={e => setAllowsBox(e.target.checked)}
+                  className="accent-[#1E2B28] w-4 h-4"
+                />
+                Se puede pedir también por cajón
+              </label>
+              {allowsBox && (
+                <div>
+                  <label className="text-xs text-blue-800 font-medium block mb-1">
+                    Unidades aproximadas por cajón *
+                  </label>
+                  <input
+                    name="box_units"
+                    type="number"
+                    min="1"
+                    step="1"
+                    required
+                    placeholder="Ej: 700"
+                    className="w-full border border-blue-200 bg-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
+                  />
+                  <p className="text-xs text-blue-700 mt-1">
+                    El restaurante pedirá cajones enteros. La nave ajustará las unidades exactas al preparar.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
