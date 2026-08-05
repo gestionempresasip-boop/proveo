@@ -41,13 +41,21 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
   const supabase = createClient()
   const [refreshing, setRefreshing] = useState(false)
 
+  const isNave = profile.organizations.type === 'nave'
+
   const visible = navItems.filter(item => {
     if (item.roles && !item.roles.includes(profile.role)) return false
     if (item.orgTypes && !item.orgTypes.includes(profile.organizations.type)) return false
     return true
   })
 
-  const isNave = profile.organizations.type === 'nave'
+  // La nave tiene muchas más secciones y todas se usan a diario, así que el
+  // orden alfabético hace más rápido encontrarlas. Los restaurantes
+  // conservan el orden del flujo de trabajo (Pedido → Mis pedidos → ...).
+  if (isNave) {
+    visible.sort((a, b) => a.label.localeCompare(b.label, 'es'))
+  }
+
   const orgLabel = isNave ? 'Nave Obrador' : profile.organizations.name
   const orgLogo = ORG_LOGOS[profile.organizations.name]
 
