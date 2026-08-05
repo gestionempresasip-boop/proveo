@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 import type { ProfileWithOrg } from '@/types/database'
 import {
   ShoppingCart, Package, ClipboardList,
-  FileText, Settings, LogOut, ChefHat, RefreshCw, BarChart3, Boxes, Tag,
+  FileText, Settings, LogOut, ChefHat, RefreshCw, BarChart3, Boxes, Tag, Warehouse,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -28,6 +28,7 @@ const navItems: NavItem[] = [
   { href: '/pedidos',         label: 'Pedidos',     icon: ClipboardList, orgTypes: ['nave'] },
   { href: '/promociones',     label: 'Promociones', icon: Tag,           orgTypes: ['nave'] },
   { href: '/inventario',      label: 'Stock',       icon: Boxes,         orgTypes: ['nave'] },
+  { href: '/almacen',         label: 'Almacén',     icon: Warehouse,     orgTypes: ['nave'] },
   { href: '/albaranes',       label: 'Albaranes',   icon: FileText },
   { href: '/estadisticas',    label: 'Informes',    icon: BarChart3,     orgTypes: ['nave'] },
   { href: '/admin/productos', label: 'Productos',   icon: Package,       roles: ['admin', 'nave_manager'] },
