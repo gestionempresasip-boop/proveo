@@ -13,7 +13,7 @@ export default async function InventarioPage() {
   // Cargar productos + categorías + inventario en paralelo (son independientes)
   const [{ data: products }, { data: categories }, { data: inventoryRows }] = await Promise.all([
     sb.from('products')
-      .select('id, name, unit, category_id, product_categories!products_category_id_fkey(name, color)')
+      .select('id, name, unit, category_id, allows_box_order, box_units, product_categories!products_category_id_fkey(name, color)')
       .eq('is_active', true)
       .is('deleted_at', null)
       .order('name'),
@@ -37,6 +37,8 @@ export default async function InventarioPage() {
     current_stock: inventoryMap[p.id]?.current_stock ?? 0,
     min_stock: inventoryMap[p.id]?.min_stock ?? 0,
     last_updated: inventoryMap[p.id]?.last_updated ?? null,
+    allows_box_order: p.allows_box_order ?? false,
+    box_units: p.box_units ?? null,
   }))
 
   return (

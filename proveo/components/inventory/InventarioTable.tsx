@@ -6,7 +6,7 @@ import { upsertInventory, getInventoryHistory, bulkSetMinStock, bulkUpsertInvent
 import { softDeleteProduct, bulkSoftDeleteProducts } from '@/app/actions/products'
 import { InventoryClosures } from './InventoryClosures'
 import { BackupsPanel } from './BackupsPanel'
-import { AlertTriangle, CheckCircle2, XCircle, Save, ChevronDown, ChevronUp, History, Package, Download, ListChecks, X, Check, FileSpreadsheet, Trash2, Shield, ArrowUp } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, XCircle, Save, ChevronDown, ChevronUp, History, Package, Download, ListChecks, X, Check, FileSpreadsheet, Trash2, Shield, ArrowUp, PackageOpen } from 'lucide-react'
 
 type InventoryRow = {
   product_id: string
@@ -18,6 +18,8 @@ type InventoryRow = {
   current_stock: number
   min_stock: number
   last_updated: string | null
+  allows_box_order?: boolean
+  box_units?: number | null
 }
 
 type Category = { id: string; name: string; color: string | null }
@@ -90,7 +92,15 @@ function InventoryRowItem({
     <tr className={`border-b border-gray-50 hover:bg-gray-50/50 transition-colors ${isEmpty ? 'bg-red-50/20' : isLow ? 'bg-orange-50/20' : ''}`}>
       <td className="px-4 py-3">
         <p className="font-medium text-black text-sm">{row.product_name}</p>
-        {row.category_name && <p className="text-xs text-gray-600 mt-0.5">{row.category_name}</p>}
+        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+          {row.category_name && <p className="text-xs text-gray-600">{row.category_name}</p>}
+          {row.allows_box_order && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded-md">
+              <PackageOpen className="w-3 h-3" />
+              Cajón{row.box_units ? ` ≈${row.box_units} und` : ''}
+            </span>
+          )}
+        </div>
       </td>
       <td className="px-4 py-3 text-xs text-gray-600">{row.product_unit}</td>
       <td className="px-4 py-3">
@@ -105,7 +115,14 @@ function InventoryRowItem({
               isEmpty ? 'border-red-300 text-red-600' : isLow ? 'border-orange-300 text-orange-600' : 'border-gray-200 text-[#1E2B28]'
             }`}
           />
-          <span className="text-xs text-gray-600">{row.product_unit}</span>
+          <div>
+            <span className="text-xs text-gray-600 block">{row.product_unit}</span>
+            {row.allows_box_order && row.box_units && currentNum > 0 && (
+              <span className="text-[10px] text-blue-600 font-medium block whitespace-nowrap">
+                ≈{Math.floor(currentNum / row.box_units)} caj.
+              </span>
+            )}
+          </div>
         </div>
       </td>
       <td className="px-4 py-3">
@@ -570,7 +587,7 @@ export function InventarioTable({
   useEffect(() => { setRows(initialRows) }, [initialRows])
   const [tab, setTab] = useState<'stock' | 'historial' | 'valorado' | 'backups'>('stock')
   const [search, setSearch] = useState('')
-  const [filter, setFilter] = useState<'todos' | 'bajo' | 'sinstock'>('todos')
+  const [filter, setFilter] = useState<'todos' | 'bajo' | 'sinstock' | 'cajon'>('todos')
   const [categoryFilter, setCategoryFilter] = useState<string>('todas')
   const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({})
   const [showBulkMin, setShowBulkMin] = useState(false)
@@ -683,6 +700,7 @@ export function InventarioTable({
     if (!matchCategory) return false
     if (filter === 'sinstock') return matchSearch && stock === 0
     if (filter === 'bajo') return matchSearch && stock > 0 && min > 0 && stock <= min
+    if (filter === 'cajon') return matchSearch && !!r.allows_box_order
     return matchSearch
   })
 
@@ -695,6 +713,7 @@ export function InventarioTable({
 
   const alertCount = rows.filter(r => r.current_stock > 0 && r.min_stock > 0 && r.current_stock <= r.min_stock).length
   const emptyCount = rows.filter(r => r.current_stock === 0).length
+  const cajonCount = rows.filter(r => r.allows_box_order).length
 
   function toggleCategory(cat: string) {
     setOpenCategories(prev => ({ ...prev, [cat]: !prev[cat] }))
@@ -752,7 +771,7 @@ export function InventarioTable({
       ) : (
         <>
           {/* Resumen */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className={`grid gap-3 ${isNave && cajonCount > 0 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'}`}>
             <button
               onClick={() => setFilter('todos')}
               className={`rounded-xl p-4 text-left transition-all ${filter === 'todos' ? 'bg-[#1E2B28] text-white' : 'bg-white border border-gray-100 hover:border-[#1E2B28]'}`}
@@ -774,6 +793,18 @@ export function InventarioTable({
               <p className={`text-2xl font-bold ${filter === 'sinstock' ? 'text-white' : emptyCount > 0 ? 'text-red-600' : 'text-black'}`}>{emptyCount}</p>
               <p className={`text-xs mt-0.5 ${filter === 'sinstock' ? 'text-red-100' : 'text-gray-700'}`}>Sin stock</p>
             </button>
+            {isNave && cajonCount > 0 && (
+              <button
+                onClick={() => setFilter(filter === 'cajon' ? 'todos' : 'cajon')}
+                className={`rounded-xl p-4 text-left transition-all ${filter === 'cajon' ? 'bg-blue-600 text-white' : 'bg-white border border-gray-100 hover:border-blue-400'}`}
+              >
+                <div className="flex items-center gap-1.5">
+                  <p className={`text-2xl font-bold ${filter === 'cajon' ? 'text-white' : 'text-blue-600'}`}>{cajonCount}</p>
+                  {filter !== 'cajon' && <PackageOpen className="w-4 h-4 text-blue-400 mb-0.5" />}
+                </div>
+                <p className={`text-xs mt-0.5 ${filter === 'cajon' ? 'text-blue-100' : 'text-gray-700'}`}>Por cajón</p>
+              </button>
+            )}
           </div>
 
           {/* Buscador + acción masiva */}
