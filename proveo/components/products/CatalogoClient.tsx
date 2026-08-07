@@ -10,6 +10,7 @@ import type { Product, ProductCategory } from '@/types/database'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { takeRepeatOrder } from '@/lib/repeatOrder'
+import { loadCartDraft, saveCartDraft, clearCartDraft } from '@/lib/cartDraft'
 import { setFavoriteProduct } from '@/app/actions/favorites'
 import { unitLabel } from '@/lib/units'
 
@@ -87,6 +88,7 @@ export function CatalogoClient({
   const [stockError, setStockError] = useState<string | null>(null)
   const [restockedMap] = useState<Record<string, boolean>>(initialMaps.rMap)
   const [repeatedNotice, setRepeatedNotice] = useState(false)
+  const [draftRestoredNotice, setDraftRestoredNotice] = useState(false)
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(() => new Set(initialFavoriteIds))
   const [showFavorites, setShowFavorites] = useState(false)
   const [favoriteError, setFavoriteError] = useState<string | null>(null)
@@ -110,30 +112,63 @@ export function CatalogoClient({
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [])
 
-  // "Repetir pedido": viene de Mis pedidos con product_id + cantidad del
-  // pedido anterior. Se rellena el carrito (recortando al stock
-  // disponible) para que el restaurante solo revise y envíe.
+  // Hidratación del carrito al montar, por este orden de prioridad:
+  //  1. "Repetir pedido" (viene de Mis pedidos con product_id + cantidad
+  //     del pedido anterior) — es una acción explícita del usuario, gana
+  //     a cualquier borrador antiguo que hubiera.
+  //  2. El borrador guardado en localStorage (pedido a medio hacer que se
+  //     quedó sin enviar — por ejemplo si recargó la página sin querer).
   // Tiene que ir en un efecto (no en un lazy initializer de useState):
   // localStorage no existe durante el renderizado en servidor, así que
   // leerlo fuera de un efecto causaría un mismatch de hidratación.
+  // `hydrated` evita que el efecto de autoguardado (más abajo) borre el
+  // borrador con el carrito vacío antes de que este efecto lo rellene.
+  const [hydrated, setHydrated] = useState(false)
   useEffect(() => {
     const repeat = takeRepeatOrder()
-    if (!repeat || repeat.length === 0) return
-    const validIds = new Set(products.map(p => p.id))
-    const nextCart: Record<string, number> = {}
-    for (const item of repeat) {
-      if (!validIds.has(item.product_id) || item.quantity <= 0) continue
-      const max = stockMap[item.product_id]
-      nextCart[item.product_id] = max !== undefined ? Math.min(item.quantity, max) : item.quantity
+    if (repeat && repeat.length > 0) {
+      const validIds = new Set(products.map(p => p.id))
+      const nextCart: Record<string, number> = {}
+      for (const item of repeat) {
+        if (!validIds.has(item.product_id) || item.quantity <= 0) continue
+        const max = stockMap[item.product_id]
+        nextCart[item.product_id] = max !== undefined ? Math.min(item.quantity, max) : item.quantity
+      }
+      if (Object.keys(nextCart).length > 0) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- sincroniza con localStorage, no con props/estado de React
+        setCart(nextCart)
+        setRepeatedNotice(true)
+      }
+    } else {
+      const draft = loadCartDraft(organizationId)
+      if (draft) {
+        const validIds = new Set(products.map(p => p.id))
+        const restoredCart: Record<string, number> = {}
+        for (const [productId, qty] of Object.entries(draft.cart)) {
+          if (validIds.has(productId) && qty > 0) restoredCart[productId] = qty
+        }
+        if (Object.keys(restoredCart).length > 0) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect -- sincroniza con localStorage, no con props/estado de React
+          setCart(restoredCart)
+          setCartModes(draft.cartModes)
+          setNotes(draft.notes)
+          setDestination(draft.destination)
+          setDraftRestoredNotice(true)
+        }
+      }
     }
-    if (Object.keys(nextCart).length > 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- sincroniza con localStorage, no con props/estado de React
-      setCart(nextCart)
-      setRepeatedNotice(true)
-    }
-    // Solo al montar: el pedido a repetir se consume una sola vez de localStorage.
+    setHydrated(true)
+    // Solo al montar.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Autoguardado: cada cambio en el carrito, notas o destino se persiste
+  // en localStorage, así se queda ahí hasta que se pulse "Enviar pedido a
+  // la nave" (o hasta que se vacíe el carrito a mano).
+  useEffect(() => {
+    if (!hydrated) return
+    saveCartDraft(organizationId, { cart, cartModes, notes, destination })
+  }, [hydrated, cart, cartModes, notes, destination, organizationId])
 
   const handleQuantityChange = useCallback((productId: string, quantity: number) => {
     setCart(prev => {
@@ -281,6 +316,7 @@ export function CatalogoClient({
         return sb.rpc('adjust_nave_stock', { p_product_id: item.product.id, p_delta: -totalUnits })
       })
     )
+    clearCartDraft(organizationId)
     setSubmitted(true); setCart({}); setCartOpen(false); setDestination('')
     setTimeout(() => router.push('/pedidos'), 2000)
   }
@@ -434,6 +470,16 @@ export function CatalogoClient({
               Hemos rellenado tu pedido con los productos de tu pedido anterior. Revisa las cantidades y pulsa "Enviar pedido a la nave".
             </p>
             <button onClick={() => setRepeatedNotice(false)} className="text-[#1E2B28]/70 hover:text-[#1E2B28] shrink-0">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+        {draftRestoredNotice && (
+          <div className="mt-3 flex items-start justify-between gap-3 bg-[#A8793A]/10 border border-[#A8793A]/30 rounded-xl px-3.5 py-2.5">
+            <p className="text-sm text-[#8C6430]">
+              Hemos recuperado el pedido que tenías a medias. Sigue añadiendo productos o pulsa "Enviar pedido a la nave" cuando esté listo.
+            </p>
+            <button onClick={() => setDraftRestoredNotice(false)} className="text-[#8C6430]/70 hover:text-[#8C6430] shrink-0">
               <X className="h-4 w-4" />
             </button>
           </div>
