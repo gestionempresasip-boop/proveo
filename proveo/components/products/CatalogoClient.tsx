@@ -235,7 +235,8 @@ export function CatalogoClient({
     if (pendingConflict) return
     if (serverSaveTimeout.current) clearTimeout(serverSaveTimeout.current)
     serverSaveTimeout.current = setTimeout(() => {
-      savePendingCart(organizationId, { cart, cartModes, notes, destination }, userName).catch(() => {})
+      savePendingCart(organizationId, { cart, cartModes, notes, destination }, userName)
+        .catch(err => console.error('No se pudo sincronizar la cesta con el servidor:', err))
     }, 800)
     return () => { if (serverSaveTimeout.current) clearTimeout(serverSaveTimeout.current) }
   }, [hydrated, cart, cartModes, notes, destination, organizationId, userName, pendingConflict])
@@ -401,7 +402,7 @@ export function CatalogoClient({
       })
     )
     clearCartDraft(organizationId)
-    clearPendingCart(organizationId).catch(() => {})
+    clearPendingCart(organizationId).catch(err => console.error('No se pudo borrar la cesta pendiente del servidor:', err))
     setSubmitted(true); setCart({}); setCartOpen(false); setDestination('')
     setTimeout(() => router.push('/pedidos'), 2000)
   }
