@@ -14,7 +14,7 @@ export default async function CatalogoPage() {
 
   const today = new Date().toISOString().split('T')[0]
 
-  const [{ data: prods }, { data: cats }, { data: links }, { data: stock }, { data: favs }, { data: promos }] = await Promise.all([
+  const [{ data: prods }, { data: cats }, { data: links }, { data: stock }, { data: favs }, { data: promos }, { data: pendingCart }] = await Promise.all([
     sb.from('products').select('*, product_categories!products_category_id_fkey(name, color)').eq('is_active', true).is('deleted_at', null).order('name'),
     sb.from('product_categories').select('*').order('order_index').order('name'),
     sb.from('product_category_links').select('product_id, category_id'),
@@ -24,6 +24,7 @@ export default async function CatalogoPage() {
       .select('*, products(*, product_categories!products_category_id_fkey(name, color))')
       .or(`expires_at.is.null,expires_at.gte.${today}`)
       .order('created_at', { ascending: false }),
+    sb.from('pending_carts').select('*').eq('organization_id', profile.organization_id).maybeSingle(),
   ])
 
   // Un producto puede estar en varias categorías (tabla puente
@@ -47,8 +48,18 @@ export default async function CatalogoPage() {
       initialStock={stock ?? []}
       initialFavoriteIds={(favs ?? []).map((f: { product_id: string }) => f.product_id)}
       initialPromotions={promos ?? []}
+      initialPendingCart={pendingCart ? {
+        cart: pendingCart.cart ?? {},
+        cartModes: pendingCart.cart_modes ?? {},
+        notes: pendingCart.notes ?? '',
+        destination: pendingCart.destination ?? '',
+        updatedByName: pendingCart.updated_by_name ?? null,
+        updatedByMe: pendingCart.updated_by === profile.id,
+        updatedAt: pendingCart.updated_at,
+      } : null}
       organizationId={profile.organization_id}
       userId={profile.id}
+      userName={profile.full_name ?? null}
     />
   )
 }

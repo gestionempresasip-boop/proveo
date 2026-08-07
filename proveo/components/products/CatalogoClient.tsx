@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { ProductCard } from '@/components/products/ProductCard'
 import { ProductRow } from '@/components/products/ProductRow'
@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { takeRepeatOrder } from '@/lib/repeatOrder'
 import { loadCartDraft, saveCartDraft, clearCartDraft } from '@/lib/cartDraft'
+import { savePendingCart, clearPendingCart } from '@/app/actions/pendingCart'
 import { setFavoriteProduct } from '@/app/actions/favorites'
 import { unitLabel } from '@/lib/units'
 
@@ -57,19 +58,48 @@ function buildStockMaps(stock: StockRow[]) {
   return { sMap, rMap }
 }
 
+type PendingCartData = {
+  cart: Record<string, number>
+  cartModes: Record<string, 'unidad' | 'cajon'>
+  notes: string
+  destination: 'sala' | 'cocina' | ''
+  updatedByName: string | null
+  updatedByMe: boolean
+  updatedAt: string
+}
+
 interface CatalogoClientProps {
   initialProducts: Product[]
   initialCategories: ProductCategory[]
   initialStock: StockRow[]
   initialFavoriteIds: string[]
   initialPromotions: PromoRow[]
+  initialPendingCart: PendingCartData | null
   organizationId: string
   userId: string
+  userName: string | null
+}
+
+// ¿Tienen las dos cestas los mismos productos y cantidades? Comparamos por
+// contenido, no por orden de claves (JSON.stringify daría falsos "distintos").
+function cartsDiffer(a: Record<string, number>, b: Record<string, number>) {
+  const keysA = Object.keys(a)
+  const keysB = Object.keys(b)
+  if (keysA.length !== keysB.length) return true
+  return keysA.some(k => a[k] !== b[k])
+}
+
+function timeAgo(iso: string) {
+  const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000)
+  if (mins < 1) return 'justo ahora'
+  if (mins < 60) return `hace ${mins} min`
+  const hours = Math.round(mins / 60)
+  return `hace ${hours} h`
 }
 
 export function CatalogoClient({
-  initialProducts, initialCategories, initialStock, initialFavoriteIds, initialPromotions,
-  organizationId, userId,
+  initialProducts, initialCategories, initialStock, initialFavoriteIds, initialPromotions, initialPendingCart,
+  organizationId, userId, userName,
 }: CatalogoClientProps) {
   const products = initialProducts
   const categories = initialCategories
@@ -88,7 +118,8 @@ export function CatalogoClient({
   const [stockError, setStockError] = useState<string | null>(null)
   const [restockedMap] = useState<Record<string, boolean>>(initialMaps.rMap)
   const [repeatedNotice, setRepeatedNotice] = useState(false)
-  const [draftRestoredNotice, setDraftRestoredNotice] = useState(false)
+  const [draftSource, setDraftSource] = useState<'local' | 'server' | null>(null)
+  const [pendingConflict, setPendingConflict] = useState<PendingCartData | null>(null)
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(() => new Set(initialFavoriteIds))
   const [showFavorites, setShowFavorites] = useState(false)
   const [favoriteError, setFavoriteError] = useState<string | null>(null)
@@ -115,14 +146,17 @@ export function CatalogoClient({
   // Hidratación del carrito al montar, por este orden de prioridad:
   //  1. "Repetir pedido" (viene de Mis pedidos con product_id + cantidad
   //     del pedido anterior) — es una acción explícita del usuario, gana
-  //     a cualquier borrador antiguo que hubiera.
-  //  2. El borrador guardado en localStorage (pedido a medio hacer que se
-  //     quedó sin enviar — por ejemplo si recargó la página sin querer).
+  //     a cualquier cesta pendiente que hubiera.
+  //  2. Si hay cesta local (este dispositivo) Y cesta en el servidor
+  //     (otro dispositivo del mismo restaurante) y son distintas: no se
+  //     elige a ciegas — se muestra la local y se ofrece un aviso para
+  //     cambiar a la del servidor.
+  //  3. Si solo hay una de las dos (local o del servidor), se carga esa.
   // Tiene que ir en un efecto (no en un lazy initializer de useState):
   // localStorage no existe durante el renderizado en servidor, así que
   // leerlo fuera de un efecto causaría un mismatch de hidratación.
-  // `hydrated` evita que el efecto de autoguardado (más abajo) borre el
-  // borrador con el carrito vacío antes de que este efecto lo rellene.
+  // `hydrated` evita que el efecto de autoguardado (más abajo) borre la
+  // cesta con el carrito vacío antes de que este efecto lo rellene.
   const [hydrated, setHydrated] = useState(false)
   useEffect(() => {
     const repeat = takeRepeatOrder()
@@ -139,36 +173,86 @@ export function CatalogoClient({
         setCart(nextCart)
         setRepeatedNotice(true)
       }
-    } else {
-      const draft = loadCartDraft(organizationId)
-      if (draft) {
-        const validIds = new Set(products.map(p => p.id))
-        const restoredCart: Record<string, number> = {}
-        for (const [productId, qty] of Object.entries(draft.cart)) {
-          if (validIds.has(productId) && qty > 0) restoredCart[productId] = qty
-        }
-        if (Object.keys(restoredCart).length > 0) {
-          // eslint-disable-next-line react-hooks/set-state-in-effect -- sincroniza con localStorage, no con props/estado de React
-          setCart(restoredCart)
-          setCartModes(draft.cartModes)
-          setNotes(draft.notes)
-          setDestination(draft.destination)
-          setDraftRestoredNotice(true)
-        }
+      setHydrated(true)
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      return
+    }
+
+    const validIds = new Set(products.map(p => p.id))
+    const localDraft = loadCartDraft(organizationId)
+    const localCart: Record<string, number> = {}
+    if (localDraft) {
+      for (const [productId, qty] of Object.entries(localDraft.cart)) {
+        if (validIds.has(productId) && qty > 0) localCart[productId] = qty
       }
+    }
+    const serverCart: Record<string, number> = {}
+    if (initialPendingCart) {
+      for (const [productId, qty] of Object.entries(initialPendingCart.cart)) {
+        if (validIds.has(productId) && qty > 0) serverCart[productId] = qty
+      }
+    }
+    const hasLocal = Object.keys(localCart).length > 0
+    const hasServer = Object.keys(serverCart).length > 0
+
+    if (hasLocal && hasServer && cartsDiffer(localCart, serverCart)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setCart(localCart)
+      setCartModes(localDraft!.cartModes)
+      setNotes(localDraft!.notes)
+      setDestination(localDraft!.destination)
+      setDraftSource('local')
+      setPendingConflict({ ...initialPendingCart!, cart: serverCart })
+    } else if (hasServer) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setCart(serverCart)
+      setCartModes(initialPendingCart!.cartModes)
+      setNotes(initialPendingCart!.notes)
+      setDestination(initialPendingCart!.destination)
+      setDraftSource('server')
+    } else if (hasLocal) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setCart(localCart)
+      setCartModes(localDraft!.cartModes)
+      setNotes(localDraft!.notes)
+      setDestination(localDraft!.destination)
+      setDraftSource('local')
     }
     setHydrated(true)
     // Solo al montar.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Autoguardado: cada cambio en el carrito, notas o destino se persiste
-  // en localStorage, así se queda ahí hasta que se pulse "Enviar pedido a
-  // la nave" (o hasta que se vacíe el carrito a mano).
+  // Autoguardado: local al instante (localStorage), y al servidor con un
+  // pequeño debounce (para no disparar una petición por cada clic de +/-)
+  // mientras no haya un conflicto sin resolver — si lo hay, no tocamos la
+  // cesta del servidor hasta que el usuario decida cuál quiere.
+  const serverSaveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
     if (!hydrated) return
     saveCartDraft(organizationId, { cart, cartModes, notes, destination })
-  }, [hydrated, cart, cartModes, notes, destination, organizationId])
+
+    if (pendingConflict) return
+    if (serverSaveTimeout.current) clearTimeout(serverSaveTimeout.current)
+    serverSaveTimeout.current = setTimeout(() => {
+      savePendingCart(organizationId, { cart, cartModes, notes, destination }, userName).catch(() => {})
+    }, 800)
+    return () => { if (serverSaveTimeout.current) clearTimeout(serverSaveTimeout.current) }
+  }, [hydrated, cart, cartModes, notes, destination, organizationId, userName, pendingConflict])
+
+  function useServerCart() {
+    if (!pendingConflict) return
+    setCart(pendingConflict.cart)
+    setCartModes(pendingConflict.cartModes)
+    setNotes(pendingConflict.notes)
+    setDestination(pendingConflict.destination)
+    setDraftSource('server')
+    setPendingConflict(null)
+  }
+
+  function keepLocalCart() {
+    setPendingConflict(null)
+  }
 
   const handleQuantityChange = useCallback((productId: string, quantity: number) => {
     setCart(prev => {
@@ -317,6 +401,7 @@ export function CatalogoClient({
       })
     )
     clearCartDraft(organizationId)
+    clearPendingCart(organizationId).catch(() => {})
     setSubmitted(true); setCart({}); setCartOpen(false); setDestination('')
     setTimeout(() => router.push('/pedidos'), 2000)
   }
@@ -474,14 +559,48 @@ export function CatalogoClient({
             </button>
           </div>
         )}
-        {draftRestoredNotice && (
+        {draftSource === 'local' && !pendingConflict && (
           <div className="mt-3 flex items-start justify-between gap-3 bg-[#A8793A]/10 border border-[#A8793A]/30 rounded-xl px-3.5 py-2.5">
             <p className="text-sm text-[#8C6430]">
               Hemos recuperado el pedido que tenías a medias. Sigue añadiendo productos o pulsa "Enviar pedido a la nave" cuando esté listo.
             </p>
-            <button onClick={() => setDraftRestoredNotice(false)} className="text-[#8C6430]/70 hover:text-[#8C6430] shrink-0">
+            <button onClick={() => setDraftSource(null)} className="text-[#8C6430]/70 hover:text-[#8C6430] shrink-0">
               <X className="h-4 w-4" />
             </button>
+          </div>
+        )}
+        {draftSource === 'server' && (
+          <div className="mt-3 flex items-start justify-between gap-3 bg-[#A8793A]/10 border border-[#A8793A]/30 rounded-xl px-3.5 py-2.5">
+            <p className="text-sm text-[#8C6430]">
+              {initialPendingCart?.updatedByMe
+                ? 'Hemos recuperado el pedido que tenías a medias en otro dispositivo.'
+                : `${initialPendingCart?.updatedByName ?? 'Alguien'} empezó este pedido ${initialPendingCart ? timeAgo(initialPendingCart.updatedAt) : ''} — sigue donde lo dejó o pulsa "Enviar pedido a la nave" cuando esté listo.`}
+            </p>
+            <button onClick={() => setDraftSource(null)} className="text-[#8C6430]/70 hover:text-[#8C6430] shrink-0">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+        {pendingConflict && (
+          <div className="mt-3 bg-amber-50 border border-amber-300 rounded-xl px-3.5 py-3">
+            <p className="text-sm text-amber-900">
+              <strong>{pendingConflict.updatedByMe ? 'Tienes' : `${pendingConflict.updatedByName ?? 'Alguien'} tiene`}</strong> otra
+              cesta pendiente en otro dispositivo ({Object.keys(pendingConflict.cart).length} producto{Object.keys(pendingConflict.cart).length !== 1 ? 's' : ''}, {timeAgo(pendingConflict.updatedAt)}) distinta a la que ves aquí.
+            </p>
+            <div className="flex gap-2 mt-2.5">
+              <button
+                onClick={useServerCart}
+                className="text-xs font-semibold bg-amber-600 text-white px-3 py-1.5 rounded-lg hover:bg-amber-700"
+              >
+                Usar esa cesta
+              </button>
+              <button
+                onClick={keepLocalCart}
+                className="text-xs font-medium border border-amber-300 text-amber-800 px-3 py-1.5 rounded-lg hover:bg-amber-100"
+              >
+                Seguir con la mía
+              </button>
+            </div>
           </div>
         )}
       </div>
