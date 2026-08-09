@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useMemo, useRef, Fragment } from 'react'
-import { ChevronDown, ChevronLeft, ChevronRight, Minus, Calculator } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, Minus, Calculator, AlertTriangle, Info, TrendingUp, TrendingDown, FileDown, PackageX } from 'lucide-react'
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
 import { unitLabel, realQuantityLabel, CONVERTIBLE_UNITS, toKg, toLitros } from '@/lib/units'
-import { exportReportExcel, exportReportPDF, type ReportSection } from '@/lib/reportExport'
+import { exportReportExcel, exportReportPDF, exportExecutiveSummaryPDF, type ReportSection } from '@/lib/reportExport'
 import { ExportMenu } from '@/components/stats/ExportMenu'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -14,7 +15,9 @@ type OrderLine = {
   product_id: string; product_name: string
   quantity: number; unit: string; unit_price: number
   item_total: number; order_total: number
+  cost_price: number
 }
+type StockRow = { product_id: string; current_stock: number; min_stock: number }
 type Restaurant = { id: string; name: string }
 type DateFilter = 'dia' | 'semana' | 'mes' | 'año' | 'custom'
 type GroupBy = 'semana' | 'mes'
@@ -175,14 +178,16 @@ function UnitConverter() {
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 
-export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[]; restaurants: Restaurant[] }) {
+export function EstadisticasClient({ lines, restaurants, stockRows }: { lines: OrderLine[]; restaurants: Restaurant[]; stockRows: StockRow[] }) {
   const [dateFilter, setDateFilter] = useState<DateFilter>('mes')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [groupBy, setGroupBy] = useState<GroupBy>('mes')
   const [restFilter, setRestFilter] = useState('todos')
-  const [tab, setTab] = useState<'periodo' | 'productos' | 'ranking'>('periodo')
+  const [tab, setTab] = useState<'resumen' | 'periodo' | 'productos' | 'ranking'>('resumen')
   const [prodSearch, setProdSearch] = useState('')
+  const [showMargin, setShowMargin] = useState(false)
+  const [showAllProducts, setShowAllProducts] = useState(false)
   const [expandedProduct, setExpandedProduct] = useState<string | null>(null)
 
   // ── Filter ───────────────────────────────────────────────────────────────
@@ -256,15 +261,23 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
 
   const productoTable = useMemo(() => {
     const restNames = [...new Set(filtered.map(l => l.restaurant_name))].sort()
-    const prodMap: Record<string, { id: string; name: string; unit: string; byRest: Record<string, { qty: number; euros: number; veces: number }> }> = {}
+    const prodMap: Record<string, {
+      id: string; name: string; unit: string
+      byRest: Record<string, { qty: number; euros: number; veces: number }>
+      costTotal: number; eurosWithCost: number
+    }> = {}
 
     filtered.forEach(l => {
-      if (!prodMap[l.product_id]) prodMap[l.product_id] = { id: l.product_id, name: l.product_name, unit: l.unit, byRest: {} }
+      if (!prodMap[l.product_id]) prodMap[l.product_id] = { id: l.product_id, name: l.product_name, unit: l.unit, byRest: {}, costTotal: 0, eurosWithCost: 0 }
       if (!prodMap[l.product_id].byRest[l.restaurant_name])
         prodMap[l.product_id].byRest[l.restaurant_name] = { qty: 0, euros: 0, veces: 0 }
       prodMap[l.product_id].byRest[l.restaurant_name].qty += l.quantity
       prodMap[l.product_id].byRest[l.restaurant_name].euros += l.item_total
       prodMap[l.product_id].byRest[l.restaurant_name].veces++
+      if (l.cost_price > 0) {
+        prodMap[l.product_id].costTotal += l.cost_price * l.quantity
+        prodMap[l.product_id].eurosWithCost += l.item_total
+      }
     })
 
     const products = Object.values(prodMap)
@@ -322,6 +335,194 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
     return { rests, prods, maxRest, maxProd, prodLeader }
   }, [filtered])
 
+  // ── Resumen ejecutivo ─────────────────────────────────────────────────────
+  // Todo lo de aquí es de solo lectura sobre "lines"/"filtered" — no toca ni
+  // reutiliza el estado de las otras pestañas, así que no puede romperlas.
+
+  function previousPeriodRange(filter: DateFilter, from: string, to: string): { start: Date; end: Date } | null {
+    if (filter === 'dia') {
+      const end = startOf('day')
+      const start = new Date(end); start.setDate(start.getDate() - 1)
+      return { start, end }
+    }
+    if (filter === 'semana') {
+      const end = startOf('week')
+      const start = new Date(end); start.setDate(start.getDate() - 7)
+      return { start, end }
+    }
+    if (filter === 'mes') {
+      const end = startOf('month')
+      const start = new Date(end); start.setMonth(start.getMonth() - 1)
+      return { start, end }
+    }
+    if (filter === 'año') {
+      const end = startOf('year')
+      const start = new Date(end); start.setFullYear(start.getFullYear() - 1)
+      return { start, end }
+    }
+    if (filter === 'custom' && from && to) {
+      const start = new Date(from)
+      const end = new Date(new Date(to).getTime() + 86399999)
+      const lengthMs = end.getTime() - start.getTime()
+      return { start: new Date(start.getTime() - lengthMs), end: new Date(start.getTime()) }
+    }
+    return null
+  }
+
+  const previousLines = useMemo(() => {
+    const range = previousPeriodRange(dateFilter, dateFrom, dateTo)
+    if (!range) return []
+    return lines.filter(l => {
+      const d = new Date(l.created_at)
+      return d >= range.start && d < range.end && (restFilter === 'todos' || l.restaurant_id === restFilter)
+    })
+  }, [lines, dateFilter, dateFrom, dateTo, restFilter])
+
+  function summarizeLines(ls: OrderLine[]) {
+    const orderIds = new Set<string>()
+    let euros = 0
+    ls.forEach(l => { if (!orderIds.has(l.order_id)) { orderIds.add(l.order_id); euros += l.order_total } })
+    return {
+      euros, pedidos: orderIds.size,
+      ticketMedio: orderIds.size > 0 ? euros / orderIds.size : 0,
+      restaurantes: new Set(ls.map(l => l.restaurant_id)).size,
+    }
+  }
+
+  const currentSummary = useMemo(() => summarizeLines(filtered), [filtered])
+  const previousSummary = useMemo(() => summarizeLines(previousLines), [previousLines])
+  const hasPreviousPeriod = previousLines.length > 0
+
+  function pctChange(current: number, prev: number): number | null {
+    if (!hasPreviousPeriod || prev === 0) return null
+    return ((current - prev) / prev) * 100
+  }
+
+  // Margen: solo sobre productos con cost_price registrado — "coverage" dice
+  // qué % de la facturación queda cubierto por esa muestra, para no mostrar
+  // un margen "medio" engañoso si la mayoría de productos no tienen coste.
+  const marginSummary = useMemo(() => {
+    let revenueWithCost = 0, cost = 0
+    filtered.forEach(l => {
+      if (l.cost_price > 0) { revenueWithCost += l.item_total; cost += l.cost_price * l.quantity }
+    })
+    const totalRevenue = filtered.reduce((s, l) => s + l.item_total, 0)
+    return {
+      marginPct: revenueWithCost > 0 ? ((revenueWithCost - cost) / revenueWithCost) * 100 : null,
+      coverage: totalRevenue > 0 ? (revenueWithCost / totalRevenue) * 100 : 0,
+    }
+  }, [filtered])
+
+  // Evolución para el gráfico: ventana fija de períodos recientes,
+  // independiente del filtro de fecha activo (para tener siempre contexto),
+  // respetando solo el filtro de restaurante.
+  const evolutionData = useMemo(() => {
+    const base = restFilter === 'todos' ? lines : lines.filter(l => l.restaurant_id === restFilter)
+    const byPeriod: Record<string, { euros: number; pedidos: Set<string> }> = {}
+    base.forEach(l => {
+      const p = periodKey(l.created_at, groupBy)
+      if (!byPeriod[p]) byPeriod[p] = { euros: 0, pedidos: new Set() }
+      if (!byPeriod[p].pedidos.has(l.order_id)) { byPeriod[p].pedidos.add(l.order_id); byPeriod[p].euros += l.order_total }
+    })
+    const periods = sortPeriods(Object.keys(byPeriod), groupBy).slice(-10)
+    return periods.map(p => ({ periodo: p, euros: Math.round(byPeriod[p].euros), pedidos: byPeriod[p].pedidos.size }))
+  }, [lines, restFilter, groupBy])
+
+  // Alertas: frases generadas solas a partir de los datos, para no tener que
+  // interpretar tablas para saber qué es importante.
+  const alerts = useMemo(() => {
+    type AlertItem = { level: 'warn' | 'info'; text: string }
+    const list: AlertItem[] = []
+
+    // Caídas de restaurante > 20% vs período anterior (solo si el anterior
+    // ya tenía un mínimo de actividad, para no alertar por ruido)
+    const perRestCurrent: Record<string, { name: string; euros: number; orders: Set<string> }> = {}
+    filtered.forEach(l => {
+      if (!perRestCurrent[l.restaurant_id]) perRestCurrent[l.restaurant_id] = { name: l.restaurant_name, euros: 0, orders: new Set() }
+      if (!perRestCurrent[l.restaurant_id].orders.has(l.order_id)) {
+        perRestCurrent[l.restaurant_id].orders.add(l.order_id)
+        perRestCurrent[l.restaurant_id].euros += l.order_total
+      }
+    })
+    const perRestPrevious: Record<string, number> = {}
+    const seenPrevOrders: Record<string, Set<string>> = {}
+    previousLines.forEach(l => {
+      if (!seenPrevOrders[l.restaurant_id]) seenPrevOrders[l.restaurant_id] = new Set()
+      if (!seenPrevOrders[l.restaurant_id].has(l.order_id)) {
+        seenPrevOrders[l.restaurant_id].add(l.order_id)
+        perRestPrevious[l.restaurant_id] = (perRestPrevious[l.restaurant_id] ?? 0) + l.order_total
+      }
+    })
+    if (hasPreviousPeriod) {
+      Object.entries(perRestCurrent).forEach(([id, cur]) => {
+        const prevEuros = perRestPrevious[id] ?? 0
+        if (prevEuros >= 50 && cur.euros < prevEuros * 0.8) {
+          const pct = Math.round(((prevEuros - cur.euros) / prevEuros) * 100)
+          list.push({ level: 'warn', text: `${cur.name} ha bajado un ${pct}% respecto al período anterior` })
+        }
+      })
+    }
+
+    // Productos "dormidos": no se piden desde hace entre 14 y 60 días (más
+    // de 60 se asume descatalogado a propósito, no hace falta avisar)
+    const lastOrderByProduct: Record<string, { name: string; date: number }> = {}
+    lines.forEach(l => {
+      const t = new Date(l.created_at).getTime()
+      if (!lastOrderByProduct[l.product_id] || t > lastOrderByProduct[l.product_id].date) {
+        lastOrderByProduct[l.product_id] = { name: l.product_name, date: t }
+      }
+    })
+    const now = Date.now()
+    const dormant = Object.values(lastOrderByProduct)
+      .filter(p => (now - p.date) > 14 * 86400000 && (now - p.date) < 60 * 86400000)
+      .sort((a, b) => a.date - b.date)
+    if (dormant.length > 0 && dormant.length <= 4) {
+      dormant.forEach(p => {
+        const days = Math.floor((now - p.date) / 86400000)
+        list.push({ level: 'info', text: `${p.name} no se pide desde hace ${days} días` })
+      })
+    } else if (dormant.length > 4) {
+      list.push({ level: 'info', text: `${dormant.length} productos no se piden desde hace más de 2 semanas` })
+    }
+
+    // Concentración de riesgo: 1-2 restaurantes acaparando la mayoría del gasto
+    const sorted = Object.values(perRestCurrent).sort((a, b) => b.euros - a.euros)
+    const totalEuros = sorted.reduce((s, r) => s + r.euros, 0)
+    if (sorted.length >= 3 && totalEuros > 0) {
+      const top2 = sorted.slice(0, 2).reduce((s, r) => s + r.euros, 0)
+      const pct = Math.round((top2 / totalEuros) * 100)
+      if (pct >= 60) {
+        list.push({ level: 'warn', text: `${sorted[0].name} y ${sorted[1].name} concentran el ${pct}% de las ventas de este período` })
+      }
+    }
+
+    return list
+  }, [filtered, previousLines, lines, hasPreviousPeriod])
+
+  // Cruce ventas × stock: productos que se están vendiendo bien en este
+  // período y ahora mismo tienen poco stock en la nave — el puente directo
+  // entre "informe de ventas" y "qué comprar".
+  const stockCrossRef = useMemo(() => {
+    const stockByProduct = new Map(stockRows.map(s => [s.product_id, s]))
+    const sold: Record<string, { name: string; unit: string; qty: number; euros: number }> = {}
+    filtered.forEach(l => {
+      if (!sold[l.product_id]) sold[l.product_id] = { name: l.product_name, unit: l.unit, qty: 0, euros: 0 }
+      sold[l.product_id].qty += l.quantity
+      sold[l.product_id].euros += l.item_total
+    })
+    return Object.entries(sold)
+      .map(([productId, v]) => {
+        const s = stockByProduct.get(productId)
+        if (!s) return null
+        const threshold = s.min_stock > 0 ? s.min_stock : 1
+        if (s.current_stock > threshold) return null
+        return { productId, ...v, stock: s.current_stock, minStock: s.min_stock }
+      })
+      .filter((r): r is NonNullable<typeof r> => r !== null)
+      .sort((a, b) => b.euros - a.euros)
+      .slice(0, 8)
+  }, [filtered, stockRows])
+
   // ── Export handlers ──────────────────────────────────────────────────────
   // Excel y PDF comparten la misma "sección" (cabeceras + filas numéricas);
   // el CSV existente se deja tal cual, solo se mueve dentro del menú.
@@ -378,6 +579,25 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
         ...restNames.map(r => Number((p.byRest[r]?.qty ?? 0).toFixed(2))),
         Number(restNames.reduce((s, r) => s + (p.byRest[r]?.euros ?? 0), 0).toFixed(2)),
       ]),
+    }]
+  }
+
+  function productosMarginSections(): ReportSection[] {
+    const { products, restNames } = productoTable
+    return [{
+      heading: 'Consumo por producto (con margen)',
+      headers: ['Producto', 'Unidad', ...restNames, 'Total €', 'Margen %', 'Coste registrado'],
+      rows: products.map(p => {
+        const totalEuros = restNames.reduce((s, r) => s + (p.byRest[r]?.euros ?? 0), 0)
+        const marginPct = p.eurosWithCost > 0 ? ((p.eurosWithCost - p.costTotal) / p.eurosWithCost) * 100 : null
+        return [
+          p.name, unitLabel(p.unit),
+          ...restNames.map(r => Number((p.byRest[r]?.qty ?? 0).toFixed(2))),
+          Number(totalEuros.toFixed(2)),
+          marginPct != null ? Number(marginPct.toFixed(1)) : 'Sin coste',
+          p.eurosWithCost > 0 ? `${((p.eurosWithCost / totalEuros) * 100).toFixed(0)}%` : '0%',
+        ]
+      }),
     }]
   }
 
@@ -478,13 +698,150 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
 
       {/* Tabs */}
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
-        {([['periodo','Por período'],['productos','Por producto'],['ranking','Ranking']] as const).map(([k,l]) => (
+        {([['resumen','Resumen'],['periodo','Por período'],['productos','Por producto'],['ranking','Ranking']] as const).map(([k,l]) => (
           <button key={k} onClick={() => setTab(k)}
             className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
               tab === k ? 'bg-white text-black shadow-sm' : 'text-gray-700 hover:text-gray-700'
             }`}>{l}</button>
         ))}
       </div>
+
+      {/* ── TAB: RESUMEN ─────────────────────────────────────────────────── */}
+      {tab === 'resumen' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-gray-600">
+              {hasPreviousPeriod ? 'Comparado con el período equivalente anterior.' : 'No hay datos del período anterior para comparar.'}
+            </p>
+            <button
+              onClick={() => exportExecutiveSummaryPDF({
+                subtitle: reportSubtitle,
+                kpis: [
+                  { label: 'Gasto total', value: `${currentSummary.euros.toFixed(0)}€`, trend: pctChange(currentSummary.euros, previousSummary.euros) },
+                  { label: 'Pedidos', value: String(currentSummary.pedidos), trend: pctChange(currentSummary.pedidos, previousSummary.pedidos) },
+                  { label: 'Ticket medio', value: `${currentSummary.ticketMedio.toFixed(2)}€`, trend: pctChange(currentSummary.ticketMedio, previousSummary.ticketMedio) },
+                  { label: 'Restaurantes activos', value: String(currentSummary.restaurantes), trend: null },
+                ],
+                alerts: alerts.map(a => a.text),
+                topRestaurantes: ranking.rests.slice(0, 8).map(r => ({ name: r.name, euros: r.euros, pedidos: r.pedidos.size })),
+                topProductos: ranking.prods.slice(0, 8).map(p => ({ name: p.name, euros: p.euros, qty: p.qty, unit: p.unit })),
+              }, 'informe-ejecutivo.pdf')}
+              className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-[#1E2B28] text-white hover:bg-[#141F1C] transition-colors"
+            >
+              <FileDown className="w-3.5 h-3.5" /> Generar informe ejecutivo (PDF)
+            </button>
+          </div>
+
+          {/* KPIs con tendencia */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {[
+              { label: 'Gasto total', value: `${currentSummary.euros.toFixed(0)}€`, trend: pctChange(currentSummary.euros, previousSummary.euros) },
+              { label: 'Pedidos', value: String(currentSummary.pedidos), trend: pctChange(currentSummary.pedidos, previousSummary.pedidos) },
+              { label: 'Ticket medio', value: `${currentSummary.ticketMedio.toFixed(2)}€`, trend: pctChange(currentSummary.ticketMedio, previousSummary.ticketMedio) },
+              {
+                label: 'Margen medio',
+                value: marginSummary.marginPct != null ? `${marginSummary.marginPct.toFixed(0)}%` : '—',
+                trend: null,
+                hint: marginSummary.marginPct != null ? `sobre ${marginSummary.coverage.toFixed(0)}% de la facturación con coste registrado` : 'ningún producto de este período tiene coste registrado',
+              },
+            ].map(k => (
+              <div key={k.label} className="bg-white rounded-2xl border border-gray-100 px-4 py-3">
+                <p className="text-xs text-gray-600">{k.label}</p>
+                <div className="flex items-end justify-between mt-0.5">
+                  <p className="text-xl sm:text-2xl font-bold text-black">{k.value}</p>
+                  {k.trend != null && (
+                    <span className={`flex items-center gap-0.5 text-xs font-semibold ${k.trend >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                      {k.trend >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                      {Math.abs(k.trend).toFixed(0)}%
+                    </span>
+                  )}
+                </div>
+                {'hint' in k && k.hint && <p className="text-[10px] text-gray-500 mt-1 leading-tight">{k.hint}</p>}
+              </div>
+            ))}
+          </div>
+
+          {/* Gráfico de evolución */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-4">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-sm font-semibold text-black">Evolución de ventas</h2>
+              <span className="text-xs text-gray-600">{restFilter === 'todos' ? 'Todos los restaurantes' : restLabel} · últimos {evolutionData.length} {groupBy === 'mes' ? 'meses' : 'semanas'}</span>
+            </div>
+            {evolutionData.length === 0 ? (
+              <p className="text-center py-10 text-gray-600 text-sm">Sin datos suficientes todavía</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={220}>
+                <AreaChart data={evolutionData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="euroGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#1B4332" stopOpacity={0.35} />
+                      <stop offset="100%" stopColor="#1B4332" stopOpacity={0.02} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0ee" />
+                  <XAxis dataKey="periodo" tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} width={50} />
+                  <Tooltip
+                    formatter={((value: any, name: any) => [name === 'euros' ? `${value}€` : value, name === 'euros' ? 'Gasto' : 'Pedidos']) as any}
+                    contentStyle={{ borderRadius: 10, border: '1px solid #eee', fontSize: 12 }}
+                  />
+                  <Area type="monotone" dataKey="euros" stroke="#1B4332" strokeWidth={2} fill="url(#euroGradient)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Alertas */}
+            <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-100">
+                <h2 className="text-sm font-semibold text-black">Cosas a tener en cuenta</h2>
+              </div>
+              {alerts.length === 0 ? (
+                <p className="text-center py-8 text-gray-600 text-sm">Sin novedades destacables en este período</p>
+              ) : (
+                <div className="divide-y divide-gray-50">
+                  {alerts.map((a, i) => (
+                    <div key={i} className={`flex items-start gap-2.5 px-4 py-3 text-sm ${a.level === 'warn' ? 'bg-amber-50/50' : ''}`}>
+                      {a.level === 'warn'
+                        ? <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                        : <Info className="w-4 h-4 text-gray-500 shrink-0 mt-0.5" />}
+                      <span className="text-black">{a.text}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Cruce ventas × stock */}
+            <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-100">
+                <h2 className="text-sm font-semibold text-black flex items-center gap-1.5">
+                  <PackageX className="w-4 h-4 text-red-500" /> Se vende bien y queda poco stock
+                </h2>
+                <p className="text-xs text-gray-600 mt-0.5">Para decidir qué reponer antes de quedarte sin ello</p>
+              </div>
+              {stockCrossRef.length === 0 ? (
+                <p className="text-center py-8 text-gray-600 text-sm">Nada que avisar — el stock cubre lo que se está vendiendo</p>
+              ) : (
+                <div className="divide-y divide-gray-50">
+                  {stockCrossRef.map(r => (
+                    <div key={r.productId} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
+                      <div className="min-w-0">
+                        <p className="font-medium text-black truncate">{r.name}</p>
+                        <p className="text-xs text-gray-600">Vendido: {r.qty % 1 === 0 ? r.qty : r.qty.toFixed(1)} {unitLabel(r.unit)} · {r.euros.toFixed(0)}€</p>
+                      </div>
+                      <span className={`shrink-0 text-xs font-semibold px-2 py-1 rounded-lg ${r.stock === 0 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                        {r.stock === 0 ? 'Agotado' : `Quedan ${r.stock}`}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── TAB: PERÍODO ─────────────────────────────────────────────────── */}
       {tab === 'periodo' && (() => {
@@ -578,9 +935,17 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
                 onChange={e => setProdSearch(e.target.value)}
                 className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28] w-52" />
               <p className="text-xs text-gray-600 flex-1">Cantidades pedidas por restaurante. Celdas oscuras = mayor consumo. Pulsa un producto para ver el ranking.</p>
+              <button
+                onClick={() => setShowMargin(v => !v)}
+                className={`text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors ${
+                  showMargin ? 'bg-[#1E2B28] text-white border-[#1E2B28]' : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                Ver margen
+              </button>
               <ExportMenu
-                onExcel={() => exportReportExcel(productosSections(), 'estadisticas-productos.xlsx')}
-                onPDF={() => exportReportPDF('Consumo por producto', reportSubtitle, productosSections(), 'estadisticas-productos.pdf')}
+                onExcel={() => exportReportExcel(showMargin ? productosMarginSections() : productosSections(), 'estadisticas-productos.xlsx')}
+                onPDF={() => exportReportPDF('Consumo por producto', reportSubtitle, showMargin ? productosMarginSections() : productosSections(), 'estadisticas-productos.pdf')}
                 onCSV={exportProductos}
               />
             </div>
@@ -594,11 +959,13 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
                         <th key={r} className="text-center px-3 py-3 text-xs text-gray-600 font-medium min-w-[110px]">{r}</th>
                       ))}
                       <th className="text-right px-4 py-3 text-xs text-gray-700 font-semibold min-w-[90px]">Total €</th>
+                      {showMargin && <th className="text-right px-4 py-3 text-xs text-gray-700 font-semibold min-w-[90px]">Margen</th>}
                     </tr>
                   </thead>
                   <tbody>
-                    {products.map(p => {
+                    {(showAllProducts ? products : products.slice(0, 8)).map(p => {
                       const totalEuros = restNames.reduce((s, r) => s + (p.byRest[r]?.euros ?? 0), 0)
+                      const marginPct = p.eurosWithCost > 0 ? ((p.eurosWithCost - p.costTotal) / p.eurosWithCost) * 100 : null
                       const isExpanded = expandedProduct === p.id
                       return (
                         <Fragment key={p.id}>
@@ -631,10 +998,21 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
                             <td className="px-4 py-3 text-right">
                               <p className="font-semibold text-[#1E2B28] text-sm">{totalEuros.toFixed(0)}€</p>
                             </td>
+                            {showMargin && (
+                              <td className="px-4 py-3 text-right">
+                                {marginPct != null ? (
+                                  <p className={`font-semibold text-sm ${marginPct >= 40 ? 'text-green-600' : marginPct >= 20 ? 'text-amber-600' : 'text-red-500'}`}>
+                                    {marginPct.toFixed(0)}%
+                                  </p>
+                                ) : (
+                                  <p className="text-xs text-gray-400">sin coste</p>
+                                )}
+                              </td>
+                            )}
                           </tr>
                           {isExpanded && (
                             <tr className="bg-[#1E2B28]/[0.03] border-b border-gray-100">
-                              <td colSpan={restNames.length + 2} className="px-4 py-4">
+                              <td colSpan={restNames.length + (showMargin ? 3 : 2)} className="px-4 py-4">
                                 <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">
                                   Ranking de "{p.name}" por restaurante
                                 </p>
@@ -673,6 +1051,14 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
               </HScroll>
               {products.length === 0 && <p className="text-center py-12 text-gray-600">Sin datos para este período</p>}
             </div>
+            {products.length > 8 && (
+              <button
+                onClick={() => setShowAllProducts(v => !v)}
+                className="w-full text-center text-xs font-medium text-[#1E2B28] bg-white border border-gray-100 rounded-xl py-2.5 hover:bg-gray-50 transition-colors"
+              >
+                {showAllProducts ? 'Ver menos' : `Ver los ${products.length - 8} productos restantes`}
+              </button>
+            )}
             <div className="flex items-center gap-3 text-xs text-gray-600 px-1">
               <span>Intensidad por columna:</span>
               {[0.1, 0.25, 0.5, 0.75, 1].map(t => (

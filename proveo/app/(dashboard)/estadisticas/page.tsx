@@ -9,16 +9,19 @@ export default async function EstadisticasPage() {
   if (profile.organizations.type !== 'nave') redirect('/dashboard')
   const sb = supabase as any
 
-  // Traer pedidos + restaurantes en paralelo (son independientes entre sí)
-  // Excluimos cancelados
-  const [{ data: orders }, { data: restaurants }] = await Promise.all([
+  // Traer pedidos + restaurantes + stock en paralelo (son independientes
+  // entre sí). Excluimos cancelados. El coste (cost_price) se añade al
+  // join de productos para poder calcular márgenes sin tocar la forma
+  // de "lines" que ya usan las pestañas existentes — solo se le suma un
+  // campo más.
+  const [{ data: orders }, { data: restaurants }, { data: stock }] = await Promise.all([
     sb
       .from('orders')
       .select(`
         id, order_number, created_at, total_price, restaurant_id, status,
         organizations!restaurant_id(id, name),
         order_items(id, product_id, quantity, unit, unit_price, total_price,
-          products(name)
+          products(name, cost_price)
         )
       `)
       .neq('status', 'cancelado')
@@ -28,6 +31,9 @@ export default async function EstadisticasPage() {
       .select('id, name')
       .eq('type', 'restaurante')
       .order('name'),
+    sb
+      .from('nave_inventory')
+      .select('product_id, current_stock, min_stock'),
   ])
 
   // Aplanar a filas por línea de pedido (para cálculos granulares)
@@ -37,6 +43,7 @@ export default async function EstadisticasPage() {
     product_id: string; product_name: string
     quantity: number; unit: string; unit_price: number
     item_total: number; order_total: number
+    cost_price: number
   }
 
   const lines: Line[] = []
@@ -55,14 +62,22 @@ export default async function EstadisticasPage() {
         unit_price: Number(item.unit_price),
         item_total: Number(item.total_price),
         order_total: Number(o.total_price),
+        cost_price: Number((item.products as any)?.cost_price ?? 0),
       })
     }
   }
+
+  const stockRows = (stock ?? []).map((s: any) => ({
+    product_id: s.product_id,
+    current_stock: Number(s.current_stock),
+    min_stock: Number(s.min_stock),
+  }))
 
   return (
     <EstadisticasClient
       lines={lines}
       restaurants={restaurants ?? []}
+      stockRows={stockRows}
     />
   )
 }
