@@ -15,7 +15,16 @@ type OrderLine = {
   product_id: string; product_name: string
   quantity: number; unit: string; unit_price: number
   item_total: number; order_total: number
-  cost_price: number
+  cost_price: number; iva_rate: number
+}
+
+// El margen compara ingreso vs. coste, y solo tiene sentido si las dos
+// cifras están en la misma base fiscal: item_total lleva el IVA con el que
+// se factura al restaurante, cost_price no lleva ningún IVA aplicado. Se
+// resta aquí antes de comparar, en un único sitio para no desincronizar
+// las tres fórmulas que usan margen (tabla, resumen y exportación).
+function netOfIva(line: OrderLine): number {
+  return line.item_total / (1 + (line.iva_rate || 0))
 }
 type StockRow = { product_id: string; current_stock: number; min_stock: number }
 type Restaurant = { id: string; name: string }
@@ -264,11 +273,11 @@ export function EstadisticasClient({ lines, restaurants, stockRows }: { lines: O
     const prodMap: Record<string, {
       id: string; name: string; unit: string
       byRest: Record<string, { qty: number; euros: number; veces: number }>
-      costTotal: number; eurosWithCost: number
+      costTotal: number; eurosWithCost: number; netRevenueWithCost: number
     }> = {}
 
     filtered.forEach(l => {
-      if (!prodMap[l.product_id]) prodMap[l.product_id] = { id: l.product_id, name: l.product_name, unit: l.unit, byRest: {}, costTotal: 0, eurosWithCost: 0 }
+      if (!prodMap[l.product_id]) prodMap[l.product_id] = { id: l.product_id, name: l.product_name, unit: l.unit, byRest: {}, costTotal: 0, eurosWithCost: 0, netRevenueWithCost: 0 }
       if (!prodMap[l.product_id].byRest[l.restaurant_name])
         prodMap[l.product_id].byRest[l.restaurant_name] = { qty: 0, euros: 0, veces: 0 }
       prodMap[l.product_id].byRest[l.restaurant_name].qty += l.quantity
@@ -277,6 +286,7 @@ export function EstadisticasClient({ lines, restaurants, stockRows }: { lines: O
       if (l.cost_price > 0) {
         prodMap[l.product_id].costTotal += l.cost_price * l.quantity
         prodMap[l.product_id].eurosWithCost += l.item_total
+        prodMap[l.product_id].netRevenueWithCost += netOfIva(l)
       }
     })
 
@@ -402,13 +412,17 @@ export function EstadisticasClient({ lines, restaurants, stockRows }: { lines: O
   // qué % de la facturación queda cubierto por esa muestra, para no mostrar
   // un margen "medio" engañoso si la mayoría de productos no tienen coste.
   const marginSummary = useMemo(() => {
-    let revenueWithCost = 0, cost = 0
+    let revenueWithCost = 0, netRevenueWithCost = 0, cost = 0
     filtered.forEach(l => {
-      if (l.cost_price > 0) { revenueWithCost += l.item_total; cost += l.cost_price * l.quantity }
+      if (l.cost_price > 0) {
+        revenueWithCost += l.item_total
+        netRevenueWithCost += netOfIva(l)
+        cost += l.cost_price * l.quantity
+      }
     })
     const totalRevenue = filtered.reduce((s, l) => s + l.item_total, 0)
     return {
-      marginPct: revenueWithCost > 0 ? ((revenueWithCost - cost) / revenueWithCost) * 100 : null,
+      marginPct: netRevenueWithCost > 0 ? ((netRevenueWithCost - cost) / netRevenueWithCost) * 100 : null,
       coverage: totalRevenue > 0 ? (revenueWithCost / totalRevenue) * 100 : 0,
     }
   }, [filtered])
@@ -589,7 +603,7 @@ export function EstadisticasClient({ lines, restaurants, stockRows }: { lines: O
       headers: ['Producto', 'Unidad', ...restNames, 'Total €', 'Margen %', 'Coste registrado'],
       rows: products.map(p => {
         const totalEuros = restNames.reduce((s, r) => s + (p.byRest[r]?.euros ?? 0), 0)
-        const marginPct = p.eurosWithCost > 0 ? ((p.eurosWithCost - p.costTotal) / p.eurosWithCost) * 100 : null
+        const marginPct = p.netRevenueWithCost > 0 ? ((p.netRevenueWithCost - p.costTotal) / p.netRevenueWithCost) * 100 : null
         return [
           p.name, unitLabel(p.unit),
           ...restNames.map(r => Number((p.byRest[r]?.qty ?? 0).toFixed(2))),
@@ -965,7 +979,7 @@ export function EstadisticasClient({ lines, restaurants, stockRows }: { lines: O
                   <tbody>
                     {(showAllProducts ? products : products.slice(0, 8)).map(p => {
                       const totalEuros = restNames.reduce((s, r) => s + (p.byRest[r]?.euros ?? 0), 0)
-                      const marginPct = p.eurosWithCost > 0 ? ((p.eurosWithCost - p.costTotal) / p.eurosWithCost) * 100 : null
+                      const marginPct = p.netRevenueWithCost > 0 ? ((p.netRevenueWithCost - p.costTotal) / p.netRevenueWithCost) * 100 : null
                       const isExpanded = expandedProduct === p.id
                       return (
                         <Fragment key={p.id}>

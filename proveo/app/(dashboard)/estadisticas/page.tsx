@@ -21,7 +21,7 @@ export default async function EstadisticasPage() {
         id, order_number, created_at, total_price, restaurant_id, status,
         organizations!restaurant_id(id, name),
         order_items(id, product_id, quantity, unit, unit_price, total_price,
-          products(name, cost_price)
+          products(name, cost_price, iva_rate)
         )
       `)
       .neq('status', 'cancelado')
@@ -43,7 +43,7 @@ export default async function EstadisticasPage() {
     product_id: string; product_name: string
     quantity: number; unit: string; unit_price: number
     item_total: number; order_total: number
-    cost_price: number
+    cost_price: number; iva_rate: number
   }
 
   const lines: Line[] = []
@@ -63,6 +63,7 @@ export default async function EstadisticasPage() {
         item_total: Number(item.total_price),
         order_total: Number(o.total_price),
         cost_price: Number((item.products as any)?.cost_price ?? 0),
+        iva_rate: Number((item.products as any)?.iva_rate ?? 0),
       })
     }
   }
