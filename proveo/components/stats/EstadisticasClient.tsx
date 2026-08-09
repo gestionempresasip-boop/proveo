@@ -273,11 +273,11 @@ export function EstadisticasClient({ lines, restaurants, stockRows }: { lines: O
     const prodMap: Record<string, {
       id: string; name: string; unit: string
       byRest: Record<string, { qty: number; euros: number; veces: number }>
-      costTotal: number; eurosWithCost: number; netRevenueWithCost: number
+      costTotal: number; eurosWithCost: number; netRevenueWithCost: number; qtyWithCost: number
     }> = {}
 
     filtered.forEach(l => {
-      if (!prodMap[l.product_id]) prodMap[l.product_id] = { id: l.product_id, name: l.product_name, unit: l.unit, byRest: {}, costTotal: 0, eurosWithCost: 0, netRevenueWithCost: 0 }
+      if (!prodMap[l.product_id]) prodMap[l.product_id] = { id: l.product_id, name: l.product_name, unit: l.unit, byRest: {}, costTotal: 0, eurosWithCost: 0, netRevenueWithCost: 0, qtyWithCost: 0 }
       if (!prodMap[l.product_id].byRest[l.restaurant_name])
         prodMap[l.product_id].byRest[l.restaurant_name] = { qty: 0, euros: 0, veces: 0 }
       prodMap[l.product_id].byRest[l.restaurant_name].qty += l.quantity
@@ -287,6 +287,7 @@ export function EstadisticasClient({ lines, restaurants, stockRows }: { lines: O
         prodMap[l.product_id].costTotal += l.cost_price * l.quantity
         prodMap[l.product_id].eurosWithCost += l.item_total
         prodMap[l.product_id].netRevenueWithCost += netOfIva(l)
+        prodMap[l.product_id].qtyWithCost += l.quantity
       }
     })
 
@@ -312,7 +313,7 @@ export function EstadisticasClient({ lines, restaurants, stockRows }: { lines: O
   const ranking = useMemo(() => {
     // Top restaurantes por gasto total
     const restTotals: Record<string, { name: string; euros: number; pedidos: Set<string> }> = {}
-    const prodTotals: Record<string, { name: string; unit: string; qty: number; euros: number; veces: number }> = {}
+    const prodTotals: Record<string, { id: string; name: string; unit: string; qty: number; euros: number; veces: number }> = {}
 
     filtered.forEach(l => {
       if (!restTotals[l.restaurant_id]) restTotals[l.restaurant_id] = { name: l.restaurant_name, euros: 0, pedidos: new Set() }
@@ -320,7 +321,7 @@ export function EstadisticasClient({ lines, restaurants, stockRows }: { lines: O
         restTotals[l.restaurant_id].pedidos.add(l.order_id)
         restTotals[l.restaurant_id].euros += l.order_total
       }
-      if (!prodTotals[l.product_id]) prodTotals[l.product_id] = { name: l.product_name, unit: l.unit, qty: 0, euros: 0, veces: 0 }
+      if (!prodTotals[l.product_id]) prodTotals[l.product_id] = { id: l.product_id, name: l.product_name, unit: l.unit, qty: 0, euros: 0, veces: 0 }
       prodTotals[l.product_id].qty += l.quantity
       prodTotals[l.product_id].euros += l.item_total
       prodTotals[l.product_id].veces++
@@ -537,6 +538,37 @@ export function EstadisticasClient({ lines, restaurants, stockRows }: { lines: O
       .slice(0, 8)
   }, [filtered, stockRows])
 
+  // Margen "atrapado" en stock: cuánto beneficio potencial tienes parado en
+  // el almacén ahora mismo, si vendieras todo lo que tienes al margen
+  // habitual de cada producto. Usa TODO el histórico (no el filtro de
+  // fecha activo) para el margen unitario — el stock es una foto de ahora
+  // mismo, no de un período concreto, así que el margen de referencia debe
+  // ser el más estable posible.
+  const stockMarginValue = useMemo(() => {
+    const byProduct: Record<string, { name: string; unit: string; netRevenue: number; cost: number; qty: number }> = {}
+    lines.forEach(l => {
+      if (l.cost_price <= 0) return
+      if (!byProduct[l.product_id]) byProduct[l.product_id] = { name: l.product_name, unit: l.unit, netRevenue: 0, cost: 0, qty: 0 }
+      byProduct[l.product_id].netRevenue += netOfIva(l)
+      byProduct[l.product_id].cost += l.cost_price * l.quantity
+      byProduct[l.product_id].qty += l.quantity
+    })
+    const stockByProduct = new Map(stockRows.map(s => [s.product_id, s.current_stock]))
+    const rows = Object.entries(byProduct)
+      .map(([productId, v]) => {
+        const stock = stockByProduct.get(productId) ?? 0
+        if (stock <= 0 || v.qty <= 0) return null
+        const unitMargin = (v.netRevenue - v.cost) / v.qty
+        return { productId, name: v.name, unit: v.unit, stock, unitMargin, stockValue: unitMargin * stock }
+      })
+      .filter((r): r is NonNullable<typeof r> => r !== null)
+
+    const total = rows.reduce((s, r) => s + r.stockValue, 0)
+    const topPositive = [...rows].sort((a, b) => b.stockValue - a.stockValue).slice(0, 6)
+    const negative = rows.filter(r => r.stockValue < 0).sort((a, b) => a.stockValue - b.stockValue).slice(0, 4)
+    return { total, topPositive, negative }
+  }, [lines, stockRows])
+
   // ── Export handlers ──────────────────────────────────────────────────────
   // Excel y PDF comparten la misma "sección" (cabeceras + filas numéricas);
   // el CSV existente se deja tal cual, solo se mueve dentro del menú.
@@ -575,11 +607,21 @@ export function EstadisticasClient({ lines, restaurants, stockRows }: { lines: O
   function exportProductos() {
     const { products, restNames } = productoTable
     const headers = ['Producto', 'Unidad', ...restNames, 'Total €']
-    const rows = products.map(p => [
-      p.name, p.unit,
-      ...restNames.map(r => p.byRest[r]?.qty.toFixed(2) ?? '0'),
-      restNames.reduce((s, r) => s + (p.byRest[r]?.euros ?? 0), 0).toFixed(2),
-    ])
+    if (showMargin) headers.push('Margen %', 'Margen €/ud')
+    const rows = products.map(p => {
+      const totalEuros = restNames.reduce((s, r) => s + (p.byRest[r]?.euros ?? 0), 0)
+      const row: (string | number)[] = [
+        p.name, p.unit,
+        ...restNames.map(r => p.byRest[r]?.qty.toFixed(2) ?? '0'),
+        totalEuros.toFixed(2),
+      ]
+      if (showMargin) {
+        const marginPct = p.netRevenueWithCost > 0 ? ((p.netRevenueWithCost - p.costTotal) / p.netRevenueWithCost) * 100 : null
+        const unitMargin = p.qtyWithCost > 0 ? (p.netRevenueWithCost - p.costTotal) / p.qtyWithCost : null
+        row.push(marginPct != null ? marginPct.toFixed(1) : 'Sin coste', unitMargin != null ? unitMargin.toFixed(3) : 'Sin coste')
+      }
+      return row
+    })
     exportCSV(headers, rows, 'estadisticas-productos.csv')
   }
 
@@ -600,15 +642,17 @@ export function EstadisticasClient({ lines, restaurants, stockRows }: { lines: O
     const { products, restNames } = productoTable
     return [{
       heading: 'Consumo por producto (con margen)',
-      headers: ['Producto', 'Unidad', ...restNames, 'Total €', 'Margen %', 'Coste registrado'],
+      headers: ['Producto', 'Unidad', ...restNames, 'Total €', 'Margen %', 'Margen €/ud', 'Coste registrado'],
       rows: products.map(p => {
         const totalEuros = restNames.reduce((s, r) => s + (p.byRest[r]?.euros ?? 0), 0)
         const marginPct = p.netRevenueWithCost > 0 ? ((p.netRevenueWithCost - p.costTotal) / p.netRevenueWithCost) * 100 : null
+        const unitMargin = p.qtyWithCost > 0 ? (p.netRevenueWithCost - p.costTotal) / p.qtyWithCost : null
         return [
           p.name, unitLabel(p.unit),
           ...restNames.map(r => Number((p.byRest[r]?.qty ?? 0).toFixed(2))),
           Number(totalEuros.toFixed(2)),
           marginPct != null ? Number(marginPct.toFixed(1)) : 'Sin coste',
+          unitMargin != null ? Number(unitMargin.toFixed(3)) : 'Sin coste',
           p.eurosWithCost > 0 ? `${((p.eurosWithCost / totalEuros) * 100).toFixed(0)}%` : '0%',
         ]
       }),
@@ -738,7 +782,11 @@ export function EstadisticasClient({ lines, restaurants, stockRows }: { lines: O
                 ],
                 alerts: alerts.map(a => a.text),
                 topRestaurantes: ranking.rests.slice(0, 8).map(r => ({ name: r.name, euros: r.euros, pedidos: r.pedidos.size })),
-                topProductos: ranking.prods.slice(0, 8).map(p => ({ name: p.name, euros: p.euros, qty: p.qty, unit: p.unit })),
+                topProductos: ranking.prods.slice(0, 8).map(p => {
+                  const pt = productoTable.products.find(x => x.id === p.id)
+                  const unitMargin = pt && pt.qtyWithCost > 0 ? (pt.netRevenueWithCost - pt.costTotal) / pt.qtyWithCost : null
+                  return { name: p.name, euros: p.euros, qty: p.qty, unit: p.unit, unitMargin }
+                }),
               }, 'informe-ejecutivo.pdf')}
               className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-[#1E2B28] text-white hover:bg-[#141F1C] transition-colors"
             >
@@ -853,6 +901,55 @@ export function EstadisticasClient({ lines, restaurants, stockRows }: { lines: O
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Margen atrapado en stock */}
+          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <h2 className="text-sm font-semibold text-black">Beneficio potencial en el stock actual</h2>
+                <p className="text-xs text-gray-600 mt-0.5">Si vendieras hoy todo lo que tienes, al margen habitual de cada producto</p>
+              </div>
+              <p className={`text-xl font-bold ${stockMarginValue.total >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                {stockMarginValue.total.toFixed(0)}€
+              </p>
+            </div>
+            {stockMarginValue.topPositive.length === 0 ? (
+              <p className="text-center py-8 text-gray-600 text-sm">No hay suficientes productos con coste y stock para calcularlo</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2">
+                <div className="divide-y divide-gray-50 sm:border-r sm:border-gray-50">
+                  <p className="px-4 pt-3 pb-1 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Más beneficio parado</p>
+                  {stockMarginValue.topPositive.map(r => (
+                    <div key={r.productId} className="flex items-center justify-between gap-3 px-4 py-2 text-sm">
+                      <div className="min-w-0">
+                        <p className="font-medium text-black truncate">{r.name}</p>
+                        <p className="text-xs text-gray-600">{r.stock} {unitLabel(r.unit)} en stock · {r.unitMargin.toFixed(2)}€/ud</p>
+                      </div>
+                      <span className={`shrink-0 text-sm font-semibold ${r.stockValue >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                        {r.stockValue.toFixed(0)}€
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="divide-y divide-gray-50">
+                  <p className="px-4 pt-3 pb-1 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Stock que pierde dinero</p>
+                  {stockMarginValue.negative.length === 0 ? (
+                    <p className="text-center py-6 text-gray-500 text-xs">Ninguno — todo el stock con coste registrado tiene margen positivo</p>
+                  ) : (
+                    stockMarginValue.negative.map(r => (
+                      <div key={r.productId} className="flex items-center justify-between gap-3 px-4 py-2 text-sm">
+                        <div className="min-w-0">
+                          <p className="font-medium text-black truncate">{r.name}</p>
+                          <p className="text-xs text-gray-600">{r.stock} {unitLabel(r.unit)} en stock · {r.unitMargin.toFixed(2)}€/ud</p>
+                        </div>
+                        <span className="shrink-0 text-sm font-semibold text-red-500">{r.stockValue.toFixed(0)}€</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -980,6 +1077,7 @@ export function EstadisticasClient({ lines, restaurants, stockRows }: { lines: O
                     {(showAllProducts ? products : products.slice(0, 8)).map(p => {
                       const totalEuros = restNames.reduce((s, r) => s + (p.byRest[r]?.euros ?? 0), 0)
                       const marginPct = p.netRevenueWithCost > 0 ? ((p.netRevenueWithCost - p.costTotal) / p.netRevenueWithCost) * 100 : null
+                      const unitMargin = p.qtyWithCost > 0 ? (p.netRevenueWithCost - p.costTotal) / p.qtyWithCost : null
                       const isExpanded = expandedProduct === p.id
                       return (
                         <Fragment key={p.id}>
@@ -1015,9 +1113,14 @@ export function EstadisticasClient({ lines, restaurants, stockRows }: { lines: O
                             {showMargin && (
                               <td className="px-4 py-3 text-right">
                                 {marginPct != null ? (
-                                  <p className={`font-semibold text-sm ${marginPct >= 40 ? 'text-green-600' : marginPct >= 20 ? 'text-amber-600' : 'text-red-500'}`}>
-                                    {marginPct.toFixed(0)}%
-                                  </p>
+                                  <>
+                                    <p className={`font-semibold text-sm ${marginPct >= 40 ? 'text-green-600' : marginPct >= 20 ? 'text-amber-600' : 'text-red-500'}`}>
+                                      {marginPct.toFixed(0)}%
+                                    </p>
+                                    {unitMargin != null && (
+                                      <p className="text-[10px] text-gray-500">{unitMargin.toFixed(2)}€/{unitLabel(p.unit)}</p>
+                                    )}
+                                  </>
                                 ) : (
                                   <p className="text-xs text-gray-400">sin coste</p>
                                 )}

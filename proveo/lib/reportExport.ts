@@ -106,7 +106,7 @@ export type ExecutiveSummaryData = {
   kpis: { label: string; value: string; trend: number | null }[]
   alerts: string[]
   topRestaurantes: { name: string; euros: number; pedidos: number }[]
-  topProductos: { name: string; euros: number; qty: number; unit: string }[]
+  topProductos: { name: string; euros: number; qty: number; unit: string; unitMargin: number | null }[]
 }
 
 export async function exportExecutiveSummaryPDF(data: ExecutiveSummaryData, filename: string) {
@@ -191,8 +191,11 @@ export async function exportExecutiveSummaryPDF(data: ExecutiveSummaryData, file
   autoTable(doc, {
     startY: y + 8,
     margin: { left: margin, right: margin },
-    head: [['Producto', 'Cantidad', 'Gasto total']],
-    body: data.topProductos.map(p => [p.name, `${p.qty % 1 === 0 ? p.qty : p.qty.toFixed(1)} ${p.unit}`, `${p.euros.toFixed(2)}€`]),
+    head: [['Producto', 'Cantidad', 'Gasto total', 'Margen €/ud']],
+    body: data.topProductos.map(p => [
+      p.name, `${p.qty % 1 === 0 ? p.qty : p.qty.toFixed(1)} ${p.unit}`, `${p.euros.toFixed(2)}€`,
+      p.unitMargin != null ? `${p.unitMargin.toFixed(2)}€` : 'Sin coste',
+    ]),
     styles: { fontSize: 9, cellPadding: 5 },
     headStyles: { fillColor: [168, 121, 58], textColor: 255, fontStyle: 'bold' },
     theme: 'striped',
