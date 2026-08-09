@@ -20,7 +20,7 @@ export default async function EstadisticasPage() {
       .select(`
         id, order_number, created_at, total_price, restaurant_id, status,
         organizations!restaurant_id(id, name),
-        order_items(id, product_id, quantity, unit, unit_price, total_price,
+        order_items(id, product_id, quantity, rectified_quantity, unit, unit_price, total_price,
           products(name, cost_price, iva_rate)
         )
       `)
@@ -57,7 +57,14 @@ export default async function EstadisticasPage() {
         restaurant_name: (o.organizations as any)?.name ?? 'Desconocido',
         product_id: item.product_id,
         product_name: (item.products as any)?.name ?? 'Producto eliminado',
-        quantity: Number(item.quantity),
+        // La cantidad realmente entregada/facturada, no la aproximada del
+        // pedido — en productos "por cajón" (ej. calamar, ~8kg/caja
+        // aproximados) la nave corrige el peso real al preparar el pedido,
+        // y total_price ya refleja esa corrección. Usar "quantity" a secas
+        // aquí desincroniza coste (con la cantidad aproximada, más alta)
+        // frente a ingreso (con la cantidad real, más baja), y puede dar
+        // márgenes negativos falsos.
+        quantity: Number(item.rectified_quantity ?? item.quantity),
         unit: item.unit,
         unit_price: Number(item.unit_price),
         item_total: Number(item.total_price),
