@@ -2,13 +2,13 @@
 
 import { useState, useTransition, useMemo } from 'react'
 import Link from 'next/link'
-import { updateOrderStatus, generateDeliveryNote, deleteOrder, rectifyOrderItem, cancelOrderItem, setItemPrepared, setItemLot, setItemWeight, setItemBoxExactUnits } from '@/app/actions/orders'
+import { updateOrderStatus, generateDeliveryNote, deleteOrder, rectifyOrderItem, cancelOrderItem, setItemPrepared, setItemLot, setItemWeight, setItemBoxExactUnits, reopenOrder } from '@/app/actions/orders'
 import type { OrderStatus } from '@/app/actions/orders'
 import { unitLabel } from '@/lib/units'
 import {
   Calendar, Filter, ChevronDown, MessageCircle, Printer,
   Download, FileText, Clock, CheckCircle2, Send, AlertCircle,
-  ChevronUp, Package, Trash2, Pencil, Check, X, Ban, Undo2
+  ChevronUp, Package, Trash2, Pencil, Check, X, Ban, Undo2, RotateCcw
 } from 'lucide-react'
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -334,6 +334,8 @@ function OrderActions({ order, onDeleted, onStatusChange }: { order: Order; onDe
   const [loading, setLoading] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [confirmCancel, setConfirmCancel] = useState(false)
+  const [reopening, setReopening] = useState(false)
+  const [reopenError, setReopenError] = useState<string | null>(null)
   const [noteId, setNoteId] = useState<string | null>(entregaNote(order)?.id ?? null)
   const [noteNumber, setNoteNumber] = useState<number | null>(entregaNote(order)?.note_number ?? null)
   const [blockedMsg, setBlockedMsg] = useState(false)
@@ -346,6 +348,7 @@ function OrderActions({ order, onDeleted, onStatusChange }: { order: Order; onDe
   const allPrepared = pendingItems.length > 0 && pendingItems.every(i => i.prepared)
   const needsPrepCheck = status === 'pendiente'
   const canCancelOrder = status === 'pendiente' || status === 'hecho'
+  const canReopen = status === 'cancelado'
 
   function handleStatus() {
     if (!nextAction) return
@@ -362,6 +365,19 @@ function OrderActions({ order, onDeleted, onStatusChange }: { order: Order; onDe
     setLoading(true)
     onStatusChange(order.id, 'cancelado')
     updateOrderStatus(order.id, 'cancelado')
+  }
+
+  // Restablece un pedido cancelado por error: mismo número de pedido,
+  // vuelve a "pendiente" y se descuenta otra vez el stock de la nave. Aquí
+  // sí esperamos la respuesta (a diferencia del resto de acciones) porque
+  // si falla el restaurante seguiría creyendo que el pedido está cancelado.
+  function handleReopen() {
+    setReopening(true)
+    setReopenError(null)
+    reopenOrder(order.id)
+      .then(() => onStatusChange(order.id, 'pendiente'))
+      .catch((e: any) => setReopenError(e?.message ?? 'No se pudo restablecer el pedido'))
+      .finally(() => setReopening(false))
   }
 
   async function handleGenNote() {
@@ -409,6 +425,12 @@ function OrderActions({ order, onDeleted, onStatusChange }: { order: Order; onDe
         <p className="text-xs text-red-600 font-medium mb-2 flex items-center gap-1.5">
           <AlertCircle className="w-3.5 h-3.5 shrink-0" />
           Marca primero todos los artículos como listos (checkbox) antes de continuar
+        </p>
+      )}
+      {reopenError && (
+        <p className="text-xs text-red-600 font-medium mb-2 flex items-center gap-1.5">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+          {reopenError}
         </p>
       )}
       <div className="flex flex-wrap gap-2">
@@ -474,6 +496,18 @@ function OrderActions({ order, onDeleted, onStatusChange }: { order: Order; onDe
           <Printer className="w-3.5 h-3.5" />
           Imprimir
         </Link>
+      )}
+
+      {/* Restablecer pedido cancelado por error */}
+      {canReopen && (
+        <button
+          onClick={handleReopen}
+          disabled={reopening}
+          className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white transition-colors disabled:opacity-50"
+        >
+          <RotateCcw className="w-3.5 h-3.5" />
+          {reopening ? 'Restableciendo...' : 'Restablecer pedido'}
+        </button>
       )}
 
       {/* Cancelar pedido completo */}

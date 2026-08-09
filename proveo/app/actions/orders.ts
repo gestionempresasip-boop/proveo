@@ -49,6 +49,34 @@ export async function updateOrderStatus(orderId: string, newStatus: OrderStatus)
   revalidatePath('/albaranes')
 }
 
+// Restablece un pedido cancelado por error: vuelve a "pendiente" (mismo
+// número de pedido, sin crear uno nuevo) y descuenta de nuevo el stock de
+// la nave — el inverso exacto de lo que hace la cancelación al devolverlo.
+export async function reopenOrder(orderId: string) {
+  const supabase = await createClient()
+  const sb = supabase as any
+
+  const { data: current } = await sb.from('orders').select('status').eq('id', orderId).single()
+  if (current?.status !== 'cancelado') throw new Error('Solo se pueden restablecer pedidos cancelados')
+
+  const { data: items } = await sb.from('order_items').select('product_id, quantity, rectified_quantity').eq('order_id', orderId)
+
+  const { error } = await sb
+    .from('orders')
+    .update({ status: 'pendiente', updated_at: new Date().toISOString() })
+    .eq('id', orderId)
+  if (error) throw new Error(error.message)
+
+  await Promise.all(
+    (items ?? []).map((it: any) =>
+      sb.rpc('adjust_nave_stock', { p_product_id: it.product_id, p_delta: -Number(it.rectified_quantity ?? it.quantity) })
+    )
+  )
+
+  revalidatePath('/pedidos')
+  revalidatePath('/albaranes')
+}
+
 export async function generateDeliveryNote(orderId: string) {
   const supabase = await createClient()
   const sb = supabase as any

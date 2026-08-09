@@ -228,24 +228,23 @@ function OrderRow({ order, onCanceled, onReturned }: { order: Order; onCanceled:
           })}
         </div>
 
-        {/* Repetir pedido */}
-        {order.status !== 'cancelado' && (
-          <div className="mt-3 flex justify-end">
-            <button
-              onClick={() => {
-                const items: RepeatOrderItem[] = order.order_items
-                  .filter(it => !(it.rectified_quantity != null && Number(it.rectified_quantity) === 0))
-                  .map(it => ({ product_id: it.product_id, quantity: Number(it.rectified_quantity ?? it.quantity) }))
-                setRepeatOrder(items)
-                router.push('/catalogo')
-              }}
-              className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-xl border border-[#1E2B28]/30 text-[#1E2B28] hover:bg-[#1E2B28]/10 transition-colors"
-            >
-              <Repeat className="w-3.5 h-3.5" />
-              Repetir pedido
-            </button>
-          </div>
-        )}
+        {/* Repetir pedido — también disponible si está cancelado, para
+            volver a pedir lo mismo como un pedido nuevo */}
+        <div className="mt-3 flex justify-end">
+          <button
+            onClick={() => {
+              const items: RepeatOrderItem[] = order.order_items
+                .filter(it => !(it.rectified_quantity != null && Number(it.rectified_quantity) === 0))
+                .map(it => ({ product_id: it.product_id, quantity: Number(it.rectified_quantity ?? it.quantity) }))
+              setRepeatOrder(items)
+              router.push('/catalogo')
+            }}
+            className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-xl border border-[#1E2B28]/30 text-[#1E2B28] hover:bg-[#1E2B28]/10 transition-colors"
+          >
+            <Repeat className="w-3.5 h-3.5" />
+            Repetir pedido
+          </button>
+        </div>
 
         {/* Cancelar */}
         {canCancel && (
