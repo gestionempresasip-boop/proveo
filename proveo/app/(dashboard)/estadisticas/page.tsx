@@ -3,6 +3,18 @@ import { getAuthProfile } from '@/lib/supabase/helpers'
 import { EstadisticasClient } from '@/components/stats/EstadisticasClient'
 import { redirect } from 'next/navigation'
 
+// Algunos productos tienen el coste registrado por caja/pieza entera en
+// products.cost_price (ej. "Jamón bellota" a 518,40€ la caja de 40 sobres),
+// pero se piden y facturan por unidad suelta o por kg — no hay ningún campo
+// en la base de datos que relacione ambas cosas. Esto SOLO ajusta el coste
+// que usa el cálculo de margen de Informes; no toca products.cost_price, ni
+// el catálogo, ni cómo piden los restaurantes. Si aparecen más productos
+// con el mismo patrón, se añaden aquí.
+const COST_PACKAGE_SIZE: Record<string, number> = {
+  'a60f7725-e96f-4540-a191-054e9b9ac3b7': 40, // Jamón bellota c. cuchillo caja — 518,40€ / 40 sobres
+  '44a1236c-65de-4041-bd22-1a44b6b5c881': 8,  // Secreto ibérico congelado caja — 167,60€ / 8 kg
+}
+
 export default async function EstadisticasPage() {
   const supabase = await createClient()
   const profile = await getAuthProfile()
@@ -69,7 +81,7 @@ export default async function EstadisticasPage() {
         unit_price: Number(item.unit_price),
         item_total: Number(item.total_price),
         order_total: Number(o.total_price),
-        cost_price: Number((item.products as any)?.cost_price ?? 0),
+        cost_price: Number((item.products as any)?.cost_price ?? 0) / (COST_PACKAGE_SIZE[item.product_id] ?? 1),
         iva_rate: Number((item.products as any)?.iva_rate ?? 0),
       })
     }
