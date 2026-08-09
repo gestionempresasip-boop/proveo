@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { getAuthProfile } from '@/lib/supabase/helpers'
 import { EstadisticasClient } from '@/components/stats/EstadisticasClient'
+import { InformesGate } from '@/components/stats/InformesGate'
+import { isInformesUnlocked } from '@/app/actions/informesGate'
 import { redirect } from 'next/navigation'
 
 // Algunos productos tienen el coste registrado por caja/pieza entera en
@@ -19,6 +21,17 @@ export default async function EstadisticasPage() {
   const supabase = await createClient()
   const profile = await getAuthProfile()
   if (profile.organizations.type !== 'nave') redirect('/dashboard')
+
+  // Segunda barrera además del PIN de la nave: sin el código, ni siquiera
+  // se llega a pedir los pedidos/costes a Supabase.
+  if (!(await isInformesUnlocked())) {
+    return (
+      <div className="p-4 sm:p-6 max-w-5xl mx-auto">
+        <InformesGate />
+      </div>
+    )
+  }
+
   const sb = supabase as any
 
   // Traer pedidos + restaurantes + stock en paralelo (son independientes
