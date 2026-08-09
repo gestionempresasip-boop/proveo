@@ -1,8 +1,10 @@
 'use client'
 
 import { useState, useMemo, useRef, Fragment } from 'react'
-import { ChevronDown, ChevronLeft, ChevronRight, Download, Minus, Calculator } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, Minus, Calculator } from 'lucide-react'
 import { unitLabel, realQuantityLabel, CONVERTIBLE_UNITS, toKg, toLitros } from '@/lib/units'
+import { exportReportExcel, exportReportPDF, type ReportSection } from '@/lib/reportExport'
+import { ExportMenu } from '@/components/stats/ExportMenu'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -321,6 +323,12 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
   }, [filtered])
 
   // ── Export handlers ──────────────────────────────────────────────────────
+  // Excel y PDF comparten la misma "sección" (cabeceras + filas numéricas);
+  // el CSV existente se deja tal cual, solo se mueve dentro del menú.
+
+  const filterLabel = { dia: 'Hoy', semana: 'Esta semana', mes: 'Este mes', año: 'Este año', custom: 'Personalizado' }[dateFilter]
+  const restLabel = restFilter === 'todos' ? 'Todos los restaurantes' : (restaurants.find(r => r.id === restFilter)?.name ?? '')
+  const reportSubtitle = `${filterLabel}${dateFilter === 'custom' && dateFrom && dateTo ? ` (${dateFrom} a ${dateTo})` : ''} · ${restLabel}`
 
   function exportPeriodo() {
     const { periods, restNames, cell, rowTotal } = periodoTable
@@ -333,6 +341,22 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
     exportCSV(headers, rows, 'estadisticas-periodo.csv')
   }
 
+  function periodoSections(): ReportSection[] {
+    const { periods, restNames, cell, rowTotal, colTotal, grandTotal } = periodoTable
+    return [{
+      heading: 'Gasto por período',
+      headers: ['Restaurante', ...periods, 'TOTAL'],
+      rows: [
+        ...restNames.map(r => [
+          r,
+          ...periods.map(p => Number((cell[r]?.[p]?.euros ?? 0).toFixed(2))),
+          Number(rowTotal[r].toFixed(2)),
+        ]),
+        ['TOTAL', ...periods.map(p => Number(colTotal[p].toFixed(2))), Number(grandTotal.toFixed(2))],
+      ],
+    }]
+  }
+
   function exportProductos() {
     const { products, restNames } = productoTable
     const headers = ['Producto', 'Unidad', ...restNames, 'Total €']
@@ -342,6 +366,34 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
       restNames.reduce((s, r) => s + (p.byRest[r]?.euros ?? 0), 0).toFixed(2),
     ])
     exportCSV(headers, rows, 'estadisticas-productos.csv')
+  }
+
+  function productosSections(): ReportSection[] {
+    const { products, restNames } = productoTable
+    return [{
+      heading: 'Consumo por producto',
+      headers: ['Producto', 'Unidad', ...restNames, 'Total €'],
+      rows: products.map(p => [
+        p.name, unitLabel(p.unit),
+        ...restNames.map(r => Number((p.byRest[r]?.qty ?? 0).toFixed(2))),
+        Number(restNames.reduce((s, r) => s + (p.byRest[r]?.euros ?? 0), 0).toFixed(2)),
+      ]),
+    }]
+  }
+
+  function rankingSections(): ReportSection[] {
+    return [
+      {
+        heading: 'Restaurantes por gasto',
+        headers: ['#', 'Restaurante', 'Pedidos', 'Gasto total €'],
+        rows: ranking.rests.map((r, i) => [i + 1, r.name, r.pedidos.size, Number(r.euros.toFixed(2))]),
+      },
+      {
+        heading: 'Productos más consumidos',
+        headers: ['#', 'Producto', 'Cantidad', 'Unidad', 'Gasto total €'],
+        rows: ranking.prods.map((p, i) => [i + 1, p.name, Number(p.qty.toFixed(2)), unitLabel(p.unit), Number(p.euros.toFixed(2))]),
+      },
+    ]
   }
 
   const totalGasto = useMemo(() => {
@@ -441,9 +493,11 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <p className="text-xs text-gray-600">Las celdas más oscuras = mayor gasto. Mueve la tabla horizontalmente si no caben todas las columnas.</p>
-              <button onClick={exportPeriodo} className="flex items-center gap-1.5 text-xs text-gray-700 hover:text-gray-700 border border-gray-200 px-3 py-1.5 rounded-lg">
-                <Download className="w-3.5 h-3.5" /> CSV
-              </button>
+              <ExportMenu
+                onExcel={() => exportReportExcel(periodoSections(), 'estadisticas-periodo.xlsx')}
+                onPDF={() => exportReportPDF('Gasto por período', reportSubtitle, periodoSections(), 'estadisticas-periodo.pdf')}
+                onCSV={exportPeriodo}
+              />
             </div>
             <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
               <HScroll>
@@ -524,9 +578,11 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
                 onChange={e => setProdSearch(e.target.value)}
                 className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28] w-52" />
               <p className="text-xs text-gray-600 flex-1">Cantidades pedidas por restaurante. Celdas oscuras = mayor consumo. Pulsa un producto para ver el ranking.</p>
-              <button onClick={exportProductos} className="flex items-center gap-1.5 text-xs text-gray-700 hover:text-gray-700 border border-gray-200 px-3 py-1.5 rounded-lg">
-                <Download className="w-3.5 h-3.5" /> CSV
-              </button>
+              <ExportMenu
+                onExcel={() => exportReportExcel(productosSections(), 'estadisticas-productos.xlsx')}
+                onPDF={() => exportReportPDF('Consumo por producto', reportSubtitle, productosSections(), 'estadisticas-productos.pdf')}
+                onCSV={exportProductos}
+              />
             </div>
             <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
               <HScroll>
@@ -630,7 +686,14 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
 
       {/* ── TAB: RANKING ─────────────────────────────────────────────────── */}
       {tab === 'ranking' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="space-y-3">
+          <div className="flex justify-end">
+            <ExportMenu
+              onExcel={() => exportReportExcel(rankingSections(), 'estadisticas-ranking.xlsx')}
+              onPDF={() => exportReportPDF('Ranking', reportSubtitle, rankingSections(), 'estadisticas-ranking.pdf')}
+            />
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Ranking restaurantes */}
           <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
@@ -731,6 +794,7 @@ export function EstadisticasClient({ lines, restaurants }: { lines: OrderLine[];
               </table>
               {ranking.rests.length === 0 && <p className="text-center py-10 text-gray-600">Sin datos</p>}
             </HScroll>
+          </div>
           </div>
         </div>
       )}
