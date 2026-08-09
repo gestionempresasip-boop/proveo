@@ -208,6 +208,7 @@ export function EstadisticasClient({ lines, restaurants, stockRows }: { lines: O
   const [prodSearch, setProdSearch] = useState('')
   const [showMargin, setShowMargin] = useState(false)
   const [marginFilter, setMarginFilter] = useState<'todos' | MarginBracket>('todos')
+  const [resumenMarginFilter, setResumenMarginFilter] = useState<'todos' | MarginBracket>('todos')
   const [showAllProducts, setShowAllProducts] = useState(false)
   const [expandedProduct, setExpandedProduct] = useState<string | null>(null)
 
@@ -309,14 +310,20 @@ export function EstadisticasClient({ lines, restaurants, stockRows }: { lines: O
       return { ...p, marginPct, unitMargin, marginBracket: marginBracket(marginPct) }
     })
 
-    const products = withMargin
+    const bySearch = withMargin
       .filter(p => !prodSearch || p.name.toLowerCase().includes(prodSearch.toLowerCase()))
-      .filter(p => marginFilter === 'todos' || !showMargin || p.marginBracket === marginFilter)
       .sort((a, b) => {
         const ta = Object.values(a.byRest).reduce((s, v) => s + v.euros, 0)
         const tb = Object.values(b.byRest).reduce((s, v) => s + v.euros, 0)
         return tb - ta
       })
+
+    // Lista completa (sin el filtro de color de esta pestaña) — la usa el
+    // widget de margen del Resumen, con su propio filtro independiente.
+    const allProducts = bySearch
+
+    const products = bySearch
+      .filter(p => marginFilter === 'todos' || !showMargin || p.marginBracket === marginFilter)
 
     const marginCounts = { verde: 0, naranja: 0, rojo: 0, sinCoste: 0 }
     withMargin.forEach(p => {
@@ -332,7 +339,7 @@ export function EstadisticasClient({ lines, restaurants, stockRows }: { lines: O
       restMax[r] = Math.max(...products.map(p => p.byRest[r]?.euros ?? 0))
     })
 
-    return { products, restNames, restMax, marginCounts }
+    return { products, allProducts, restNames, restMax, marginCounts }
   }, [filtered, prodSearch, showMargin, marginFilter])
 
   // ── Ranking ──────────────────────────────────────────────────────────────
@@ -998,6 +1005,65 @@ export function EstadisticasClient({ lines, restaurants, stockRows }: { lines: O
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Productos por margen — mismo filtro de color que en Productos,
+              pero independiente: cambiar uno no afecta al otro. */}
+          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-100">
+              <h2 className="text-sm font-semibold text-black">Productos por margen</h2>
+              <p className="text-xs text-gray-600 mt-0.5">De este período — filtra por color para ver solo los que te interesan</p>
+              <div className="flex flex-wrap gap-1.5 mt-2.5">
+                {([
+                  { key: 'todos' as const, label: `Todos (${productoTable.marginCounts.verde + productoTable.marginCounts.naranja + productoTable.marginCounts.rojo + productoTable.marginCounts.sinCoste})`, dot: null },
+                  { key: 'verde' as const, label: `Verde (${productoTable.marginCounts.verde})`, dot: 'bg-green-500' },
+                  { key: 'naranja' as const, label: `Naranja (${productoTable.marginCounts.naranja})`, dot: 'bg-amber-500' },
+                  { key: 'rojo' as const, label: `Rojo (${productoTable.marginCounts.rojo})`, dot: 'bg-red-500' },
+                ]).map(f => (
+                  <button
+                    key={f.key}
+                    onClick={() => setResumenMarginFilter(f.key)}
+                    className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-colors ${
+                      resumenMarginFilter === f.key ? 'bg-[#1E2B28] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {f.dot && <span className={`w-2 h-2 rounded-full ${f.dot}`} />}
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {(() => {
+              const list = productoTable.allProducts.filter(p =>
+                resumenMarginFilter === 'todos' ? true : p.marginBracket === resumenMarginFilter
+              )
+              return list.length === 0 ? (
+                <p className="text-center py-8 text-gray-600 text-sm">Sin productos en esta categoría</p>
+              ) : (
+                <div className="divide-y divide-gray-50 max-h-96 overflow-y-auto">
+                  {list.map(p => {
+                    const totalEuros = productoTable.restNames.reduce((s, r) => s + (p.byRest[r]?.euros ?? 0), 0)
+                    return (
+                      <div key={p.id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
+                        <div className="min-w-0">
+                          <p className="font-medium text-black truncate">{p.name}</p>
+                          <p className="text-xs text-gray-600">{totalEuros.toFixed(0)}€ facturados</p>
+                        </div>
+                        {p.marginPct != null ? (
+                          <span className={`shrink-0 text-sm font-semibold ${
+                            p.marginBracket === 'verde' ? 'text-green-600' : p.marginBracket === 'naranja' ? 'text-amber-600' : 'text-red-500'
+                          }`}>
+                            {p.marginPct.toFixed(0)}%
+                          </span>
+                        ) : (
+                          <span className="shrink-0 text-xs text-gray-400">sin coste</span>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            })()}
           </div>
         </div>
       )}
