@@ -16,6 +16,7 @@ const CATEGORIES = Object.keys(CATEGORY_LABEL) as FixedCostCategory[]
 
 export type FinanceData = {
   contributionPct: number | null
+  coveragePct: number | null
   fixedCostsTotal: number
   breakEvenRevenue: number | null
   monthRevenue: number
@@ -191,6 +192,12 @@ export function FinanzasTab({ fixedCosts, financeData: f, onCreate, onUpdate, on
               <p className="text-xs text-gray-600 mt-1">
                 Facturación necesaria para cubrir costes fijos y variables, con un margen de contribución del {f.contributionPct.toFixed(0)}%
               </p>
+              {f.coveragePct != null && (
+                <p className={`text-[11px] mt-1.5 ${f.coveragePct < 70 ? 'text-amber-600' : 'text-gray-500'}`}>
+                  Calculado sobre productos con coste registrado, que cubren el {f.coveragePct.toFixed(0)}% de la facturación de este mes
+                  {f.coveragePct < 70 ? ' — con poca cobertura, tómalo como orientativo' : ''}
+                </p>
+              )}
               <div className="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-gray-50">
                 <div>
                   <p className="text-[11px] text-gray-500 uppercase tracking-wide">Por día</p>
@@ -238,7 +245,13 @@ export function FinanzasTab({ fixedCosts, financeData: f, onCreate, onUpdate, on
           ) : (
             <div className="space-y-1.5 text-sm">
               <div className="flex justify-between"><span className="text-gray-600">Ingresos (netos de IVA)</span><span className="font-medium text-black">{f.monthNetRevenue.toFixed(0)}€</span></div>
-              <div className="flex justify-between"><span className="text-gray-600">− Coste variable estimado</span><span className="font-medium text-black">{f.monthCOGS?.toFixed(0)}€</span></div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">
+                  − Coste variable estimado
+                  {f.coveragePct != null && <span className="text-gray-400"> ({f.coveragePct.toFixed(0)}% cobertura)</span>}
+                </span>
+                <span className="font-medium text-black">{f.monthCOGS?.toFixed(0)}€</span>
+              </div>
               <div className="flex justify-between border-t border-gray-100 pt-1.5"><span className="text-gray-600">= Margen de contribución</span><span className="font-medium text-black">{f.monthContribution?.toFixed(0)}€</span></div>
               <div className="flex justify-between"><span className="text-gray-600">− Costes fijos</span><span className="font-medium text-black">{f.fixedCostsTotal.toFixed(0)}€</span></div>
               <div className="flex justify-between border-t border-gray-200 pt-1.5 text-base">

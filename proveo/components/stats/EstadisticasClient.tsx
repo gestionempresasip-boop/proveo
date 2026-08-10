@@ -829,13 +829,19 @@ export function EstadisticasClient({ lines, restaurants, stockRows, returns, fix
     const now = new Date()
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
     const seenOrders = new Set<string>()
-    let monthRevenue = 0, monthNetRevenue = 0
+    let monthRevenue = 0, monthNetRevenue = 0, monthNetRevenueWithCost = 0
     base.forEach(l => {
       const d = new Date(l.created_at)
       if (d < monthStart) return
       monthNetRevenue += netOfIva(l)
+      if (l.cost_price > 0) monthNetRevenueWithCost += netOfIva(l)
       if (!seenOrders.has(l.order_id)) { seenOrders.add(l.order_id); monthRevenue += l.order_total }
     })
+    // Qué % de la facturación de ESTE mes viene de productos con coste
+    // registrado — el coste variable se calcula aplicando el margen de ese
+    // % de la facturación al 100%, así que cuanto más bajo, menos fiable es
+    // la estimación del coste variable y del punto muerto.
+    const coveragePct = monthNetRevenue > 0 ? (monthNetRevenueWithCost / monthNetRevenue) * 100 : null
 
     const fixedCostsTotal = fixedCosts.filter(c => c.active).reduce((s, c) => s + c.monthly_amount, 0)
     const contributionRatio = contributionPct != null ? contributionPct / 100 : null
@@ -871,7 +877,7 @@ export function EstadisticasClient({ lines, restaurants, stockRows, returns, fix
       : null
 
     return {
-      contributionPct, fixedCostsTotal, breakEvenRevenue,
+      contributionPct, coveragePct, fixedCostsTotal, breakEvenRevenue,
       monthRevenue, monthNetRevenue, monthCOGS, monthContribution, profitLoss,
       pctToBreakEven, dailyBreakEven, safetyMarginPct, daysToBreakEven,
       projectedNetRevenue, projectedProfitLoss, daysElapsed, daysInMonth,
