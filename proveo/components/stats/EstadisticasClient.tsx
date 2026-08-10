@@ -6,6 +6,9 @@ import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tool
 import { unitLabel, realQuantityLabel, CONVERTIBLE_UNITS, toKg, toLitros } from '@/lib/units'
 import { exportReportExcel, exportReportPDF, exportExecutiveSummaryPDF, type ReportSection } from '@/lib/reportExport'
 import { ExportMenu } from '@/components/stats/ExportMenu'
+import { FinanzasTab } from '@/components/stats/FinanzasTab'
+import type { FixedCost } from '@/app/actions/fixedCosts'
+import { createFixedCost, updateFixedCost, toggleFixedCostActive, deleteFixedCost } from '@/app/actions/fixedCosts'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -16,6 +19,13 @@ type OrderLine = {
   quantity: number; unit: string; unit_price: number
   item_total: number; order_total: number
   cost_price: number; iva_rate: number
+  category_name: string | null; category_color: string | null
+}
+type ReturnLine = {
+  created_at: string; restaurant_id: string; restaurant_name: string
+  product_id: string; product_name: string
+  quantity: number; unit: string; total_price: number
+  reason: 'reutilizable' | 'no_utilizable'
 }
 
 // El margen compara ingreso vs. coste, y solo tiene sentido si las dos
@@ -198,19 +208,32 @@ function UnitConverter() {
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 
-export function EstadisticasClient({ lines, restaurants, stockRows }: { lines: OrderLine[]; restaurants: Restaurant[]; stockRows: StockRow[] }) {
+export function EstadisticasClient({ lines, restaurants, stockRows, returns, fixedCosts: initialFixedCosts }: { lines: OrderLine[]; restaurants: Restaurant[]; stockRows: StockRow[]; returns: ReturnLine[]; fixedCosts: FixedCost[] }) {
   const [dateFilter, setDateFilter] = useState<DateFilter>('mes')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [groupBy, setGroupBy] = useState<GroupBy>('mes')
   const [restFilter, setRestFilter] = useState('todos')
-  const [tab, setTab] = useState<'resumen' | 'periodo' | 'productos' | 'ranking'>('resumen')
+  const [tab, setTab] = useState<'resumen' | 'periodo' | 'productos' | 'ranking' | 'calidad' | 'restaurantes' | 'finanzas'>('resumen')
+  const [fixedCosts, setFixedCosts] = useState<FixedCost[]>(initialFixedCosts)
   const [prodSearch, setProdSearch] = useState('')
   const [showMargin, setShowMargin] = useState(false)
   const [marginFilter, setMarginFilter] = useState<'todos' | MarginBracket>('todos')
   const [resumenMarginFilter, setResumenMarginFilter] = useState<'todos' | MarginBracket>('todos')
   const [showAllProducts, setShowAllProducts] = useState(false)
   const [expandedProduct, setExpandedProduct] = useState<string | null>(null)
+  const [expandedRestaurant, setExpandedRestaurant] = useState<string | null>(null)
+  // Objetivo mensual: solo vive en este navegador (localStorage), no hay
+  // tabla para esto en la base de datos — es una meta editable, no un dato del negocio.
+  const [monthlyGoal, setMonthlyGoal] = useState<number>(() => {
+    if (typeof window === 'undefined') return 0
+    return Number(window.localStorage.getItem('proveo_monthly_goal') ?? 0) || 0
+  })
+  const [editingGoal, setEditingGoal] = useState(false)
+  function saveMonthlyGoal(value: number) {
+    setMonthlyGoal(value)
+    if (typeof window !== 'undefined') window.localStorage.setItem('proveo_monthly_goal', String(value))
+  }
 
   // ── Filter ───────────────────────────────────────────────────────────────
 
@@ -231,6 +254,27 @@ export function EstadisticasClient({ lines, restaurants, stockRows }: { lines: O
       return passDate && (restFilter === 'todos' || l.restaurant_id === restFilter)
     })
   }, [lines, dateFilter, dateFrom, dateTo, restFilter])
+
+  // Mismos filtros de fecha/restaurante que "filtered", aplicados a las
+  // devoluciones — para que Calidad respete lo que se ve arriba en vez de
+  // mostrar siempre el histórico completo.
+  const filteredReturns = useMemo(() => {
+    const since: Record<DateFilter, Date | null> = {
+      dia: startOf('day'), semana: startOf('week'), mes: startOf('month'), año: startOf('year'), custom: null
+    }
+    return returns.filter(r => {
+      const d = new Date(r.created_at)
+      let passDate = true
+      if (dateFilter === 'custom') {
+        const from = dateFrom ? new Date(dateFrom) : null
+        const to = dateTo ? new Date(new Date(dateTo).getTime() + 86399999) : null
+        passDate = (!from || d >= from) && (!to || d <= to)
+      } else {
+        const s = since[dateFilter]; passDate = s ? d >= s : true
+      }
+      return passDate && (restFilter === 'todos' || r.restaurant_id === restFilter)
+    })
+  }, [returns, dateFilter, dateFrom, dateTo, restFilter])
 
   // ── Período × Restaurante ────────────────────────────────────────────────
 
@@ -307,7 +351,10 @@ export function EstadisticasClient({ lines, restaurants, stockRows }: { lines: O
     const withMargin = Object.values(prodMap).map(p => {
       const marginPct = p.netRevenueWithCost > 0 ? ((p.netRevenueWithCost - p.costTotal) / p.netRevenueWithCost) * 100 : null
       const unitMargin = p.qtyWithCost > 0 ? (p.netRevenueWithCost - p.costTotal) / p.qtyWithCost : null
-      return { ...p, marginPct, unitMargin, marginBracket: marginBracket(marginPct) }
+      // Beneficio total en € que ha dejado este producto en el período (no
+      // solo por unidad) — solo sobre las líneas con coste registrado.
+      const totalProfit = p.netRevenueWithCost > 0 ? p.netRevenueWithCost - p.costTotal : null
+      return { ...p, marginPct, unitMargin, totalProfit, marginBracket: marginBracket(marginPct) }
     })
 
     const bySearch = withMargin
@@ -610,6 +657,228 @@ export function EstadisticasClient({ lines, restaurants, stockRows }: { lines: O
     return { total: totalProfit, totalCost, topPositive, negative }
   }, [lines, stockRows])
 
+  // ── Calidad: devoluciones y mermas ──────────────────────────────────────
+  const calidad = useMemo(() => {
+    let lostEuros = 0, reusableEuros = 0
+    const byProduct: Record<string, { name: string; unit: string; qtyLost: number; eurosLost: number; qtyReused: number; timesReturned: number }> = {}
+    const byRestaurant: Record<string, { name: string; eurosLost: number; timesReturned: number }> = {}
+
+    filteredReturns.forEach(r => {
+      if (!byProduct[r.product_id]) byProduct[r.product_id] = { name: r.product_name, unit: r.unit, qtyLost: 0, eurosLost: 0, qtyReused: 0, timesReturned: 0 }
+      byProduct[r.product_id].timesReturned++
+      if (!byRestaurant[r.restaurant_id]) byRestaurant[r.restaurant_id] = { name: r.restaurant_name, eurosLost: 0, timesReturned: 0 }
+      byRestaurant[r.restaurant_id].timesReturned++
+
+      if (r.reason === 'no_utilizable') {
+        lostEuros += r.total_price
+        byProduct[r.product_id].qtyLost += r.quantity
+        byProduct[r.product_id].eurosLost += r.total_price
+        byRestaurant[r.restaurant_id].eurosLost += r.total_price
+      } else {
+        reusableEuros += r.total_price
+        byProduct[r.product_id].qtyReused += r.quantity
+      }
+    })
+
+    const topLostProducts = Object.values(byProduct)
+      .filter(p => p.eurosLost > 0)
+      .sort((a, b) => b.eurosLost - a.eurosLost)
+      .slice(0, 10)
+    const topReturningRestaurants = Object.values(byRestaurant)
+      .filter(r => r.timesReturned > 0)
+      .sort((a, b) => b.timesReturned - a.timesReturned)
+      .slice(0, 8)
+
+    return { lostEuros, reusableEuros, topLostProducts, topReturningRestaurants, totalReturns: filteredReturns.length }
+  }, [filteredReturns])
+
+  // ── Restaurantes: ficha + dormidos ──────────────────────────────────────
+  const restaurantesData = useMemo(() => {
+    const byRest: Record<string, {
+      id: string; name: string; euros: number; orders: Set<string>
+      products: Record<string, { name: string; unit: string; qty: number; euros: number }>
+    }> = {}
+    filtered.forEach(l => {
+      if (!byRest[l.restaurant_id]) byRest[l.restaurant_id] = { id: l.restaurant_id, name: l.restaurant_name, euros: 0, orders: new Set(), products: {} }
+      if (!byRest[l.restaurant_id].orders.has(l.order_id)) {
+        byRest[l.restaurant_id].orders.add(l.order_id)
+        byRest[l.restaurant_id].euros += l.order_total
+      }
+      if (!byRest[l.restaurant_id].products[l.product_id]) byRest[l.restaurant_id].products[l.product_id] = { name: l.product_name, unit: l.unit, qty: 0, euros: 0 }
+      byRest[l.restaurant_id].products[l.product_id].qty += l.quantity
+      byRest[l.restaurant_id].products[l.product_id].euros += l.item_total
+    })
+    const list = Object.values(byRest).map(r => ({
+      id: r.id, name: r.name, euros: r.euros, pedidos: r.orders.size,
+      ticketMedio: r.orders.size > 0 ? r.euros / r.orders.size : 0,
+      topProducts: Object.values(r.products).sort((a, b) => b.euros - a.euros).slice(0, 5),
+    })).sort((a, b) => b.euros - a.euros)
+
+    // Dormidos: sobre TODO el histórico (no el filtro de fecha activo),
+    // igual que la detección de productos dormidos del Resumen.
+    const lastOrderByRest: Record<string, { name: string; date: number }> = {}
+    lines.forEach(l => {
+      const t = new Date(l.created_at).getTime()
+      if (!lastOrderByRest[l.restaurant_id] || t > lastOrderByRest[l.restaurant_id].date) {
+        lastOrderByRest[l.restaurant_id] = { name: l.restaurant_name, date: t }
+      }
+    })
+    const now = Date.now()
+    const dormant = Object.values(lastOrderByRest)
+      .map(r => ({ name: r.name, days: Math.floor((now - r.date) / 86400000) }))
+      .filter(r => r.days >= 5)
+      .sort((a, b) => b.days - a.days)
+
+    return { list, dormant }
+  }, [filtered, lines])
+
+  // Evolución de un restaurante concreto en los últimos períodos (para su
+  // ficha desplegada) — mismo criterio de agrupación que el Resumen.
+  function restaurantEvolution(restaurantId: string) {
+    const byPeriod: Record<string, number> = {}
+    lines.filter(l => l.restaurant_id === restaurantId).forEach(l => {
+      const p = periodKey(l.created_at, groupBy)
+      byPeriod[p] = (byPeriod[p] ?? 0) + l.item_total
+    })
+    return sortPeriods(Object.keys(byPeriod), groupBy).slice(-6).map(p => ({ periodo: p, euros: Math.round(byPeriod[p]) }))
+  }
+
+  // ── Gasto por categoría: vista más alta que el producto suelto ─────────
+  const categoryBreakdown = useMemo(() => {
+    const byCat: Record<string, { name: string; color: string | null; euros: number }> = {}
+    let total = 0
+    filtered.forEach(l => {
+      const key = l.category_name ?? 'Sin categoría'
+      if (!byCat[key]) byCat[key] = { name: key, color: l.category_color, euros: 0 }
+      byCat[key].euros += l.item_total
+      total += l.item_total
+    })
+    const list = Object.values(byCat)
+      .map(c => ({ ...c, pct: total > 0 ? (c.euros / total) * 100 : 0 }))
+      .sort((a, b) => b.euros - a.euros)
+    return { list, total }
+  }, [filtered])
+
+  // ── Patrón de pedidos por día de la semana ──────────────────────────────
+  const DOW_LABELS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
+  const dayOfWeekPattern = useMemo(() => {
+    const byDay: number[] = [0, 0, 0, 0, 0, 0, 0]
+    const seen = new Set<string>()
+    filtered.forEach(l => {
+      if (seen.has(l.order_id)) return
+      seen.add(l.order_id)
+      byDay[new Date(l.created_at).getDay()] += l.order_total
+    })
+    const max = Math.max(...byDay, 1)
+    const list = DOW_LABELS.map((label, i) => ({ label, euros: byDay[i], pct: (byDay[i] / max) * 100 }))
+    const busiest = list.reduce((a, b) => (b.euros > a.euros ? b : a))
+    return { list, busiest }
+  }, [filtered])
+
+  // ── Objetivo mensual: progreso del mes natural en curso (no del filtro) ─
+  const monthlyProgress = useMemo(() => {
+    const now = new Date()
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+    const seen = new Set<string>()
+    let euros = 0
+    lines.forEach(l => {
+      const d = new Date(l.created_at)
+      if (d < monthStart) return
+      if (restFilter !== 'todos' && l.restaurant_id !== restFilter) return
+      if (seen.has(l.order_id)) return
+      seen.add(l.order_id)
+      euros += l.order_total
+    })
+    const pct = monthlyGoal > 0 ? Math.min((euros / monthlyGoal) * 100, 100) : 0
+    const daysElapsed = now.getDate()
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+    const projected = daysElapsed > 0 ? (euros / daysElapsed) * daysInMonth : euros
+    return { euros, pct, projected, monthLabel: now.toLocaleDateString('es-ES', { month: 'long' }) }
+  }, [lines, restFilter, monthlyGoal])
+
+  // ── Previsión próximo período: media móvil simple sobre la evolución ────
+  const forecast = useMemo(() => {
+    const recent = evolutionData.slice(-4)
+    if (recent.length < 2) return null
+    const avg = recent.reduce((s, p) => s + p.euros, 0) / recent.length
+    const first = recent[0].euros
+    const last = recent[recent.length - 1].euros
+    const trendPct = first > 0 ? ((last - first) / first) * 100 : 0
+    return { estimate: Math.round(avg), trendPct, basedOn: recent.length }
+  }, [evolutionData])
+
+  // ── Finanzas: punto muerto y cuenta de resultados ───────────────────────
+  // El margen de contribución se calcula sobre TODO el histórico (no el
+  // período filtrado), igual que en stockMarginValue — un solo mes suele
+  // tener poca muestra de productos con coste registrado y da un ratio
+  // ruidoso; el histórico completo da un ratio mucho más estable para
+  // proyectar el punto muerto.
+  const financeData = useMemo(() => {
+    const base = restFilter === 'todos' ? lines : lines.filter(l => l.restaurant_id === restFilter)
+
+    let netRevenueWithCost = 0, costWithCost = 0
+    base.forEach(l => {
+      if (l.cost_price > 0) {
+        netRevenueWithCost += netOfIva(l)
+        costWithCost += l.cost_price * l.quantity
+      }
+    })
+    const contributionPct = netRevenueWithCost > 0 ? ((netRevenueWithCost - costWithCost) / netRevenueWithCost) * 100 : null
+
+    // Mes natural en curso, igual criterio que monthlyProgress
+    const now = new Date()
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+    const seenOrders = new Set<string>()
+    let monthRevenue = 0, monthNetRevenue = 0
+    base.forEach(l => {
+      const d = new Date(l.created_at)
+      if (d < monthStart) return
+      monthNetRevenue += netOfIva(l)
+      if (!seenOrders.has(l.order_id)) { seenOrders.add(l.order_id); monthRevenue += l.order_total }
+    })
+
+    const fixedCostsTotal = fixedCosts.filter(c => c.active).reduce((s, c) => s + c.monthly_amount, 0)
+    const contributionRatio = contributionPct != null ? contributionPct / 100 : null
+
+    // Facturación (neta de IVA) necesaria para que el margen de contribución
+    // cubra exactamente los costes fijos del mes.
+    const breakEvenNetRevenue = contributionRatio != null && contributionRatio > 0 ? fixedCostsTotal / contributionRatio : null
+    // Para mostrar una cifra comparable a "facturación" con IVA, se aplica el
+    // IVA medio implícito del histórico (ingreso bruto / ingreso neto).
+    const grossUpFactor = netRevenueWithCost > 0 ? base.reduce((s, l) => s + l.item_total, 0) / base.reduce((s, l) => s + netOfIva(l), 0) : 1
+    const breakEvenRevenue = breakEvenNetRevenue != null ? breakEvenNetRevenue * grossUpFactor : null
+
+    const monthContribution = contributionRatio != null ? monthNetRevenue * contributionRatio : null
+    const monthCOGS = contributionRatio != null ? monthNetRevenue * (1 - contributionRatio) : null
+    const profitLoss = monthContribution != null ? monthContribution - fixedCostsTotal : null
+
+    const daysElapsed = now.getDate()
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+    const projectedNetRevenue = daysElapsed > 0 ? (monthNetRevenue / daysElapsed) * daysInMonth : monthNetRevenue
+    const projectedContribution = contributionRatio != null ? projectedNetRevenue * contributionRatio : null
+    const projectedProfitLoss = projectedContribution != null ? projectedContribution - fixedCostsTotal : null
+
+    const dailyBreakEven = breakEvenRevenue != null ? breakEvenRevenue / daysInMonth : null
+    const pctToBreakEven = breakEvenNetRevenue != null && breakEvenNetRevenue > 0 ? (monthNetRevenue / breakEvenNetRevenue) * 100 : null
+    // Margen de seguridad: cuánto puede caer la facturación proyectada de fin
+    // de mes antes de entrar en pérdidas.
+    const safetyMarginPct = breakEvenNetRevenue != null && projectedNetRevenue > 0
+      ? ((projectedNetRevenue - breakEvenNetRevenue) / projectedNetRevenue) * 100
+      : null
+    // Días que faltan para cubrir el punto muerto al ritmo medio diario actual
+    const daysToBreakEven = breakEvenNetRevenue != null && monthNetRevenue > 0 && daysElapsed > 0
+      ? (breakEvenNetRevenue / (monthNetRevenue / daysElapsed))
+      : null
+
+    return {
+      contributionPct, fixedCostsTotal, breakEvenRevenue,
+      monthRevenue, monthNetRevenue, monthCOGS, monthContribution, profitLoss,
+      pctToBreakEven, dailyBreakEven, safetyMarginPct, daysToBreakEven,
+      projectedNetRevenue, projectedProfitLoss, daysElapsed, daysInMonth,
+      monthLabel: now.toLocaleDateString('es-ES', { month: 'long' }),
+    }
+  }, [lines, restFilter, fixedCosts])
+
   // ── Export handlers ──────────────────────────────────────────────────────
   // Excel y PDF comparten la misma "sección" (cabeceras + filas numéricas);
   // el CSV existente se deja tal cual, solo se mueve dentro del menú.
@@ -648,7 +917,7 @@ export function EstadisticasClient({ lines, restaurants, stockRows }: { lines: O
   function exportProductos() {
     const { products, restNames } = productoTable
     const headers = ['Producto', 'Unidad', ...restNames, 'Total €']
-    if (showMargin) headers.push('Margen %', 'Margen €/ud')
+    if (showMargin) headers.push('Margen %', 'Margen €/ud', 'Beneficio €')
     const rows = products.map(p => {
       const totalEuros = restNames.reduce((s, r) => s + (p.byRest[r]?.euros ?? 0), 0)
       const row: (string | number)[] = [
@@ -657,7 +926,11 @@ export function EstadisticasClient({ lines, restaurants, stockRows }: { lines: O
         totalEuros.toFixed(2),
       ]
       if (showMargin) {
-        row.push(p.marginPct != null ? p.marginPct.toFixed(1) : 'Sin coste', p.unitMargin != null ? p.unitMargin.toFixed(3) : 'Sin coste')
+        row.push(
+          p.marginPct != null ? p.marginPct.toFixed(1) : 'Sin coste',
+          p.unitMargin != null ? p.unitMargin.toFixed(3) : 'Sin coste',
+          p.totalProfit != null ? p.totalProfit.toFixed(2) : 'Sin coste',
+        )
       }
       return row
     })
@@ -681,7 +954,7 @@ export function EstadisticasClient({ lines, restaurants, stockRows }: { lines: O
     const { products, restNames } = productoTable
     return [{
       heading: 'Consumo por producto (con margen)',
-      headers: ['Producto', 'Unidad', ...restNames, 'Total €', 'Margen %', 'Margen €/ud', 'Coste registrado'],
+      headers: ['Producto', 'Unidad', ...restNames, 'Total €', 'Margen %', 'Margen €/ud', 'Beneficio €', 'Coste registrado'],
       rows: products.map(p => {
         const totalEuros = restNames.reduce((s, r) => s + (p.byRest[r]?.euros ?? 0), 0)
         return [
@@ -690,6 +963,7 @@ export function EstadisticasClient({ lines, restaurants, stockRows }: { lines: O
           Number(totalEuros.toFixed(2)),
           p.marginPct != null ? Number(p.marginPct.toFixed(1)) : 'Sin coste',
           p.unitMargin != null ? Number(p.unitMargin.toFixed(3)) : 'Sin coste',
+          p.totalProfit != null ? Number(p.totalProfit.toFixed(2)) : 'Sin coste',
           p.eurosWithCost > 0 ? `${((p.eurosWithCost / totalEuros) * 100).toFixed(0)}%` : '0%',
         ]
       }),
@@ -793,7 +1067,7 @@ export function EstadisticasClient({ lines, restaurants, stockRows }: { lines: O
 
       {/* Tabs */}
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
-        {([['resumen','Resumen'],['periodo','Por período'],['productos','Por producto'],['ranking','Ranking']] as const).map(([k,l]) => (
+        {([['resumen','Resumen'],['periodo','Por período'],['productos','Por producto'],['ranking','Ranking'],['calidad','Calidad'],['restaurantes','Restaurantes'],['finanzas','Finanzas']] as const).map(([k,l]) => (
           <button key={k} onClick={() => setTab(k)}
             className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
               tab === k ? 'bg-white text-black shadow-sm' : 'text-gray-700 hover:text-gray-700'
@@ -1065,6 +1339,118 @@ export function EstadisticasClient({ lines, restaurants, stockRows }: { lines: O
               )
             })()}
           </div>
+
+          {/* Gasto por categoría + patrón por día de la semana */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="bg-white rounded-2xl border border-gray-100 p-4">
+              <h2 className="text-sm font-semibold text-black mb-3">Gasto por categoría</h2>
+              {categoryBreakdown.list.length === 0 ? (
+                <p className="text-center py-8 text-gray-600 text-sm">Sin datos para este período</p>
+              ) : (
+                <div className="space-y-2.5">
+                  {categoryBreakdown.list.map(c => (
+                    <div key={c.name}>
+                      <div className="flex items-center justify-between text-sm mb-1">
+                        <span className="flex items-center gap-1.5 text-black font-medium truncate">
+                          <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: c.color ?? '#9ca3af' }} />
+                          {c.name}
+                        </span>
+                        <span className="text-gray-600 text-xs shrink-0 ml-2">{c.euros.toFixed(0)}€ · {c.pct.toFixed(0)}%</span>
+                      </div>
+                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full" style={{ width: `${c.pct}%`, backgroundColor: c.color ?? '#9ca3af' }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white rounded-2xl border border-gray-100 p-4">
+              <h2 className="text-sm font-semibold text-black mb-0.5">Pedidos por día de la semana</h2>
+              <p className="text-xs text-gray-600 mb-3">
+                {dayOfWeekPattern.busiest.euros > 0 ? `${dayOfWeekPattern.busiest.label} es el día con más pedidos` : 'Sin datos suficientes'}
+              </p>
+              <div className="flex items-end gap-2 h-32">
+                {dayOfWeekPattern.list.map(d => (
+                  <div key={d.label} className="flex-1 flex flex-col items-center justify-end gap-1.5 h-full">
+                    <span className="text-[10px] text-gray-600">{d.euros > 0 ? `${d.euros.toFixed(0)}€` : ''}</span>
+                    <div
+                      className={`w-full rounded-t transition-all ${d.label === dayOfWeekPattern.busiest.label && d.euros > 0 ? 'bg-[#1B4332]' : 'bg-[#1E2B28]/25'}`}
+                      style={{ height: `${Math.max(d.pct, 3)}%` }}
+                    />
+                    <span className="text-[11px] font-medium text-gray-700">{d.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Objetivo mensual + previsión próximo período */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="bg-white rounded-2xl border border-gray-100 p-4">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-sm font-semibold text-black capitalize">Objetivo de {monthlyProgress.monthLabel}</h2>
+                <button onClick={() => setEditingGoal(v => !v)} className="text-xs font-medium text-[#1E2B28] hover:underline">
+                  {monthlyGoal > 0 ? 'Editar' : 'Fijar objetivo'}
+                </button>
+              </div>
+              {editingGoal ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    defaultValue={monthlyGoal || ''}
+                    placeholder="Ej. 15000"
+                    autoFocus
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') { saveMonthlyGoal(Number((e.target as HTMLInputElement).value) || 0); setEditingGoal(false) }
+                    }}
+                    onBlur={e => { saveMonthlyGoal(Number(e.target.value) || 0); setEditingGoal(false) }}
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-[#1E2B28]"
+                  />
+                  <span className="text-sm text-gray-600">€</span>
+                </div>
+              ) : monthlyGoal > 0 ? (
+                <>
+                  <div className="flex items-end justify-between mb-1.5">
+                    <p className="text-xl font-bold text-black">{monthlyProgress.euros.toFixed(0)}€</p>
+                    <p className="text-xs text-gray-600">de {monthlyGoal.toFixed(0)}€ ({monthlyProgress.pct.toFixed(0)}%)</p>
+                  </div>
+                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${monthlyProgress.pct >= 100 ? 'bg-green-500' : 'bg-[#1B4332]'}`}
+                      style={{ width: `${Math.max(monthlyProgress.pct, 2)}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Ritmo actual: {monthlyProgress.projected.toFixed(0)}€ a fin de mes
+                    {monthlyProgress.projected >= monthlyGoal ? ' — vas camino de cumplirlo' : ' — por debajo del objetivo al ritmo actual'}
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-gray-600">Fija una meta de facturación mensual para ver el progreso aquí.</p>
+              )}
+            </div>
+
+            <div className="bg-white rounded-2xl border border-gray-100 p-4">
+              <h2 className="text-sm font-semibold text-black mb-2">Previsión próximo período</h2>
+              {forecast === null ? (
+                <p className="text-sm text-gray-600">Todavía no hay histórico suficiente para estimar.</p>
+              ) : (
+                <>
+                  <p className="text-xl font-bold text-black">≈ {forecast.estimate.toFixed(0)}€</p>
+                  <p className="text-xs text-gray-600 mt-1">
+                    Media de los últimos {forecast.basedOn} {groupBy === 'mes' ? 'meses' : 'semanas'}
+                    {forecast.trendPct !== 0 && (
+                      <span className={forecast.trendPct > 0 ? 'text-green-600 font-medium' : 'text-red-500 font-medium'}>
+                        {' '}· {forecast.trendPct > 0 ? '▲' : '▼'}{Math.abs(forecast.trendPct).toFixed(0)}% de tendencia
+                      </span>
+                    )}
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -1209,12 +1595,13 @@ export function EstadisticasClient({ lines, restaurants, stockRows }: { lines: O
                       ))}
                       <th className="text-right px-4 py-3 text-xs text-gray-700 font-semibold min-w-[90px]">Total €</th>
                       {showMargin && <th className="text-right px-4 py-3 text-xs text-gray-700 font-semibold min-w-[90px]">Margen</th>}
+                      {showMargin && <th className="text-right px-4 py-3 text-xs text-gray-700 font-semibold min-w-[90px]">Beneficio</th>}
                     </tr>
                   </thead>
                   <tbody>
                     {(showAllProducts ? products : products.slice(0, 8)).map(p => {
                       const totalEuros = restNames.reduce((s, r) => s + (p.byRest[r]?.euros ?? 0), 0)
-                      const { marginPct, unitMargin } = p
+                      const { marginPct, unitMargin, totalProfit } = p
                       const isExpanded = expandedProduct === p.id
                       return (
                         <Fragment key={p.id}>
@@ -1263,10 +1650,21 @@ export function EstadisticasClient({ lines, restaurants, stockRows }: { lines: O
                                 )}
                               </td>
                             )}
+                            {showMargin && (
+                              <td className="px-4 py-3 text-right">
+                                {totalProfit != null ? (
+                                  <p className={`font-semibold text-sm ${totalProfit >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                    {totalProfit.toFixed(0)}€
+                                  </p>
+                                ) : (
+                                  <p className="text-xs text-gray-400">—</p>
+                                )}
+                              </td>
+                            )}
                           </tr>
                           {isExpanded && (
                             <tr className="bg-[#1E2B28]/[0.03] border-b border-gray-100">
-                              <td colSpan={restNames.length + (showMargin ? 3 : 2)} className="px-4 py-4">
+                              <td colSpan={restNames.length + (showMargin ? 4 : 2)} className="px-4 py-4">
                                 <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">
                                   Ranking de "{p.name}" por restaurante
                                 </p>
@@ -1394,6 +1792,50 @@ export function EstadisticasClient({ lines, restaurants, stockRows }: { lines: O
             </div>
           </div>
 
+          {/* Ranking por rentabilidad — no es lo mismo que "más vendido":
+              un producto puede facturar mucho y dejar poco beneficio real. */}
+          {(() => {
+            const profitable = [...productoTable.allProducts]
+              .filter(p => p.totalProfit != null)
+              .sort((a, b) => (b.totalProfit ?? 0) - (a.totalProfit ?? 0))
+              .slice(0, 20)
+            const maxProfit = Math.max(...profitable.map(p => p.totalProfit ?? 0), 1)
+            return (
+              <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden lg:col-span-2">
+                <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                  <div>
+                    <h2 className="font-semibold text-black">Productos más rentables</h2>
+                    <p className="text-xs text-gray-600 mt-0.5">Por beneficio real, no por facturación — pueden no coincidir</p>
+                  </div>
+                  <span className="text-xs text-gray-600">{profitable.length} con coste registrado</span>
+                </div>
+                <div className="divide-y divide-gray-50">
+                  {profitable.map((p, i) => (
+                    <div key={p.id} className="px-5 py-3 flex items-center gap-4">
+                      <span className="w-6 h-6 rounded-full bg-gray-100 text-xs font-bold text-gray-700 flex items-center justify-center shrink-0">{i + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-black text-sm truncate">{p.name}</p>
+                        <div className="h-1.5 bg-gray-100 rounded-full mt-1.5 overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${(p.totalProfit ?? 0) >= 0 ? 'bg-green-600' : 'bg-red-500'}`}
+                            style={{ width: `${(Math.abs(p.totalProfit ?? 0) / maxProfit) * 100}%` }}
+                          />
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className={`font-bold text-sm ${(p.totalProfit ?? 0) >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                          {(p.totalProfit ?? 0).toFixed(0)}€
+                        </p>
+                        {p.marginPct != null && <p className="text-xs text-gray-600">{p.marginPct.toFixed(0)}% margen</p>}
+                      </div>
+                    </div>
+                  ))}
+                  {profitable.length === 0 && <p className="text-center py-10 text-gray-600">Ningún producto con coste registrado en este período</p>}
+                </div>
+              </div>
+            )
+          })()}
+
           {/* Media por pedido × restaurante */}
           <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden lg:col-span-2">
             <div className="px-5 py-4 border-b border-gray-100">
@@ -1437,6 +1879,180 @@ export function EstadisticasClient({ lines, restaurants, stockRows }: { lines: O
           </div>
           </div>
         </div>
+      )}
+
+      {/* ── TAB: CALIDAD ─────────────────────────────────────────────────── */}
+      {tab === 'calidad' && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="bg-white rounded-2xl border border-gray-100 px-4 py-3">
+              <p className="text-xs text-gray-600">Perdido (no utilizable)</p>
+              <p className="text-xl sm:text-2xl font-bold text-red-500 mt-0.5">{calidad.lostEuros.toFixed(0)}€</p>
+              <p className="text-[11px] text-gray-500 mt-0.5">No vuelve a stock — pérdida directa</p>
+            </div>
+            <div className="bg-white rounded-2xl border border-gray-100 px-4 py-3">
+              <p className="text-xs text-gray-600">Devuelto y reutilizable</p>
+              <p className="text-xl sm:text-2xl font-bold text-black mt-0.5">{calidad.reusableEuros.toFixed(0)}€</p>
+              <p className="text-[11px] text-gray-500 mt-0.5">Ya repuesto al stock de la nave</p>
+            </div>
+            <div className="bg-white rounded-2xl border border-gray-100 px-4 py-3">
+              <p className="text-xs text-gray-600">Devoluciones totales</p>
+              <p className="text-xl sm:text-2xl font-bold text-black mt-0.5">{calidad.totalReturns}</p>
+              <p className="text-[11px] text-gray-500 mt-0.5">Líneas devueltas en este período</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-100">
+                <h2 className="text-sm font-semibold text-black">Productos que más se devuelven</h2>
+                <p className="text-xs text-gray-600 mt-0.5">Ordenado por dinero perdido — señal de proveedor o de mala previsión de cantidad</p>
+              </div>
+              {calidad.topLostProducts.length === 0 ? (
+                <p className="text-center py-8 text-gray-600 text-sm">Sin devoluciones "no utilizable" en este período</p>
+              ) : (
+                <div className="divide-y divide-gray-50">
+                  {calidad.topLostProducts.map(p => (
+                    <div key={p.name} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
+                      <div className="min-w-0">
+                        <p className="font-medium text-black truncate">{p.name}</p>
+                        <p className="text-xs text-gray-600">
+                          {p.qtyLost % 1 === 0 ? p.qtyLost : p.qtyLost.toFixed(1)} {unitLabel(p.unit)} perdidos · devuelto {p.timesReturned}x
+                        </p>
+                      </div>
+                      <span className="shrink-0 text-sm font-semibold text-red-500">-{p.eurosLost.toFixed(0)}€</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-100">
+                <h2 className="text-sm font-semibold text-black">Restaurantes que más devuelven</h2>
+                <p className="text-xs text-gray-600 mt-0.5">Por número de veces, no solo por dinero</p>
+              </div>
+              {calidad.topReturningRestaurants.length === 0 ? (
+                <p className="text-center py-8 text-gray-600 text-sm">Sin devoluciones en este período</p>
+              ) : (
+                <div className="divide-y divide-gray-50">
+                  {calidad.topReturningRestaurants.map(r => (
+                    <div key={r.name} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
+                      <p className="font-medium text-black truncate">{r.name}</p>
+                      <div className="text-right shrink-0">
+                        <p className="font-semibold text-black text-sm">{r.timesReturned} devoluciones</p>
+                        {r.eurosLost > 0 && <p className="text-xs text-red-500">-{r.eurosLost.toFixed(0)}€ perdidos</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── TAB: RESTAURANTES ────────────────────────────────────────────── */}
+      {tab === 'restaurantes' && (
+        <div className="space-y-4">
+          {restaurantesData.dormant.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3">
+              <p className="text-sm font-semibold text-amber-900 mb-1.5">Sin pedir hace tiempo</p>
+              <div className="flex flex-wrap gap-2">
+                {restaurantesData.dormant.map(r => (
+                  <span key={r.name} className="text-xs font-medium bg-white border border-amber-200 text-amber-800 px-2.5 py-1 rounded-full">
+                    {r.name} · {r.days} días
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+            {restaurantesData.list.length === 0 ? (
+              <p className="text-center py-12 text-gray-600 text-sm">Sin datos para este período</p>
+            ) : (
+              <div className="divide-y divide-gray-50">
+                {restaurantesData.list.map(r => {
+                  const isExpanded = expandedRestaurant === r.id
+                  const evolution = isExpanded ? restaurantEvolution(r.id) : []
+                  const maxEvo = Math.max(...evolution.map(e => e.euros), 1)
+                  return (
+                    <div key={r.id}>
+                      <button
+                        onClick={() => setExpandedRestaurant(isExpanded ? null : r.id)}
+                        className="w-full flex items-center justify-between gap-4 px-5 py-3.5 hover:bg-gray-50/50 transition-colors text-left"
+                      >
+                        <div className="min-w-0">
+                          <p className={`font-medium text-sm ${isExpanded ? 'text-[#1E2B28]' : 'text-black'}`}>{r.name}</p>
+                          <p className="text-xs text-gray-600 mt-0.5">{r.pedidos} pedido{r.pedidos !== 1 ? 's' : ''} · ticket medio {r.ticketMedio.toFixed(0)}€</p>
+                        </div>
+                        <p className="font-bold text-[#1E2B28] text-sm shrink-0">{r.euros.toFixed(0)}€</p>
+                      </button>
+                      {isExpanded && (
+                        <div className="px-5 pb-4 bg-[#1E2B28]/[0.02] space-y-3">
+                          {evolution.length > 1 && (
+                            <div>
+                              <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-1.5">Evolución</p>
+                              <div className="flex items-end gap-1.5 h-16">
+                                {evolution.map(e => (
+                                  <div key={e.periodo} className="flex-1 flex flex-col items-center gap-1" title={`${e.periodo}: ${e.euros}€`}>
+                                    <div
+                                      className="w-full bg-[#1E2B28]/70 rounded-t"
+                                      style={{ height: `${Math.max((e.euros / maxEvo) * 100, 4)}%` }}
+                                    />
+                                    <span className="text-[9px] text-gray-500 truncate w-full text-center">{e.periodo}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          <div>
+                            <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-1.5">Sus productos top</p>
+                            <div className="space-y-1">
+                              {r.topProducts.map(p => (
+                                <div key={p.name} className="flex items-center justify-between text-sm">
+                                  <span className="text-black truncate">{p.name}</span>
+                                  <span className="text-gray-600 text-xs shrink-0 ml-2">
+                                    {p.qty % 1 === 0 ? p.qty : p.qty.toFixed(1)} {unitLabel(p.unit)} · {p.euros.toFixed(0)}€
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── TAB: FINANZAS ────────────────────────────────────────────────── */}
+      {tab === 'finanzas' && (
+        <FinanzasTab
+          fixedCosts={fixedCosts}
+          financeData={financeData}
+          onCreate={async input => {
+            const created = await createFixedCost(input)
+            setFixedCosts(prev => [...prev, created])
+          }}
+          onUpdate={async (id, input) => {
+            await updateFixedCost(id, input)
+            setFixedCosts(prev => prev.map(c => c.id === id ? { ...c, ...input } : c))
+          }}
+          onToggle={async (id, active) => {
+            await toggleFixedCostActive(id, active)
+            setFixedCosts(prev => prev.map(c => c.id === id ? { ...c, active } : c))
+          }}
+          onDelete={async id => {
+            await deleteFixedCost(id)
+            setFixedCosts(prev => prev.filter(c => c.id !== id))
+          }}
+        />
       )}
     </div>
   )

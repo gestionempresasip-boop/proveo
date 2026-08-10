@@ -51,17 +51,17 @@ export function MobileTopBar({ profile }: { profile: ProfileWithOrg }) {
         <button
           onClick={handleRefresh}
           disabled={refreshing}
-          className="text-gray-700 hover:text-white transition-colors p-1 disabled:opacity-50"
+          className="w-7 h-7 rounded-full flex items-center justify-center bg-[#F59E0B] text-white shadow-sm hover:bg-[#D97C09] transition-colors disabled:opacity-50"
           title="Actualizar datos"
         >
-          <RefreshCw className={cn('h-4 w-4', refreshing && 'animate-spin')} />
+          <RefreshCw className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')} />
         </button>
         <button
           onClick={handleLogout}
-          className="text-gray-700 hover:text-red-400 transition-colors p-1"
+          className="w-7 h-7 rounded-full flex items-center justify-center bg-red-500 text-white shadow-sm hover:bg-red-600 transition-colors"
           title="Cerrar sesión"
         >
-          <LogOut className="h-4 w-4" />
+          <LogOut className="h-3.5 w-3.5" />
         </button>
       </div>
     </header>

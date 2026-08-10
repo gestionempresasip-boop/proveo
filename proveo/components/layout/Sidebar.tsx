@@ -94,7 +94,7 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
           <button
             onClick={handleLogout}
             title="Cerrar sesión"
-            className="shrink-0 w-8 h-8 rounded-md flex items-center justify-center text-gray-600 hover:text-red-400 hover:bg-white/10 transition-all"
+            className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-red-500 text-white shadow-sm hover:bg-red-600 hover:scale-105 transition-all"
           >
             <LogOut className="h-4 w-4" />
           </button>
@@ -110,7 +110,7 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
             onClick={handleRefresh}
             disabled={refreshing}
             title="Actualizar datos"
-            className="shrink-0 w-8 h-8 rounded-md flex items-center justify-center text-gray-600 hover:text-white hover:bg-white/10 transition-all disabled:opacity-50"
+            className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-[#F59E0B] text-white shadow-sm hover:bg-[#D97C09] hover:scale-105 transition-all disabled:opacity-50"
           >
             <RefreshCw className={cn('h-4 w-4', refreshing && 'animate-spin')} />
           </button>
@@ -126,8 +126,8 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
                 key={item.href + item.label}
                 href={item.href}
                 className={cn(
-                  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all',
-                  active ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-white hover:bg-white/8'
+                  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold transition-all',
+                  active ? 'bg-white text-gray-900 shadow-sm' : 'text-white hover:bg-white/10'
                 )}
               >
                 <Icon className={cn('h-4 w-4 shrink-0', active && 'text-[#A8793A]')} />

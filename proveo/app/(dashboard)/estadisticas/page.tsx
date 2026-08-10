@@ -39,14 +39,14 @@ export default async function EstadisticasPage() {
   // join de productos para poder calcular márgenes sin tocar la forma
   // de "lines" que ya usan las pestañas existentes — solo se le suma un
   // campo más.
-  const [{ data: orders }, { data: restaurants }, { data: stock }] = await Promise.all([
+  const [{ data: orders }, { data: restaurants }, { data: stock }, { data: returnNotes }, { data: fixedCosts }] = await Promise.all([
     sb
       .from('orders')
       .select(`
         id, order_number, created_at, total_price, restaurant_id, status,
         organizations!restaurant_id(id, name),
         order_items(id, product_id, quantity, rectified_quantity, unit, unit_price, total_price,
-          products(name, cost_price, iva_rate)
+          products(name, cost_price, iva_rate, category_id, product_categories!products_category_id_fkey(name, color))
         )
       `)
       .neq('status', 'cancelado')
@@ -59,6 +59,24 @@ export default async function EstadisticasPage() {
     sb
       .from('nave_inventory')
       .select('product_id, current_stock, min_stock'),
+    // Devoluciones: se modelan como delivery_notes type='devolucion'. Se
+    // trae por separado porque cuelga de delivery_notes → orders, no de
+    // order_items directamente.
+    sb
+      .from('delivery_notes')
+      .select(`
+        id, created_at, order_id,
+        orders!inner(restaurant_id, organizations!restaurant_id(name)),
+        delivery_note_items(product_id, delivered_quantity, unit, unit_price, total_price, return_reason,
+          products(name)
+        )
+      `)
+      .eq('type', 'devolucion'),
+    sb
+      .from('nave_fixed_costs')
+      .select('id, category, name, monthly_amount, active')
+      .order('category')
+      .order('name'),
   ])
 
   // Aplanar a filas por línea de pedido (para cálculos granulares)
@@ -69,6 +87,7 @@ export default async function EstadisticasPage() {
     quantity: number; unit: string; unit_price: number
     item_total: number; order_total: number
     cost_price: number; iva_rate: number
+    category_name: string | null; category_color: string | null
   }
 
   const lines: Line[] = []
@@ -96,6 +115,8 @@ export default async function EstadisticasPage() {
         order_total: Number(o.total_price),
         cost_price: Number((item.products as any)?.cost_price ?? 0) / (COST_PACKAGE_SIZE[item.product_id] ?? 1),
         iva_rate: Number((item.products as any)?.iva_rate ?? 0),
+        category_name: (item.products as any)?.product_categories?.name ?? null,
+        category_color: (item.products as any)?.product_categories?.color ?? null,
       })
     }
   }
@@ -106,11 +127,44 @@ export default async function EstadisticasPage() {
     min_stock: Number(s.min_stock),
   }))
 
+  // Aplanar devoluciones a filas por línea, igual que los pedidos
+  type ReturnLine = {
+    created_at: string; restaurant_id: string; restaurant_name: string
+    product_id: string; product_name: string
+    quantity: number; unit: string; total_price: number
+    reason: 'reutilizable' | 'no_utilizable'
+  }
+  const returns: ReturnLine[] = []
+  for (const n of returnNotes ?? []) {
+    const order = (n as any).orders
+    for (const item of (n as any).delivery_note_items ?? []) {
+      if (!item.return_reason) continue
+      returns.push({
+        created_at: n.created_at,
+        restaurant_id: order?.restaurant_id ?? '',
+        restaurant_name: order?.organizations?.name ?? 'Desconocido',
+        product_id: item.product_id,
+        product_name: item.products?.name ?? 'Producto eliminado',
+        quantity: Number(item.delivered_quantity),
+        unit: item.unit,
+        total_price: Number(item.total_price),
+        reason: item.return_reason,
+      })
+    }
+  }
+
+  const fixedCostRows = (fixedCosts ?? []).map((c: any) => ({
+    id: c.id, category: c.category, name: c.name,
+    monthly_amount: Number(c.monthly_amount), active: c.active,
+  }))
+
   return (
     <EstadisticasClient
       lines={lines}
       restaurants={restaurants ?? []}
       stockRows={stockRows}
+      returns={returns}
+      fixedCosts={fixedCostRows}
     />
   )
 }
