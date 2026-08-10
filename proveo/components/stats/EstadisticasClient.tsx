@@ -1066,10 +1066,10 @@ export function EstadisticasClient({ lines, restaurants, stockRows, returns, fix
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
+      <div className="flex flex-wrap gap-1 bg-gray-100 rounded-xl p-1 w-full sm:w-fit">
         {([['resumen','Resumen'],['periodo','Por período'],['productos','Por producto'],['ranking','Ranking'],['calidad','Calidad'],['restaurantes','Restaurantes'],['finanzas','Finanzas']] as const).map(([k,l]) => (
           <button key={k} onClick={() => setTab(k)}
-            className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+            className={`flex-1 sm:flex-none px-2.5 sm:px-4 py-2 rounded-lg text-[11px] sm:text-sm font-medium transition-colors whitespace-nowrap ${
               tab === k ? 'bg-white text-black shadow-sm' : 'text-gray-700 hover:text-gray-700'
             }`}>{l}</button>
         ))}
