@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type OrgType = 'nave' | 'restaurante'
-export type UserRole = 'admin' | 'nave_manager' | 'restaurante_manager' | 'restaurante_staff'
+export type UserRole = 'admin' | 'nave_manager' | 'restaurante_manager' | 'restaurante_staff' | 'cocinero'
 export type ProductUnit = 'kg' | 'g' | 'l' | 'ml' | 'unidad' | 'caja' | 'bandeja' | 'bolsa_500g' | 'bolsa_1kg' | 'barqueta_2kg' | 'barqueta_4kg' | 'racion' | 'bolsa' | 'paquete'
 export type ProductVisibility = 'todos' | 'restringido'
 export type OrderStatus = 'pendiente' | 'en_preparacion' | 'listo' | 'entregado' | 'cancelado'

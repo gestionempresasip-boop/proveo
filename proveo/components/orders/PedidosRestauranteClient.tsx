@@ -3,11 +3,12 @@
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
-import { Package, Clock, Ban, Search, ChevronDown, X, Undo2, ThumbsUp, AlertTriangle, Repeat } from 'lucide-react'
+import { Package, Clock, Ban, Search, ChevronDown, X, Undo2, ThumbsUp, AlertTriangle, Repeat, MessageCircle } from 'lucide-react'
 import { updateOrderStatus, createReturn, type ReturnReason } from '@/app/actions/orders'
 import { setRepeatOrder, type RepeatOrderItem } from '@/lib/repeatOrder'
 import { cn } from '@/lib/utils'
 import { unitLabel } from '@/lib/units'
+import { OrderChat } from '@/components/orders/OrderChat'
 
 const STATUS_COLORS: Record<string, string> = {
   pendiente:      'bg-yellow-100 text-yellow-800 border-yellow-200',
@@ -152,7 +153,7 @@ function dayLabel(dateStr: string): string {
   })
 }
 
-function OrderRow({ order, onCanceled, onReturned }: { order: Order; onCanceled: (id: string) => void; onReturned: (orderId: string, productId: string, qty: number, reason: ReturnReason) => void }) {
+function OrderRow({ order, onCanceled, onReturned, currentUserId }: { order: Order; onCanceled: (id: string) => void; onReturned: (orderId: string, productId: string, qty: number, reason: ReturnReason) => void; currentUserId: string }) {
   const router = useRouter()
   const [confirm, setConfirm] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -277,12 +278,19 @@ function OrderRow({ order, onCanceled, onReturned }: { order: Order; onCanceled:
             )}
           </div>
         )}
+
+        <div className="mt-3 pt-3 border-t border-gray-100">
+          <p className="text-xs font-semibold text-gray-600 mb-1.5 flex items-center gap-1.5">
+            <MessageCircle className="w-3.5 h-3.5" /> Chat con la nave
+          </p>
+          <OrderChat orderId={order.id} currentUserId={currentUserId} />
+        </div>
       </CardContent>
     </Card>
   )
 }
 
-export function PedidosRestauranteClient({ orders: initialOrders }: { orders: Order[] }) {
+export function PedidosRestauranteClient({ orders: initialOrders, currentUserId }: { orders: Order[]; currentUserId: string }) {
   const [orders, setOrders] = useState<Order[]>(initialOrders)
   const [search, setSearch] = useState('')
   const [dateFilter, setDateFilter] = useState('')
@@ -411,7 +419,7 @@ export function PedidosRestauranteClient({ orders: initialOrders }: { orders: Or
                 {open && (
                   <div className="px-4 pb-4 pt-1 space-y-3 border-t border-gray-100">
                     {group.map(order => (
-                      <OrderRow key={order.id} order={order} onCanceled={handleCanceled} onReturned={handleReturned} />
+                      <OrderRow key={order.id} order={order} onCanceled={handleCanceled} onReturned={handleReturned} currentUserId={currentUserId} />
                     ))}
                   </div>
                 )}

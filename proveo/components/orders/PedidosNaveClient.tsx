@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { updateOrderStatus, generateDeliveryNote, deleteOrder, rectifyOrderItem, cancelOrderItem, setItemPrepared, setItemLot, setItemWeight, setItemBoxExactUnits, reopenOrder } from '@/app/actions/orders'
 import type { OrderStatus } from '@/app/actions/orders'
 import { unitLabel } from '@/lib/units'
+import { OrderChat } from '@/components/orders/OrderChat'
 import {
   Calendar, Filter, ChevronDown, MessageCircle, Printer,
   Download, FileText, Clock, CheckCircle2, Send, AlertCircle,
@@ -575,7 +576,7 @@ function OrderActions({ order, onDeleted, onStatusChange }: { order: Order; onDe
 // ── Order card ───────────────────────────────────────────────────────────────
 
 function OrderCard({
-  order, onDeleted, onStatusChange, onRectified, onItemCanceled, onPreparedChange, onLotChange, onWeightChange, onBoxExactUnitsChange,
+  order, onDeleted, onStatusChange, onRectified, onItemCanceled, onPreparedChange, onLotChange, onWeightChange, onBoxExactUnitsChange, currentUserId,
 }: {
   order: Order; onDeleted: (id: string) => void
   onStatusChange: (id: string, status: OrderStatus) => void
@@ -585,6 +586,7 @@ function OrderCard({
   onLotChange: (orderId: string, itemId: string, lot: string) => void
   onWeightChange: (orderId: string, itemId: string, weight: number | null) => void
   onBoxExactUnitsChange: (orderId: string, itemId: string, exactUnits: number) => void
+  currentUserId: string
 }) {
   const [expanded, setExpanded] = useState(false)
   const status = normalizeStatus(order.status)
@@ -624,7 +626,7 @@ function OrderCard({
             </span>
             <span className="font-semibold text-[#1E2B28] text-sm ml-auto">{Number(order.total_price).toFixed(2)}€</span>
           </div>
-          {order.notes && <p className="text-xs text-gray-600 italic mt-1 truncate">"{order.notes}"</p>}
+          {order.notes && <p className="text-xs text-gray-600 italic mt-1 whitespace-pre-wrap break-words">"{order.notes}"</p>}
         </div>
         <div className="shrink-0 text-gray-600 mt-1">
           {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -664,6 +666,12 @@ function OrderCard({
             </div>
           )}
           <OrderActions order={order} onDeleted={onDeleted} onStatusChange={onStatusChange} />
+          <div className="mt-3">
+            <p className="text-xs font-semibold text-gray-600 mb-1.5 flex items-center gap-1.5">
+              <MessageCircle className="w-3.5 h-3.5" /> Chat con {order.organizations?.name ?? 'el restaurante'}
+            </p>
+            <OrderChat orderId={order.id} currentUserId={currentUserId} />
+          </div>
         </div>
       )}
     </div>
@@ -675,7 +683,7 @@ function OrderCard({
 type DateFilter = 'hoy' | 'semana' | 'mes' | 'custom'
 type StatusFilter = 'todos' | 'pendiente' | 'hecho' | 'enviado'
 
-export function PedidosNaveClient({ orders: initialOrders, restaurants }: { orders: Order[]; restaurants: Restaurant[] }) {
+export function PedidosNaveClient({ orders: initialOrders, restaurants, currentUserId }: { orders: Order[]; restaurants: Restaurant[]; currentUserId: string }) {
   const [orders, setOrders] = useState<Order[]>(initialOrders)
   const [dateFilter, setDateFilter] = useState<DateFilter>('hoy')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('todos')
@@ -873,7 +881,7 @@ export function PedidosNaveClient({ orders: initialOrders, restaurants }: { orde
             Pendientes de días anteriores ({pastPending.length})
           </h2>
           <div className="space-y-3">
-            {pastPending.map(o => <OrderCard key={o.id} order={o} onDeleted={handleDeleted} onStatusChange={handleStatusChange} onRectified={handleRectified} onItemCanceled={handleItemCanceled} onPreparedChange={handlePreparedChange} onLotChange={handleLotChange} onWeightChange={handleWeightChange} onBoxExactUnitsChange={handleBoxExactUnitsChange} />)}
+            {pastPending.map(o => <OrderCard key={o.id} order={o} onDeleted={handleDeleted} onStatusChange={handleStatusChange} onRectified={handleRectified} onItemCanceled={handleItemCanceled} onPreparedChange={handlePreparedChange} onLotChange={handleLotChange} onWeightChange={handleWeightChange} onBoxExactUnitsChange={handleBoxExactUnitsChange} currentUserId={currentUserId} />)}
           </div>
         </section>
       )}
@@ -894,7 +902,7 @@ export function PedidosNaveClient({ orders: initialOrders, restaurants }: { orde
           </div>
         ) : (
           <div className="space-y-3">
-            {todayOrders.map(o => <OrderCard key={o.id} order={o} onDeleted={handleDeleted} onStatusChange={handleStatusChange} onRectified={handleRectified} onItemCanceled={handleItemCanceled} onPreparedChange={handlePreparedChange} onLotChange={handleLotChange} onWeightChange={handleWeightChange} onBoxExactUnitsChange={handleBoxExactUnitsChange} />)}
+            {todayOrders.map(o => <OrderCard key={o.id} order={o} onDeleted={handleDeleted} onStatusChange={handleStatusChange} onRectified={handleRectified} onItemCanceled={handleItemCanceled} onPreparedChange={handlePreparedChange} onLotChange={handleLotChange} onWeightChange={handleWeightChange} onBoxExactUnitsChange={handleBoxExactUnitsChange} currentUserId={currentUserId} />)}
           </div>
         )}
       </section>

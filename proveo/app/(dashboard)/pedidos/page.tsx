@@ -29,6 +29,7 @@ export default async function PedidosPage() {
       <PedidosNaveClient
         orders={orders ?? []}
         restaurants={restaurants ?? []}
+        currentUserId={profile.id}
       />
     )
   }
@@ -48,7 +49,7 @@ export default async function PedidosPage() {
         <p className="text-gray-700 mt-1 text-sm">Historial de tus pedidos enviados a la nave</p>
       </div>
 
-      <PedidosRestauranteClient orders={orders ?? []} />
+      <PedidosRestauranteClient orders={orders ?? []} currentUserId={profile.id} />
     </div>
   )
 }

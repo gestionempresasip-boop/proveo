@@ -1,14 +1,15 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Users, Building2, Pencil, Check, X, KeyRound, Eye, EyeOff } from 'lucide-react'
-import { updateUserPin, updateUserProfile } from '@/app/actions/users'
+import { Users, Building2, Pencil, Check, X, KeyRound, Eye, EyeOff, UserPlus } from 'lucide-react'
+import { updateUserPin, updateUserProfile, createStaffUser } from '@/app/actions/users'
 
 const ROLE_LABELS: Record<string, string> = {
   admin: 'Admin',
   nave_manager: 'Gestor Nave',
   restaurante_manager: 'Responsable',
   restaurante_staff: 'Personal',
+  cocinero: 'Cocinero/a',
 }
 
 const ROLE_COLORS: Record<string, string> = {
@@ -16,6 +17,80 @@ const ROLE_COLORS: Record<string, string> = {
   nave_manager: 'bg-blue-100 text-blue-700',
   restaurante_manager: 'bg-amber-100 text-amber-700',
   restaurante_staff: 'bg-gray-100 text-gray-600',
+  cocinero: 'bg-emerald-100 text-emerald-700',
+}
+
+function NuevoPersonalNave({ onCreated }: { onCreated: (user: UserRow) => void }) {
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState('')
+  const [role, setRole] = useState<'cocinero' | 'nave_manager'>('cocinero')
+  const [pin, setPin] = useState('')
+  const [pending, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!name.trim()) { setError('Falta el nombre'); return }
+    if (!/^\d{4}$/.test(pin)) { setError('El PIN debe tener 4 dígitos'); return }
+    setError(null)
+    startTransition(async () => {
+      try {
+        await createStaffUser({ full_name: name.trim(), role, pin })
+        onCreated({ id: crypto.randomUUID(), full_name: name.trim(), phone: null, role, pin, organizations: { name: 'Nave Obrador', type: 'nave' } })
+        setName(''); setPin(''); setRole('cocinero'); setOpen(false)
+      } catch (e: any) {
+        setError(e.message ?? 'Error al crear el usuario')
+      }
+    })
+  }
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg bg-[#1E2B28] text-white hover:bg-[#141F1C] transition-colors"
+      >
+        <UserPlus className="w-4 h-4" /> Nuevo personal de nave
+      </button>
+    )
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-100 p-4 flex flex-wrap items-end gap-2.5">
+      <div className="flex flex-col gap-1">
+        <label className="text-xs text-gray-600">Nombre</label>
+        <input
+          value={name} onChange={e => setName(e.target.value)} autoFocus placeholder="Ej. Rocío Muñoz Soto"
+          className="w-52 border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
+        />
+      </div>
+      <div className="flex flex-col gap-1">
+        <label className="text-xs text-gray-600">Rol</label>
+        <select
+          value={role} onChange={e => setRole(e.target.value as 'cocinero' | 'nave_manager')}
+          className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
+        >
+          <option value="cocinero">Cocinero/a</option>
+          <option value="nave_manager">Gestor Nave</option>
+        </select>
+      </div>
+      <div className="flex flex-col gap-1">
+        <label className="text-xs text-gray-600">PIN inicial</label>
+        <input
+          value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+          inputMode="numeric" maxLength={4} placeholder="••••"
+          className="w-20 border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
+        />
+      </div>
+      <button type="submit" disabled={pending} className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg bg-[#1E2B28] text-white hover:bg-[#141F1C] disabled:opacity-50 transition-colors">
+        <Check className="w-4 h-4" /> Crear
+      </button>
+      <button type="button" onClick={() => { setOpen(false); setError(null) }} className="text-sm font-medium px-3 py-1.5 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors">
+        Cancelar
+      </button>
+      {error && <span className="text-xs text-red-500 basis-full">{error}</span>}
+    </form>
+  )
 }
 
 type UserRow = {
@@ -147,6 +222,10 @@ export function UsuariosTable({ users: initialUsers }: { users: UserRow[] }) {
   }
 
   return (
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <NuevoPersonalNave onCreated={u => setUsers(prev => [...prev, u].sort((a, b) => (a.full_name ?? '').localeCompare(b.full_name ?? '')))} />
+      </div>
     <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-sm min-w-[640px]">
@@ -187,6 +266,7 @@ export function UsuariosTable({ users: initialUsers }: { users: UserRow[] }) {
           No hay usuarios
         </div>
       )}
+    </div>
     </div>
   )
 }
