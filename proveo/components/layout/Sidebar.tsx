@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 import type { ProfileWithOrg } from '@/types/database'
 import {
   ShoppingCart, Package, ClipboardList,
-  FileText, Settings, LogOut, ChefHat, RefreshCw, BarChart3, Boxes, Tag, CalendarClock, CookingPot,
+  FileText, Settings, LogOut, ChefHat, RefreshCw, BarChart3, Boxes, Tag,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -23,17 +23,15 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { href: '/catalogo',        label: 'Pedido',        icon: ShoppingCart,  orgTypes: ['restaurante'] },
-  { href: '/pedidos',         label: 'Mis pedidos',   icon: ClipboardList, orgTypes: ['restaurante'] },
-  { href: '/pedidos',         label: 'Pedidos',       icon: ClipboardList, orgTypes: ['nave'], roles: ['admin', 'nave_manager'] },
-  { href: '/promociones',     label: 'Promociones',   icon: Tag,           orgTypes: ['nave'], roles: ['admin', 'nave_manager'] },
-  { href: '/inventario',      label: 'Stock',         icon: Boxes,         orgTypes: ['nave'], roles: ['admin', 'nave_manager'] },
-  { href: '/albaranes',       label: 'Albaranes',     icon: FileText,      roles: ['admin', 'nave_manager', 'restaurante_manager', 'restaurante_staff'] },
-  { href: '/estadisticas',    label: 'Informes',      icon: BarChart3,     orgTypes: ['nave'], roles: ['admin', 'nave_manager'] },
-  { href: '/programacion',    label: 'Programación',  icon: CalendarClock, orgTypes: ['nave'], roles: ['admin', 'nave_manager'] },
-  { href: '/mi-produccion',   label: 'Mi producción', icon: CookingPot,    roles: ['cocinero'] },
-  { href: '/admin/productos', label: 'Productos',     icon: Package,       roles: ['admin', 'nave_manager'] },
-  { href: '/admin/usuarios',  label: 'Usuarios',      icon: Settings,      roles: ['admin', 'nave_manager'] },
+  { href: '/catalogo',        label: 'Pedido',      icon: ShoppingCart,  orgTypes: ['restaurante'] },
+  { href: '/pedidos',         label: 'Mis pedidos', icon: ClipboardList, orgTypes: ['restaurante'] },
+  { href: '/pedidos',         label: 'Pedidos',     icon: ClipboardList, orgTypes: ['nave'] },
+  { href: '/promociones',     label: 'Promociones', icon: Tag,           orgTypes: ['nave'] },
+  { href: '/inventario',      label: 'Stock',       icon: Boxes,         orgTypes: ['nave'] },
+  { href: '/albaranes',       label: 'Albaranes',   icon: FileText },
+  { href: '/estadisticas',    label: 'Informes',    icon: BarChart3,     orgTypes: ['nave'] },
+  { href: '/admin/productos', label: 'Productos',   icon: Package,       roles: ['admin', 'nave_manager'] },
+  { href: '/admin/usuarios',  label: 'Usuarios',    icon: Settings,      roles: ['admin', 'nave_manager'] },
 ]
 
 export function Sidebar({ profile }: { profile: ProfileWithOrg }) {

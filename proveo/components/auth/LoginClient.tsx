@@ -4,14 +4,7 @@ import { useState } from 'react'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, Delete, ChefHat, User } from 'lucide-react'
-import { listNaveStaff, loginAsStaff, type NaveStaffMember } from '@/app/actions/staffAuth'
-
-const STAFF_ROLE_LABEL: Record<string, string> = {
-  admin: 'Administración',
-  nave_manager: 'Gestor',
-  cocinero: 'Cocinero/a',
-}
+import { ChevronLeft, Delete } from 'lucide-react'
 
 const PLACES = [
   { name: 'Nave Obrador', email: 'admin@proveo.es', type: 'nave' as const, logo: '/logos/depot.png' },
@@ -28,32 +21,16 @@ const PIN_PREFIX = 'pvprveo'
 
 export function LoginClient() {
   const [selected, setSelected] = useState<(typeof PLACES)[0] | null>(null)
-  const [naveStaff, setNaveStaff] = useState<NaveStaffMember[] | null>(null)
-  const [loadingStaff, setLoadingStaff] = useState(false)
-  const [staffPicked, setStaffPicked] = useState<NaveStaffMember | null>(null)
   const [pin, setPin] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
-  async function handleSelect(place: (typeof PLACES)[0]) {
+  function handleSelect(place: (typeof PLACES)[0]) {
     setSelected(place)
     setPin('')
     setError(null)
-    setStaffPicked(null)
-    // La nave la usa varias personas con su propio PIN (no un email
-    // compartido como los restaurantes), así que primero hay que elegir
-    // quién eres antes de pedir el PIN.
-    if (place.type === 'nave') {
-      setNaveStaff(null)
-      setLoadingStaff(true)
-      try {
-        setNaveStaff(await listNaveStaff())
-      } finally {
-        setLoadingStaff(false)
-      }
-    }
   }
 
   function handleKey(key: string) {
@@ -74,21 +51,6 @@ export function LoginClient() {
     if (!selected) return
     setLoading(true)
     setError(null)
-
-    if (selected.type === 'nave') {
-      if (!staffPicked) { setLoading(false); return }
-      const result = await loginAsStaff(staffPicked.id, pinValue)
-      if (!result.ok) {
-        setError(result.error ?? 'PIN incorrecto')
-        setPin('')
-        setLoading(false)
-        return
-      }
-      router.push('/dashboard')
-      router.refresh()
-      return
-    }
-
     const { error } = await supabase.auth.signInWithPassword({
       email: selected.email,
       password: PIN_PREFIX + pinValue,
@@ -141,62 +103,11 @@ export function LoginClient() {
     )
   }
 
-  if (selected.type === 'nave' && !staffPicked) {
-    return (
-      <div className="min-h-screen bg-[#FAFAF8] flex flex-col items-center justify-center px-4 py-12">
-        <div className="w-full max-w-xs">
-          <button
-            onClick={() => { setSelected(null); setNaveStaff(null) }}
-            className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-600 mb-8 transition-colors"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            Volver
-          </button>
-
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center mb-4">
-              <Image src={selected.logo} alt={selected.name} width={200} height={64} className="w-24 h-16 object-contain" />
-            </div>
-            <h2 className="text-xl font-bold text-black">{selected.name}</h2>
-            <p className="text-gray-600 text-sm mt-1">¿Quién eres?</p>
-          </div>
-
-          {loadingStaff ? (
-            <p className="text-center text-sm text-gray-600 animate-pulse">Cargando...</p>
-          ) : !naveStaff || naveStaff.length === 0 ? (
-            <p className="text-center text-sm text-gray-600">No hay personal dado de alta todavía</p>
-          ) : (
-            <div className="space-y-2">
-              {naveStaff.map(member => (
-                <button
-                  key={member.id}
-                  onClick={() => { setStaffPicked(member); setPin(''); setError(null) }}
-                  className="w-full flex items-center gap-3 rounded-2xl border-2 border-gray-100 p-3.5 bg-white hover:border-[#1E2B28] hover:shadow-md transition-all active:scale-95"
-                >
-                  <div className="w-10 h-10 rounded-full bg-[#1E2B28] flex items-center justify-center shrink-0">
-                    {member.role === 'cocinero' ? <ChefHat className="w-4.5 h-4.5 text-white" /> : <User className="w-4.5 h-4.5 text-white" />}
-                  </div>
-                  <div className="text-left min-w-0">
-                    <p className="font-semibold text-sm text-black truncate">{member.full_name ?? 'Sin nombre'}</p>
-                    <p className="text-xs text-gray-600">{STAFF_ROLE_LABEL[member.role] ?? member.role}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="min-h-screen bg-[#FAFAF8] flex flex-col items-center justify-center px-4">
       <div className="w-full max-w-xs">
         <button
-          onClick={() => {
-            if (selected.type === 'nave') { setStaffPicked(null); setPin(''); setError(null) }
-            else { setSelected(null); setPin('') }
-          }}
+          onClick={() => { setSelected(null); setPin('') }}
           className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-600 mb-8 transition-colors"
         >
           <ChevronLeft className="w-4 h-4" />
@@ -213,7 +124,7 @@ export function LoginClient() {
               className="w-24 h-16 object-contain"
             />
           </div>
-          <h2 className="text-xl font-bold text-black">{staffPicked ? staffPicked.full_name ?? selected.name : selected.name}</h2>
+          <h2 className="text-xl font-bold text-black">{selected.name}</h2>
           <p className="text-gray-600 text-sm mt-1">Introduce tu PIN</p>
         </div>
 

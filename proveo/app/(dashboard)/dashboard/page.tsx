@@ -2,7 +2,6 @@ import { createClient } from '@/lib/supabase/server'
 import { getAuthProfile } from '@/lib/supabase/helpers'
 import { ShoppingCart, ClipboardList, Package, FileText, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
 
 const STATUS_LABELS: Record<string, string> = {
   pendiente:      'Pendiente',
@@ -32,10 +31,6 @@ function greeting(name?: string | null) {
 
 export default async function DashboardPage() {
   const profile = await getAuthProfile()
-  // Un cocinero no necesita ver pedidos/productos de la nave, solo su
-  // propia lista de producciones asignadas.
-  if (profile.role === 'cocinero') redirect('/mi-produccion')
-
   const supabase = await createClient()
   const isNave = profile.organizations.type === 'nave'
   const sb = supabase as any
