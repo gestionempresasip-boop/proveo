@@ -177,6 +177,8 @@ function OrderRow({ order, onCanceled, onReturned, currentUserId }: { order: Ord
             <div>
               <div className="flex items-center gap-2 text-xs text-gray-600">
                 <Clock className="h-3 w-3" />
+                {new Date(order.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+                {', '}
                 {new Date(order.created_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
               </div>
               {order.notes && (

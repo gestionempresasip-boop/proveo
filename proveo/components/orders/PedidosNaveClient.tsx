@@ -626,6 +626,8 @@ function OrderCard({
           )}
           <div className="flex items-center gap-3 mt-0.5">
             <span className="text-xs text-gray-600">
+              {date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+              {', '}
               {date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
               {' · '}
               {order.order_items.length} producto{order.order_items.length !== 1 ? 's' : ''}
