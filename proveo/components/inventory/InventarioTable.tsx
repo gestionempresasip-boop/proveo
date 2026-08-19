@@ -6,7 +6,10 @@ import { upsertInventory, getInventoryHistory, bulkSetMinStock, bulkUpsertInvent
 import { softDeleteProduct, bulkSoftDeleteProducts } from '@/app/actions/products'
 import { InventoryClosures } from './InventoryClosures'
 import { BackupsPanel } from './BackupsPanel'
-import { AlertTriangle, CheckCircle2, XCircle, Save, ChevronDown, ChevronUp, History, Package, Download, ListChecks, X, Check, FileSpreadsheet, Trash2, Shield, ArrowUp, PackageOpen } from 'lucide-react'
+import { MovementsTab } from './MovementsTab'
+import { StockCountFlow } from './StockCountFlow'
+import { PurchaseSuggestionTab } from './PurchaseSuggestionTab'
+import { AlertTriangle, CheckCircle2, XCircle, Save, ChevronDown, ChevronUp, History, Package, Download, ListChecks, X, Check, FileSpreadsheet, Trash2, Shield, ArrowUp, PackageOpen, ClipboardList, ShoppingCart } from 'lucide-react'
 
 type InventoryRow = {
   product_id: string
@@ -585,13 +588,14 @@ export function InventarioTable({
   // servidor devuelve props frescas, se sincroniza el estado local con la
   // verdad confirmada (sin esto, el cambio en masa no se vería reflejado).
   useEffect(() => { setRows(initialRows) }, [initialRows])
-  const [tab, setTab] = useState<'stock' | 'historial' | 'valorado' | 'backups'>('stock')
+  const [tab, setTab] = useState<'stock' | 'movimientos' | 'sugerencia' | 'historial' | 'valorado' | 'backups'>('stock')
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'todos' | 'bajo' | 'sinstock' | 'cajon'>('todos')
   const [categoryFilter, setCategoryFilter] = useState<string>('todas')
   const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({})
   const [showBulkMin, setShowBulkMin] = useState(false)
   const [showBulkDelete, setShowBulkDelete] = useState(false)
+  const [showStockCount, setShowStockCount] = useState(false)
   const [deletingRow, setDeletingRow] = useState<string | null>(null)
   const [edits, setEdits] = useState<Record<string, { stock: string; min: string }>>({})
   const [savingAll, setSavingAll] = useState(false)
@@ -731,6 +735,28 @@ export function InventarioTable({
         >
           Stock actual
         </button>
+        {isNave && (
+          <button
+            onClick={() => setTab('movimientos')}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              tab === 'movimientos' ? 'bg-white text-black shadow-sm' : 'text-gray-700 hover:text-gray-700'
+            }`}
+          >
+            <ArrowUp className="w-4 h-4" />
+            Movimientos
+          </button>
+        )}
+        {isNave && (
+          <button
+            onClick={() => setTab('sugerencia')}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              tab === 'sugerencia' ? 'bg-white text-black shadow-sm' : 'text-gray-700 hover:text-gray-700'
+            }`}
+          >
+            <ShoppingCart className="w-4 h-4" />
+            Sugerencia de compra
+          </button>
+        )}
         <button
           onClick={() => setTab('historial')}
           className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -762,7 +788,11 @@ export function InventarioTable({
         )}
       </div>
 
-      {tab === 'historial' ? (
+      {tab === 'movimientos' ? (
+        <MovementsTab />
+      ) : tab === 'sugerencia' ? (
+        <PurchaseSuggestionTab />
+      ) : tab === 'historial' ? (
         <HistorialTab organizationId={organizationId} />
       ) : tab === 'valorado' ? (
         <InventoryClosures isNave={isNave} organizationId={organizationId} />
@@ -841,6 +871,14 @@ export function InventarioTable({
                 <Trash2 className="w-4 h-4" /> Borrar productos
               </button>
             )}
+            {isNave && (
+              <button
+                onClick={() => setShowStockCount(true)}
+                className="flex items-center justify-center gap-2 border border-[#A8793A] text-[#A8793A] text-sm font-medium px-4 py-2.5 rounded-xl hover:bg-amber-50 transition-colors shrink-0"
+              >
+                <ClipboardList className="w-4 h-4" /> Recuento físico
+              </button>
+            )}
           </div>
 
           {saveError && (
@@ -885,6 +923,15 @@ export function InventarioTable({
                 setShowBulkDelete(false)
                 router.refresh()
               }}
+            />
+          )}
+
+          {showStockCount && (
+            <StockCountFlow
+              rows={rows}
+              categories={categories}
+              onClose={() => setShowStockCount(false)}
+              onApplied={() => router.refresh()}
             />
           )}
 

@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { getAuthProfile } from '@/lib/supabase/helpers'
-import { ShoppingCart, ClipboardList, Package, FileText, ArrowRight } from 'lucide-react'
+import { ShoppingCart, ClipboardList, Package, FileText, ArrowRight, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
 
 const STATUS_LABELS: Record<string, string> = {
@@ -35,14 +35,20 @@ export default async function DashboardPage() {
   const isNave = profile.organizations.type === 'nave'
   const sb = supabase as any
 
-  const [{ count: pendingCount }, { count: productsCount }, { data: recentOrders }] = await Promise.all([
+  const [{ count: pendingCount }, { count: productsCount }, { data: recentOrders }, { data: lowStockRows }] = await Promise.all([
     sb.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'pendiente'),
     sb.from('products').select('*', { count: 'exact', head: true }).eq('is_active', true),
     sb.from('orders')
       .select('id, order_number, status, total_price, created_at, organizations(name)')
       .order('created_at', { ascending: false })
       .limit(6),
+    isNave
+      ? sb.from('nave_inventory').select('current_stock, min_stock')
+      : Promise.resolve({ data: [] }),
   ])
+
+  const lowStockCount = (lowStockRows ?? []).filter((r: any) => Number(r.current_stock) > 0 && Number(r.min_stock) > 0 && Number(r.current_stock) <= Number(r.min_stock)).length
+  const outOfStockCount = (lowStockRows ?? []).filter((r: any) => Number(r.current_stock) === 0).length
 
   const stats = [
     {
@@ -83,6 +89,26 @@ export default async function DashboardPage() {
           {isNave ? 'Nave Obrador' : profile.organizations.name}
         </p>
       </div>
+
+      {/* Aviso de stock bajo/agotado */}
+      {isNave && (lowStockCount + outOfStockCount) > 0 && (
+        <Link href="/inventario" prefetch={false}>
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 flex items-center gap-3 hover:bg-amber-100/60 transition-colors">
+            <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+              <AlertTriangle className="h-4.5 w-4.5 text-amber-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-amber-900">
+                {outOfStockCount > 0 && `${outOfStockCount} producto${outOfStockCount !== 1 ? 's' : ''} agotado${outOfStockCount !== 1 ? 's' : ''}`}
+                {outOfStockCount > 0 && lowStockCount > 0 && ' · '}
+                {lowStockCount > 0 && `${lowStockCount} con stock bajo`}
+              </p>
+              <p className="text-xs text-amber-700 mt-0.5">Revisa el inventario para reponer</p>
+            </div>
+            <ArrowRight className="h-4 w-4 text-amber-600 shrink-0" />
+          </div>
+        </Link>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4">

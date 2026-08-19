@@ -10,6 +10,7 @@ import type { Product, ProductCategory } from '@/types/database'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { takeRepeatOrder } from '@/lib/repeatOrder'
+import { notifyLowStock } from '@/app/actions/stockAlerts'
 import { loadCartDraft, saveCartDraft, clearCartDraft } from '@/lib/cartDraft'
 import { savePendingCart, clearPendingCart } from '@/app/actions/pendingCart'
 import { setFavoriteProduct } from '@/app/actions/favorites'
@@ -398,11 +399,14 @@ export function CatalogoClient({
         const mode = cartModes[item.product.id] ?? 'unidad'
         const boxUnits = (item.product as any).box_units as number ?? 1
         const totalUnits = mode === 'cajon' ? item.quantity * boxUnits : item.quantity
-        return sb.rpc('adjust_nave_stock', { p_product_id: item.product.id, p_delta: -totalUnits })
+        return sb.rpc('adjust_nave_stock', { p_product_id: item.product.id, p_delta: -totalUnits, p_reason: 'pedido', p_order_id: order.id })
       })
     )
     clearCartDraft(organizationId)
     clearPendingCart(organizationId).catch(err => console.error('No se pudo borrar la cesta pendiente del servidor:', err))
+    // Best-effort: si este pedido deja algo bajo mínimo, avisa a la nave.
+    // No bloquea la confirmación del pedido si falla.
+    notifyLowStock(cartItems.map(i => i.product.id)).catch(() => {})
     setSubmitted(true); setCart({}); setCartOpen(false); setDestination('')
     setTimeout(() => router.push('/pedidos'), 2000)
   }

@@ -19,7 +19,8 @@ export async function upsertInventory(
       .select('current_stock')
       .eq('product_id', productId)
       .maybeSingle()
-    const wasOutOfStock = !existing || Number(existing.current_stock) <= 0
+    const prevStock = existing ? Number(existing.current_stock) : 0
+    const wasOutOfStock = !existing || prevStock <= 0
     const isRestock = wasOutOfStock && currentStock > 0
 
     const { error } = await sb.from('nave_inventory').upsert(
@@ -31,6 +32,22 @@ export async function upsertInventory(
       { onConflict: 'product_id' }
     )
     if (error) throw new Error(error.message)
+
+    // Deja constancia en el historial de movimientos, igual que los cambios
+    // automáticos (pedidos, cancelaciones...) — solo si el número realmente
+    // cambia, para no llenar el historial de "ajustes" de 0 unidades.
+    // stock_movements es una tabla que ya existía (de un módulo retirado
+    // hace tiempo, ver git log) — se reutiliza tal cual, con sus columnas.
+    const delta = currentStock - prevStock
+    if (delta !== 0) {
+      const { data: { user } } = await supabase.auth.getUser()
+      const { data: product } = await sb.from('products').select('name').eq('id', productId).maybeSingle()
+      await sb.from('stock_movements').insert({
+        organization_id: organizationId, product_id: productId,
+        item_name: product?.name ?? 'Producto', movement_type: delta < 0 ? 'merma' : 'entrada_manual',
+        quantity: delta, stock_after: currentStock, created_by: user?.id ?? null,
+      })
+    }
   } else {
     const { error } = await sb.from('restaurant_inventory').upsert(
       { product_id: productId, organization_id: organizationId, current_stock: currentStock, min_stock: minStock, last_updated: new Date().toISOString() },
@@ -91,6 +108,22 @@ export async function bulkUpsertInventory(
       { onConflict: 'product_id' }
     )
     if (error) throw new Error(error.message)
+
+    const movements = entries
+      .map(e => ({ productId: e.productId, delta: e.currentStock - (prevById.get(e.productId) ?? 0), resultingStock: e.currentStock }))
+      .filter(m => m.delta !== 0)
+    if (movements.length > 0) {
+      const { data: { user } } = await supabase.auth.getUser()
+      const { data: products } = await sb.from('products').select('id, name').in('id', movements.map(m => m.productId))
+      const nameById = new Map<string, string>((products ?? []).map((p: any) => [p.id, p.name]))
+      await sb.from('stock_movements').insert(
+        movements.map(m => ({
+          organization_id: organizationId, product_id: m.productId,
+          item_name: nameById.get(m.productId) ?? 'Producto', movement_type: m.delta < 0 ? 'merma' : 'entrada_manual',
+          quantity: m.delta, stock_after: m.resultingStock, created_by: user?.id ?? null,
+        }))
+      )
+    }
   } else {
     const { error } = await sb.from('restaurant_inventory').upsert(
       entries.map(e => ({

@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { checkAndNotifyLowStock } from '@/lib/notifications/lowStock'
 
 // 3 estados simplificados. Los viejos (en_preparacion, listo, entregado)
 // se mapean en la UI pero se intentan escribir como nuevos si la BD ya migró.
@@ -40,7 +41,7 @@ export async function updateOrderStatus(orderId: string, newStatus: OrderStatus)
     const { data: items } = await sb.from('order_items').select('product_id, quantity, rectified_quantity').eq('order_id', orderId)
     await Promise.all(
       (items ?? []).map((it: any) =>
-        sb.rpc('adjust_nave_stock', { p_product_id: it.product_id, p_delta: Number(it.rectified_quantity ?? it.quantity) })
+        sb.rpc('adjust_nave_stock', { p_product_id: it.product_id, p_delta: Number(it.rectified_quantity ?? it.quantity), p_reason: 'cancelacion_pedido', p_order_id: orderId })
       )
     )
   }
@@ -69,9 +70,10 @@ export async function reopenOrder(orderId: string) {
 
   await Promise.all(
     (items ?? []).map((it: any) =>
-      sb.rpc('adjust_nave_stock', { p_product_id: it.product_id, p_delta: -Number(it.rectified_quantity ?? it.quantity) })
+      sb.rpc('adjust_nave_stock', { p_product_id: it.product_id, p_delta: -Number(it.rectified_quantity ?? it.quantity), p_reason: 'reapertura_pedido', p_order_id: orderId })
     )
   )
+  checkAndNotifyLowStock((items ?? []).map((it: any) => it.product_id)).catch(() => {})
 
   revalidatePath('/pedidos')
   revalidatePath('/albaranes')
@@ -165,9 +167,10 @@ export async function rectifyOrderItem(orderItemId: string, newQuantity: number,
           .eq('product_id', item.product_id)
       : Promise.resolve(),
     stockDelta !== 0
-      ? sb.rpc('adjust_nave_stock', { p_product_id: item.product_id, p_delta: stockDelta })
+      ? sb.rpc('adjust_nave_stock', { p_product_id: item.product_id, p_delta: stockDelta, p_reason: 'rectificacion', p_order_id: item.order_id })
       : Promise.resolve(),
   ])
+  if (stockDelta < 0) checkAndNotifyLowStock([item.product_id]).catch(() => {})
 
   revalidatePath('/pedidos')
   if (deliveryNote) revalidatePath('/albaranes')
@@ -336,7 +339,7 @@ export async function setItemBoxExactUnits(orderItemId: string, exactUnitsPerBox
 
   await Promise.all([
     stockDelta !== 0
-      ? sb.rpc('adjust_nave_stock', { p_product_id: item.product_id, p_delta: stockDelta })
+      ? sb.rpc('adjust_nave_stock', { p_product_id: item.product_id, p_delta: stockDelta, p_reason: 'rectificacion', p_order_id: item.order_id })
       : Promise.resolve(),
     deliveryNote
       ? sb.from('delivery_note_items')
@@ -345,6 +348,7 @@ export async function setItemBoxExactUnits(orderItemId: string, exactUnitsPerBox
           .eq('product_id', item.product_id)
       : Promise.resolve(),
   ])
+  if (stockDelta < 0) checkAndNotifyLowStock([item.product_id]).catch(() => {})
 
   revalidatePath('/pedidos')
   if (deliveryNote) revalidatePath('/albaranes')
