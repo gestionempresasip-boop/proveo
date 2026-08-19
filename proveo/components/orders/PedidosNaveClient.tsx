@@ -198,14 +198,18 @@ function ItemRow({
       <div className="bg-amber-50 border border-amber-200 rounded-xl px-2 py-1.5 text-xs space-y-1.5">
         <div className="flex items-center gap-1.5">
           <span className="font-medium text-black truncate flex-1">{item.products?.name ?? '—'}</span>
-          <input
-            type="number" step="0.001" min="0" autoFocus value={value}
-            onChange={e => setValue(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') save() }}
-            className="w-16 border border-amber-300 rounded-lg px-1.5 py-1 text-center focus:outline-none focus:ring-2 focus:ring-amber-400"
-          />
-          <span className="text-gray-600 shrink-0">{unitLabel(item.unit)}</span>
-          <button onClick={save} disabled={pending} className="p-1 rounded text-green-600 hover:bg-green-50 shrink-0"><Check className="w-3.5 h-3.5" /></button>
+          {!isCajon && (
+            <>
+              <input
+                type="number" step="0.001" min="0" autoFocus value={value}
+                onChange={e => setValue(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') save() }}
+                className="w-16 border border-amber-300 rounded-lg px-1.5 py-1 text-center focus:outline-none focus:ring-2 focus:ring-amber-400"
+              />
+              <span className="text-gray-600 shrink-0">{unitLabel(item.unit)}</span>
+              <button onClick={save} disabled={pending} className="p-1 rounded text-green-600 hover:bg-green-50 shrink-0"><Check className="w-3.5 h-3.5" /></button>
+            </>
+          )}
           <button onClick={() => { setEditing(false); setValue(String(item.rectified_quantity ?? item.quantity)); setNote(item.rectification_note ?? '') }} className="p-1 rounded text-gray-600 hover:bg-gray-100 shrink-0"><X className="w-3.5 h-3.5" /></button>
         </div>
         <input
@@ -269,11 +273,13 @@ function ItemRow({
           ) : (
             <span className="text-gray-700">{item.quantity} {unitLabel(item.unit)}</span>
           )}
-          {!isCajon && (
-            <button onClick={() => setEditing(true)} title="Rectificar cantidad" className="p-1 rounded text-gray-600 hover:text-amber-600 hover:bg-amber-50">
-              <Pencil className="w-3 h-3" />
-            </button>
-          )}
+          <button
+            onClick={() => setEditing(true)}
+            title={isCajon ? 'Cancelar producto' : 'Rectificar cantidad'}
+            className={`p-1 rounded ${isCajon ? 'text-gray-600 hover:text-red-600 hover:bg-red-50' : 'text-gray-600 hover:text-amber-600 hover:bg-amber-50'}`}
+          >
+            {isCajon ? <Ban className="w-3 h-3" /> : <Pencil className="w-3 h-3" />}
+          </button>
         </div>
       </div>
       <div className="flex items-center gap-1.5 pl-6">
