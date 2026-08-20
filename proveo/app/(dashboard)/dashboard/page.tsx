@@ -43,7 +43,7 @@ export default async function DashboardPage() {
       .order('created_at', { ascending: false })
       .limit(6),
     isNave
-      ? sb.from('nave_inventory').select('current_stock, min_stock')
+      ? sb.from('nave_inventory').select('current_stock, min_stock, products!inner(is_active, deleted_at)').eq('products.is_active', true).is('products.deleted_at', null)
       : Promise.resolve({ data: [] }),
   ])
 
