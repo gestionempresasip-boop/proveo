@@ -789,7 +789,7 @@ export function InventarioTable({
       </div>
 
       {tab === 'movimientos' ? (
-        <MovementsTab />
+        <MovementsTab products={rows.map(r => ({ id: r.product_id, name: r.product_name }))} />
       ) : tab === 'sugerencia' ? (
         <PurchaseSuggestionTab />
       ) : tab === 'historial' ? (

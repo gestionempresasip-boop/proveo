@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useMemo, useState, useTransition } from 'react'
 import { getStockMovements, type StockMovement } from '@/app/actions/stockMovements'
-import { ArrowUpCircle, ArrowDownCircle, History, Download } from 'lucide-react'
+import { ArrowUpCircle, ArrowDownCircle, History, Download, FileSpreadsheet, Search, X } from 'lucide-react'
+import { exportReportExcel } from '@/lib/reportExport'
 
 const REASON_OPTIONS = [
   { value: '', label: 'Todos los motivos' },
@@ -33,18 +34,65 @@ function exportCSV(rows: StockMovement[]) {
   a.click()
 }
 
-export function MovementsTab() {
+function exportExcel(rows: StockMovement[]) {
+  exportReportExcel(
+    [{
+      heading: 'Movimientos de stock',
+      headers: ['Fecha', 'Producto', 'Cambio', 'Stock resultante', 'Motivo', 'Pedido', 'Quién', 'Notas'],
+      rows: rows.map(m => [
+        new Date(m.created_at).toLocaleString('es-ES'),
+        m.product_name,
+        m.delta,
+        m.resulting_stock ?? '',
+        m.reason,
+        m.order_number ? `#${m.order_number}` : '',
+        m.created_by_name ?? '',
+        m.notes ?? '',
+      ]),
+    }],
+    'movimientos-stock.xlsx'
+  )
+}
+
+type Product = { id: string; name: string }
+
+export function MovementsTab({ products = [] }: { products?: Product[] }) {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [reason, setReason] = useState('')
+  const [productQuery, setProductQuery] = useState('')
+  const [productId, setProductId] = useState('')
+  const [showSuggestions, setShowSuggestions] = useState(false)
   const [movements, setMovements] = useState<StockMovement[] | null>(null)
   const [pending, startTransition] = useTransition()
   const [searched, setSearched] = useState(false)
 
+  const suggestions = useMemo(() => {
+    if (!productQuery.trim()) return []
+    const q = productQuery.toLowerCase()
+    return products.filter(p => p.name.toLowerCase().includes(q)).slice(0, 8)
+  }, [products, productQuery])
+
+  function selectProduct(p: Product) {
+    setProductId(p.id)
+    setProductQuery(p.name)
+    setShowSuggestions(false)
+  }
+
+  function clearProduct() {
+    setProductId('')
+    setProductQuery('')
+  }
+
   function handleSearch() {
     setSearched(true)
     startTransition(async () => {
-      const data = await getStockMovements({ dateFrom: dateFrom || undefined, dateTo: dateTo || undefined, reason: reason || undefined })
+      const data = await getStockMovements({
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
+        reason: reason || undefined,
+        productId: productId || undefined,
+      })
       setMovements(data)
     })
   }
@@ -54,6 +102,40 @@ export function MovementsTab() {
       <div className="bg-white rounded-xl border border-gray-100 p-4">
         <p className="text-sm font-medium text-black mb-3">Filtrar movimientos</p>
         <div className="flex flex-wrap gap-3 items-end">
+          <div className="relative">
+            <label className="text-xs text-gray-600 block mb-1">Producto</label>
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={productQuery}
+                onChange={e => { setProductQuery(e.target.value); setProductId(''); setShowSuggestions(true) }}
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                placeholder="Buscar producto..."
+                className="border border-gray-200 rounded-lg pl-8 pr-7 py-2 text-sm w-56 focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
+              />
+              {productQuery && (
+                <button type="button" onClick={clearProduct} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="absolute z-10 top-full mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-y-auto">
+                {suggestions.map(p => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onMouseDown={() => selectProduct(p)}
+                    className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-50 truncate"
+                  >
+                    {p.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <div>
             <label className="text-xs text-gray-600 block mb-1">Desde</label>
             <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
@@ -76,10 +158,16 @@ export function MovementsTab() {
             {pending ? 'Cargando...' : 'Ver movimientos'}
           </button>
           {movements && movements.length > 0 && (
-            <button onClick={() => exportCSV(movements)}
-              className="flex items-center gap-1.5 border border-gray-200 text-gray-600 text-sm font-medium px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors">
-              <Download className="w-4 h-4" /> Exportar CSV
-            </button>
+            <>
+              <button onClick={() => exportExcel(movements)}
+                className="flex items-center gap-1.5 border border-gray-200 text-gray-600 text-sm font-medium px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors">
+                <FileSpreadsheet className="w-4 h-4" /> Exportar Excel
+              </button>
+              <button onClick={() => exportCSV(movements)}
+                className="flex items-center gap-1.5 border border-gray-200 text-gray-600 text-sm font-medium px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors">
+                <Download className="w-4 h-4" /> Exportar CSV
+              </button>
+            </>
           )}
         </div>
       </div>
