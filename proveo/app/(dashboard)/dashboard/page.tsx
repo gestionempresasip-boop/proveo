@@ -36,10 +36,11 @@ export default async function DashboardPage() {
   const sb = supabase as any
 
   const [{ count: pendingCount }, { count: productsCount }, { data: recentOrders }, { data: lowStockRows }] = await Promise.all([
-    sb.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'pendiente'),
+    sb.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'pendiente').is('deleted_at', null),
     sb.from('products').select('*', { count: 'exact', head: true }).eq('is_active', true),
     sb.from('orders')
       .select('id, order_number, status, total_price, created_at, organizations(name)')
+      .is('deleted_at', null)
       .order('created_at', { ascending: false })
       .limit(6),
     isNave

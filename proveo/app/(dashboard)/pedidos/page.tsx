@@ -12,12 +12,23 @@ export default async function PedidosPage() {
 
   // ── Nave: fetch all orders + restaurants ─────────────────────────────────
   if (isNave) {
-    const [{ data: orders }, { data: restaurants }] = await Promise.all([
+    const naveSelect = '*, organizations(id, name), order_items(*, products(name, unit)), delivery_notes(id, note_number, type, delivery_note_items(product_id, delivered_quantity, return_reason, products(name))), deleted_by_profile:profiles!deleted_by(full_name)'
+    const [{ data: orders }, { data: deletedOrders }, { data: restaurants }] = await Promise.all([
       sb
         .from('orders')
-        .select('*, organizations(id, name), order_items(*, products(name, unit)), delivery_notes(id, note_number, type, delivery_note_items(product_id, delivered_quantity, return_reason, products(name)))')
+        .select(naveSelect)
+        .is('deleted_at', null)
         .order('created_at', { ascending: false })
         .limit(500),
+      // Papelera: pedidos eliminados (borrado suave), para poder verlos y
+      // restaurarlos si fue un error. Últimos 90 días, no hace falta más.
+      sb
+        .from('orders')
+        .select(naveSelect)
+        .not('deleted_at', 'is', null)
+        .gte('deleted_at', new Date(Date.now() - 90 * 86400000).toISOString())
+        .order('deleted_at', { ascending: false })
+        .limit(100),
       sb
         .from('organizations')
         .select('id, name')
@@ -28,6 +39,7 @@ export default async function PedidosPage() {
     return (
       <PedidosNaveClient
         orders={orders ?? []}
+        deletedOrders={deletedOrders ?? []}
         restaurants={restaurants ?? []}
         currentUserId={profile.id}
       />
@@ -35,12 +47,24 @@ export default async function PedidosPage() {
   }
 
   // ── Restaurante: vista simple de historial ───────────────────────────────
-  const { data: orders } = await sb
-    .from('orders')
-    .select('*, order_items(*, products(name, unit)), delivery_notes(id, type, delivery_note_items(product_id, delivered_quantity, return_reason))')
-    .eq('restaurant_id', profile.organization_id)
-    .order('created_at', { ascending: false })
-    .limit(200)
+  const restSelect = '*, order_items(*, products(name, unit)), delivery_notes(id, type, delivery_note_items(product_id, delivered_quantity, return_reason)), deleted_by_profile:profiles!deleted_by(full_name)'
+  const [{ data: orders }, { data: deletedOrders }] = await Promise.all([
+    sb
+      .from('orders')
+      .select(restSelect)
+      .eq('restaurant_id', profile.organization_id)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+      .limit(200),
+    sb
+      .from('orders')
+      .select(restSelect)
+      .eq('restaurant_id', profile.organization_id)
+      .not('deleted_at', 'is', null)
+      .gte('deleted_at', new Date(Date.now() - 90 * 86400000).toISOString())
+      .order('deleted_at', { ascending: false })
+      .limit(100),
+  ])
 
   return (
     <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">
@@ -49,7 +73,7 @@ export default async function PedidosPage() {
         <p className="text-gray-700 mt-1 text-sm">Historial de tus pedidos enviados a la nave</p>
       </div>
 
-      <PedidosRestauranteClient orders={orders ?? []} currentUserId={profile.id} />
+      <PedidosRestauranteClient orders={orders ?? []} deletedOrders={deletedOrders ?? []} currentUserId={profile.id} />
     </div>
   )
 }

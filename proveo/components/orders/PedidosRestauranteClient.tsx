@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
-import { Package, Clock, Ban, Search, ChevronDown, X, Undo2, ThumbsUp, AlertTriangle, Repeat, MessageCircle } from 'lucide-react'
+import { Package, Clock, Ban, Search, ChevronDown, X, Undo2, ThumbsUp, AlertTriangle, Repeat, MessageCircle, Trash2 } from 'lucide-react'
 import { updateOrderStatus, createReturn, type ReturnReason } from '@/app/actions/orders'
 import { setRepeatOrder, type RepeatOrderItem } from '@/lib/repeatOrder'
 import { cn } from '@/lib/utils'
@@ -41,6 +41,7 @@ type Order = {
   id: string; order_number: number; status: string; notes: string | null; total_price: number; created_at: string
   order_items: OrderItem[]; delivery_notes?: ReturnDeliveryNote[]
 }
+type DeletedOrder = Order & { deleted_at: string | null; deleted_by_profile?: { full_name: string | null } | null }
 
 const DELIVERED_STATUSES = new Set(['entregado', 'enviado'])
 
@@ -292,11 +293,12 @@ function OrderRow({ order, onCanceled, onReturned, currentUserId }: { order: Ord
   )
 }
 
-export function PedidosRestauranteClient({ orders: initialOrders, currentUserId }: { orders: Order[]; currentUserId: string }) {
+export function PedidosRestauranteClient({ orders: initialOrders, deletedOrders = [], currentUserId }: { orders: Order[]; deletedOrders?: DeletedOrder[]; currentUserId: string }) {
   const [orders, setOrders] = useState<Order[]>(initialOrders)
   const [search, setSearch] = useState('')
   const [dateFilter, setDateFilter] = useState('')
   const [toggled, setToggled] = useState<Record<string, boolean>>({})
+  const [showDeleted, setShowDeleted] = useState(false)
 
   function handleCanceled(id: string) {
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status: 'cancelado' } : o))
@@ -356,9 +358,12 @@ export function PedidosRestauranteClient({ orders: initialOrders, currentUserId 
 
   if (orders.length === 0) {
     return (
-      <div className="text-center py-20 text-gray-600">
-        <Package className="h-12 w-12 mx-auto mb-3 text-gray-200" />
-        <p>No hay pedidos aún</p>
+      <div className="space-y-4">
+        <div className="text-center py-20 text-gray-600">
+          <Package className="h-12 w-12 mx-auto mb-3 text-gray-200" />
+          <p>No hay pedidos aún</p>
+        </div>
+        <DeletedOrdersSection orders={deletedOrders} show={showDeleted} onToggle={() => setShowDeleted(v => !v)} />
       </div>
     )
   }
@@ -428,6 +433,50 @@ export function PedidosRestauranteClient({ orders: initialOrders, currentUserId 
               </div>
             )
           })}
+        </div>
+      )}
+
+      <DeletedOrdersSection orders={deletedOrders} show={showDeleted} onToggle={() => setShowDeleted(v => !v)} />
+    </div>
+  )
+}
+
+// La nave puede eliminar un pedido por error (duplicado, mal introducido...).
+// Este apartado es de solo lectura: el restaurante puede ver que se
+// eliminó, cuándo, y qué llevaba, pero solo la nave puede restaurarlo.
+function DeletedOrdersSection({ orders, show, onToggle }: { orders: DeletedOrder[]; show: boolean; onToggle: () => void }) {
+  if (orders.length === 0) return null
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-gray-50/80 transition-colors"
+      >
+        <div className="flex items-center gap-2.5">
+          <Trash2 className="h-4 w-4 text-gray-600" />
+          <span className="font-semibold text-black">Pedidos eliminados por la nave</span>
+          <span className="text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full font-medium">{orders.length}</span>
+        </div>
+        <ChevronDown className={cn('h-4 w-4 text-gray-600 transition-transform shrink-0', show && 'rotate-180')} />
+      </button>
+      {show && (
+        <div className="px-4 pb-4 pt-1 space-y-2 border-t border-gray-100">
+          {orders.map(o => (
+            <div key={o.id} className="text-sm rounded-xl px-3 py-2.5 bg-gray-50">
+              <div className="flex items-center justify-between">
+                <span className="font-medium text-black">#{o.order_number}</span>
+                <span className="text-gray-600">{o.total_price.toFixed(2)}€</span>
+              </div>
+              <p className="text-xs text-gray-600 mt-0.5">
+                {o.order_items?.length ?? 0} producto{(o.order_items?.length ?? 0) !== 1 ? 's' : ''} · pedido el {new Date(o.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+              </p>
+              {o.deleted_at && (
+                <p className="text-xs text-red-500 mt-0.5">
+                  Eliminado el {new Date(o.deleted_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} a las {new Date(o.deleted_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                </p>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>

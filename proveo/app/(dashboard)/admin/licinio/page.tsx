@@ -31,6 +31,7 @@ export default async function LicinioPage() {
         )
       `)
       .neq('status', 'cancelado')
+      .is('deleted_at', null)
       .order('created_at', { ascending: false }),
     sb
       .from('organizations')

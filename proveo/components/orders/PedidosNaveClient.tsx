@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useMemo } from 'react'
 import Link from 'next/link'
-import { updateOrderStatus, generateDeliveryNote, deleteOrder, rectifyOrderItem, cancelOrderItem, setItemPrepared, setItemLot, setItemWeight, setItemBoxExactUnits, reopenOrder } from '@/app/actions/orders'
+import { updateOrderStatus, generateDeliveryNote, deleteOrder, restoreOrder, rectifyOrderItem, cancelOrderItem, setItemPrepared, setItemLot, setItemWeight, setItemBoxExactUnits, reopenOrder } from '@/app/actions/orders'
 import type { OrderStatus } from '@/app/actions/orders'
 import { unitLabel } from '@/lib/units'
 import { OrderChat } from '@/components/orders/OrderChat'
@@ -58,6 +58,8 @@ type Order = {
   organizations: { id: string; name: string } | null
   order_items: OrderItem[]
   delivery_notes: DeliveryNote[]
+  deleted_at?: string | null
+  deleted_by_profile?: { full_name: string | null } | null
 }
 
 function entregaNote(order: Order): DeliveryNote | undefined {
@@ -337,7 +339,7 @@ function ItemRow({
 
 // ── Action buttons per order ─────────────────────────────────────────────────
 
-function OrderActions({ order, onDeleted, onStatusChange }: { order: Order; onDeleted: (id: string) => void; onStatusChange: (id: string, status: OrderStatus) => void }) {
+function OrderActions({ order, onDeleted, onStatusChange }: { order: Order; onDeleted: (order: Order) => void; onStatusChange: (id: string, status: OrderStatus) => void }) {
   const [loading, setLoading] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [confirmCancel, setConfirmCancel] = useState(false)
@@ -560,7 +562,7 @@ function OrderActions({ order, onDeleted, onStatusChange }: { order: Order; onDe
         <div className="flex items-center gap-2 ml-auto">
           <span className="text-xs text-red-600 font-medium">¿Seguro?</span>
           <button
-            onClick={() => { setLoading(true); onDeleted(order.id); deleteOrder(order.id) }}
+            onClick={() => { setLoading(true); onDeleted(order); deleteOrder(order.id) }}
             disabled={loading}
             className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
           >
@@ -584,7 +586,7 @@ function OrderActions({ order, onDeleted, onStatusChange }: { order: Order; onDe
 function OrderCard({
   order, onDeleted, onStatusChange, onRectified, onItemCanceled, onPreparedChange, onLotChange, onWeightChange, onBoxExactUnitsChange, currentUserId,
 }: {
-  order: Order; onDeleted: (id: string) => void
+  order: Order; onDeleted: (order: Order) => void
   onStatusChange: (id: string, status: OrderStatus) => void
   onRectified: (orderId: string, itemId: string, qty: number, note?: string) => void
   onItemCanceled: (orderId: string, itemId: string, reason?: string) => void
@@ -691,13 +693,28 @@ function OrderCard({
 type DateFilter = 'hoy' | 'semana' | 'mes' | 'custom'
 type StatusFilter = 'todos' | 'pendiente' | 'hecho' | 'enviado'
 
-export function PedidosNaveClient({ orders: initialOrders, restaurants, currentUserId }: { orders: Order[]; restaurants: Restaurant[]; currentUserId: string }) {
+export function PedidosNaveClient({ orders: initialOrders, deletedOrders: initialDeletedOrders, restaurants, currentUserId }: { orders: Order[]; deletedOrders: Order[]; restaurants: Restaurant[]; currentUserId: string }) {
   const [orders, setOrders] = useState<Order[]>(initialOrders)
+  const [deletedOrders, setDeletedOrders] = useState<Order[]>(initialDeletedOrders)
+  const [showTrash, setShowTrash] = useState(false)
   const [dateFilter, setDateFilter] = useState<DateFilter>('hoy')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('todos')
   const [restFilter, setRestFilter] = useState('todos')
 
-  function handleDeleted(id: string) { setOrders(prev => prev.filter(o => o.id !== id)) }
+  function handleDeleted(order: Order) {
+    setOrders(prev => prev.filter(o => o.id !== order.id))
+    setDeletedOrders(prev => [{ ...order, deleted_at: new Date().toISOString(), deleted_by_profile: null }, ...prev])
+  }
+
+  function handleRestore(order: Order) {
+    setDeletedOrders(prev => prev.filter(o => o.id !== order.id))
+    setOrders(prev => [{ ...order, deleted_at: null, deleted_by_profile: null }, ...prev])
+    restoreOrder(order.id).catch(() => {
+      // Si falla, deshacer el cambio optimista: vuelve a la papelera.
+      setOrders(prev => prev.filter(o => o.id !== order.id))
+      setDeletedOrders(prev => [order, ...prev])
+    })
+  }
   function handleStatusChange(id: string, status: OrderStatus) {
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o))
   }
@@ -791,10 +808,60 @@ export function PedidosNaveClient({ orders: initialOrders, restaurants, currentU
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-5">
       {/* Title */}
-      <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-black">Pedidos entrantes</h1>
-        <p className="text-gray-700 text-sm mt-1 capitalize">{todayLabel}</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-black">Pedidos entrantes</h1>
+          <p className="text-gray-700 text-sm mt-1 capitalize">{todayLabel}</p>
+        </div>
+        <button
+          onClick={() => setShowTrash(v => !v)}
+          className={`flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-xl border transition-colors shrink-0 ${
+            showTrash ? 'bg-[#1E2B28] text-white border-[#1E2B28]' : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+          Eliminados ({deletedOrders.length})
+        </button>
       </div>
+
+      {showTrash && (
+        <section className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-100">
+            <h2 className="text-sm font-semibold text-black">Pedidos eliminados</h2>
+            <p className="text-xs text-gray-600 mt-0.5">Últimos 90 días · se puede restaurar un pedido eliminado por error</p>
+          </div>
+          {deletedOrders.length === 0 ? (
+            <p className="text-center py-10 text-gray-600 text-sm">No hay pedidos eliminados</p>
+          ) : (
+            <div className="divide-y divide-gray-50">
+              {deletedOrders.map(o => (
+                <div key={o.id} className="p-4 flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium text-black text-sm">
+                      #{o.order_number} · {o.organizations?.name ?? 'Desconocido'} · {o.total_price.toFixed(2)}€
+                    </p>
+                    <p className="text-xs text-gray-600 mt-0.5">
+                      {o.order_items?.length ?? 0} producto{(o.order_items?.length ?? 0) !== 1 ? 's' : ''} · pedido el {new Date(o.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+                    </p>
+                    {o.deleted_at && (
+                      <p className="text-xs text-red-500 mt-0.5">
+                        Eliminado el {new Date(o.deleted_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} a las {new Date(o.deleted_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                        {o.deleted_by_profile?.full_name ? ` por ${o.deleted_by_profile.full_name}` : ''}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleRestore(o)}
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl bg-[#1E2B28] text-white hover:bg-[#141F1C] transition-colors shrink-0"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" /> Restaurar
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* Summary chips */}
       <div className="flex gap-2 flex-wrap">

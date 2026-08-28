@@ -279,28 +279,66 @@ export async function createReturn(orderId: string, items: ReturnItemInput[]) {
   return data as string
 }
 
+// "Eliminar" un pedido es un borrado suave (deleted_at/deleted_by), no un
+// DELETE de verdad: así queda constancia de qué se eliminó y cuándo (visible
+// tanto para la nave como para el restaurante), y se puede restaurar si fue
+// un error. Si el pedido no estaba ya cancelado, su stock nunca se devolvió
+// a la nave — hay que devolverlo aquí, igual que hace una cancelación, o si
+// no el stock queda descuadrado (de menos) porque el pedido nunca salió.
 export async function deleteOrder(orderId: string) {
   const supabase = await createClient()
   const sb = supabase as any
 
-  const { data: notes } = await sb.from('delivery_notes').select('id').eq('order_id', orderId)
+  const { data: order } = await sb.from('orders').select('status, order_items(product_id, quantity, rectified_quantity)').eq('id', orderId).single()
+  if (!order) return
 
-  // Delete child rows in parallel, then delete parents in parallel
-  await Promise.all([
-    notes?.length
-      ? sb.from('delivery_note_items').delete().in('delivery_note_id', notes.map((n: any) => n.id))
-      : Promise.resolve(),
-    sb.from('order_items').delete().eq('order_id', orderId),
-  ])
-  await Promise.all([
-    notes?.length
-      ? sb.from('delivery_notes').delete().eq('order_id', orderId)
-      : Promise.resolve(),
-    sb.from('orders').delete().eq('id', orderId),
-  ])
+  if (order.status !== 'cancelado') {
+    await Promise.all(
+      (order.order_items ?? []).map((it: any) => {
+        const qty = Number(it.rectified_quantity ?? it.quantity)
+        return qty > 0
+          ? sb.rpc('adjust_nave_stock', { p_product_id: it.product_id, p_delta: qty, p_reason: 'eliminacion_pedido', p_order_id: orderId })
+          : Promise.resolve()
+      })
+    )
+  }
+
+  const { data: { user } } = await supabase.auth.getUser()
+  const { error } = await sb.from('orders').update({ deleted_at: new Date().toISOString(), deleted_by: user?.id ?? null }).eq('id', orderId)
+  if (error) throw new Error(error.message)
 
   revalidatePath('/pedidos')
   revalidatePath('/albaranes')
+  revalidatePath('/inventario')
+}
+
+// Inverso exacto de deleteOrder: saca el pedido de la papelera y, si no
+// estaba cancelado, vuelve a descontar el stock que se le devolvió al
+// eliminarlo.
+export async function restoreOrder(orderId: string) {
+  const supabase = await createClient()
+  const sb = supabase as any
+
+  const { data: order } = await sb.from('orders').select('status, order_items(product_id, quantity, rectified_quantity)').eq('id', orderId).single()
+  if (!order) throw new Error('Pedido no encontrado')
+
+  if (order.status !== 'cancelado') {
+    await Promise.all(
+      (order.order_items ?? []).map((it: any) => {
+        const qty = Number(it.rectified_quantity ?? it.quantity)
+        return qty > 0
+          ? sb.rpc('adjust_nave_stock', { p_product_id: it.product_id, p_delta: -qty, p_reason: 'restauracion_pedido', p_order_id: orderId })
+          : Promise.resolve()
+      })
+    )
+  }
+
+  const { error } = await sb.from('orders').update({ deleted_at: null, deleted_by: null }).eq('id', orderId)
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/pedidos')
+  revalidatePath('/albaranes')
+  revalidatePath('/inventario')
 }
 
 // Cuando el repartidor anota las unidades exactas de un cajón, el stock se

@@ -30,7 +30,8 @@ export async function getPurchaseSuggestions(): Promise<PurchaseSuggestion[]> {
     sb.from('orders')
       .select('created_at, status, order_items(product_id, quantity, rectified_quantity)')
       .gte('created_at', since)
-      .neq('status', 'cancelado'),
+      .neq('status', 'cancelado')
+      .is('deleted_at', null),
     sb.from('nave_inventory').select('product_id, current_stock, min_stock, products(name, unit, is_active)'),
   ])
 
