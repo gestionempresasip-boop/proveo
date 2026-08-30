@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 import type { ProfileWithOrg } from '@/types/database'
 import {
   ShoppingCart, Package, ClipboardList,
-  FileText, Settings, LogOut, ChefHat, RefreshCw, BarChart3, Boxes, Tag, Lock,
+  FileText, Settings, LogOut, ChefHat, RefreshCw, BarChart3, Boxes, Tag,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -32,7 +32,6 @@ const navItems: NavItem[] = [
   { href: '/estadisticas',    label: 'Informes',    icon: BarChart3,     orgTypes: ['nave'] },
   { href: '/admin/productos', label: 'Productos',   icon: Package,       roles: ['admin', 'nave_manager'] },
   { href: '/admin/usuarios',  label: 'Usuarios',    icon: Settings,      roles: ['admin', 'nave_manager'] },
-  { href: '/admin/licinio',   label: 'Licinio informe', icon: Lock,      orgTypes: ['nave'] },
 ]
 
 export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
