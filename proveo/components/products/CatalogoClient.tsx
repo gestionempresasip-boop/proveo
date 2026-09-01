@@ -109,6 +109,12 @@ export function CatalogoClient({
   const [selectedCategory, setSelectedCategory] = useState<string>('todos')
   const [searchQuery, setSearchQuery] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  // Ref además del state: el botón se desactiva con `submitting`, pero ese
+  // state no se refleja hasta el siguiente render — un doble toque rápido
+  // (típico en móvil con red lenta) puede disparar submitOrder() dos veces
+  // antes de que el primer setSubmitting(true) surta efecto. El ref sí
+  // bloquea al instante, sin esperar a un render.
+  const submittingRef = useRef(false)
   const [submitted, setSubmitted] = useState(false)
   const [notes, setNotes] = useState('')
   const [destination, setDestination] = useState<'sala' | 'cocina' | ''>('')
@@ -339,6 +345,11 @@ export function CatalogoClient({
 
   async function submitOrder() {
     if (cartItems.length === 0) return
+    // Bloqueo síncrono inmediato — ver comentario junto a submittingRef.
+    if (submittingRef.current) return
+    submittingRef.current = true
+    setSubmitting(true)
+
     const sb = supabase as any
 
     // Revalidar stock con datos frescos justo antes de enviar (por si otro
@@ -365,15 +376,16 @@ export function CatalogoClient({
       const unitDisplay = mode === 'cajon' ? 'cajón' : overStock.product.unit
       setStockError(`No queda suficiente stock de "${overStock.product.name}" (quedan ${leftDisplay} ${unitDisplay})`)
       handleQuantityChange(overStock.product.id, Math.max(0, leftDisplay))
+      submittingRef.current = false
+      setSubmitting(false)
       return
     }
     setStockError(null)
-    setSubmitting(true)
     const { data: order, error } = await sb
       .from('orders')
       .insert({ restaurant_id: organizationId, created_by: userId, status: 'pendiente', notes: notes || null, total_price: cartTotal, destination: destination || null })
       .select().single()
-    if (error || !order) { setSubmitting(false); return }
+    if (error || !order) { submittingRef.current = false; setSubmitting(false); return }
     await sb.from('order_items').insert(
       cartItems.map((item: CartItem) => {
         const mode = cartModes[item.product.id] ?? 'unidad'
