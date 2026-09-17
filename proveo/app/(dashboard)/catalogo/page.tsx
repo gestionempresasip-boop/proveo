@@ -51,6 +51,7 @@ export default async function CatalogoPage() {
       initialPendingCart={pendingCart ? {
         cart: pendingCart.cart ?? {},
         cartModes: pendingCart.cart_modes ?? {},
+        cartBoxUnits: pendingCart.cart_box_units ?? {},
         notes: pendingCart.notes ?? '',
         destination: pendingCart.destination ?? '',
         updatedByName: pendingCart.updated_by_name ?? null,

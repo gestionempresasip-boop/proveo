@@ -5,6 +5,10 @@
 export type CartDraft = {
   cart: Record<string, number>
   cartModes: Record<string, 'unidad' | 'cajon'>
+  // Botellas (o unidades) por caja, editable por línea — solo se usa cuando
+  // cartModes[productId] === 'cajon'. Si falta, se cae al box_units del
+  // producto (comportamiento anterior a esto, sigue funcionando igual).
+  cartBoxUnits: Record<string, number>
   notes: string
   destination: 'sala' | 'cocina' | ''
 }
@@ -33,6 +37,7 @@ export function loadCartDraft(organizationId: string): CartDraft | null {
     return {
       cart: parsed.cart ?? {},
       cartModes: parsed.cartModes ?? {},
+      cartBoxUnits: parsed.cartBoxUnits ?? {},
       notes: parsed.notes ?? '',
       destination: parsed.destination ?? '',
     }

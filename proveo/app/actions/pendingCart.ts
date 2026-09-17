@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 export type PendingCartPayload = {
   cart: Record<string, number>
   cartModes: Record<string, 'unidad' | 'cajon'>
+  cartBoxUnits: Record<string, number>
   notes: string
   destination: 'sala' | 'cocina' | ''
 }
@@ -31,6 +32,7 @@ export async function savePendingCart(organizationId: string, payload: PendingCa
       organization_id: organizationId,
       cart: payload.cart,
       cart_modes: payload.cartModes,
+      cart_box_units: payload.cartBoxUnits,
       notes: payload.notes || null,
       destination: payload.destination || null,
       updated_by: user?.id ?? null,

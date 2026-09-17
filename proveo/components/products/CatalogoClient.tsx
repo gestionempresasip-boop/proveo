@@ -62,6 +62,7 @@ function buildStockMaps(stock: StockRow[]) {
 type PendingCartData = {
   cart: Record<string, number>
   cartModes: Record<string, 'unidad' | 'cajon'>
+  cartBoxUnits: Record<string, number>
   notes: string
   destination: 'sala' | 'cocina' | ''
   updatedByName: string | null
@@ -106,6 +107,12 @@ export function CatalogoClient({
   const categories = initialCategories
   const [cart, setCart] = useState<Record<string, number>>({})
   const [cartModes, setCartModes] = useState<Record<string, 'unidad' | 'cajon'>>({})
+  // Botellas/unidades por caja, editable por línea del carrito (por defecto
+  // el box_units del producto). Permite corregir en el momento del pedido
+  // si esa caja en concreto trae otra cantidad (ej. 12 en vez de 6) — el
+  // stock se descuenta con el valor que quede aquí, no siempre el de por
+  // defecto. Ver boxUnitsFor más abajo.
+  const [cartBoxUnits, setCartBoxUnits] = useState<Record<string, number>>({})
   const [selectedCategory, setSelectedCategory] = useState<string>('todos')
   const [searchQuery, setSearchQuery] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -206,6 +213,7 @@ export function CatalogoClient({
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setCart(localCart)
       setCartModes(localDraft!.cartModes)
+      setCartBoxUnits(localDraft!.cartBoxUnits)
       setNotes(localDraft!.notes)
       setDestination(localDraft!.destination)
       setDraftSource('local')
@@ -214,6 +222,7 @@ export function CatalogoClient({
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setCart(serverCart)
       setCartModes(initialPendingCart!.cartModes)
+      setCartBoxUnits(initialPendingCart!.cartBoxUnits)
       setNotes(initialPendingCart!.notes)
       setDestination(initialPendingCart!.destination)
       setDraftSource('server')
@@ -221,6 +230,7 @@ export function CatalogoClient({
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setCart(localCart)
       setCartModes(localDraft!.cartModes)
+      setCartBoxUnits(localDraft!.cartBoxUnits)
       setNotes(localDraft!.notes)
       setDestination(localDraft!.destination)
       setDraftSource('local')
@@ -237,21 +247,22 @@ export function CatalogoClient({
   const serverSaveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
     if (!hydrated) return
-    saveCartDraft(organizationId, { cart, cartModes, notes, destination })
+    saveCartDraft(organizationId, { cart, cartModes, cartBoxUnits, notes, destination })
 
     if (pendingConflict) return
     if (serverSaveTimeout.current) clearTimeout(serverSaveTimeout.current)
     serverSaveTimeout.current = setTimeout(() => {
-      savePendingCart(organizationId, { cart, cartModes, notes, destination }, userName)
+      savePendingCart(organizationId, { cart, cartModes, cartBoxUnits, notes, destination }, userName)
         .catch(err => console.error('No se pudo sincronizar la cesta con el servidor:', err))
     }, 800)
     return () => { if (serverSaveTimeout.current) clearTimeout(serverSaveTimeout.current) }
-  }, [hydrated, cart, cartModes, notes, destination, organizationId, userName, pendingConflict])
+  }, [hydrated, cart, cartModes, cartBoxUnits, notes, destination, organizationId, userName, pendingConflict])
 
   function useServerCart() {
     if (!pendingConflict) return
     setCart(pendingConflict.cart)
     setCartModes(pendingConflict.cartModes)
+    setCartBoxUnits(pendingConflict.cartBoxUnits)
     setNotes(pendingConflict.notes)
     setDestination(pendingConflict.destination)
     setDraftSource('server')
@@ -272,6 +283,21 @@ export function CatalogoClient({
   const handleBoxModeChange = useCallback((productId: string, mode: 'unidad' | 'cajon') => {
     setCartModes(prev => ({ ...prev, [productId]: mode }))
     setCart(prev => { const next = { ...prev }; delete next[productId]; return next })
+  }, [])
+
+  // Botellas por caja a usar para un producto: lo que el restaurante haya
+  // corregido en esta cesta, o si no, el valor por defecto del producto.
+  const boxUnitsFor = useCallback((product: Product) => {
+    const override = cartBoxUnits[product.id]
+    if (override != null && override > 0) return override
+    return (product as any).box_units as number ?? 1
+  }, [cartBoxUnits])
+
+  const handleBoxUnitsChange = useCallback((productId: string, units: number) => {
+    setCartBoxUnits(prev => {
+      if (!(units > 0)) { const next = { ...prev }; delete next[productId]; return next }
+      return { ...prev, [productId]: units }
+    })
   }, [])
 
   // useCallback: referencia estable para que React.memo de ProductCard no se
@@ -304,11 +330,11 @@ export function CatalogoClient({
   const cartTotal = useMemo(
     () => cartItems.reduce((sum, item) => {
       const mode = cartModes[item.product.id] ?? 'unidad'
-      const boxUnits = (item.product as any).box_units as number ?? 1
+      const boxUnits = boxUnitsFor(item.product)
       const units = mode === 'cajon' ? item.quantity * boxUnits : item.quantity
       return sum + units * priceWithIva(item.product)
     }, 0),
-    [cartItems, cartModes]
+    [cartItems, cartModes, boxUnitsFor]
   )
   const cartCount = cartItems.length
 
@@ -364,13 +390,13 @@ export function CatalogoClient({
     const overStock = cartItems.find(item => {
       if (!(item.product.id in freshStock)) return false
       const mode = cartModes[item.product.id] ?? 'unidad'
-      const boxUnits = (item.product as any).box_units as number ?? 1
+      const boxUnits = boxUnitsFor(item.product)
       const totalUnits = mode === 'cajon' ? item.quantity * boxUnits : item.quantity
       return totalUnits > freshStock[item.product.id]
     })
     if (overStock) {
       const mode = cartModes[overStock.product.id] ?? 'unidad'
-      const boxUnits = (overStock.product as any).box_units as number ?? 1
+      const boxUnits = boxUnitsFor(overStock.product)
       const leftUnits = freshStock[overStock.product.id]
       const leftDisplay = mode === 'cajon' ? Math.floor(leftUnits / boxUnits) : leftUnits
       const unitDisplay = mode === 'cajon' ? 'cajón' : overStock.product.unit
@@ -389,7 +415,7 @@ export function CatalogoClient({
     await sb.from('order_items').insert(
       cartItems.map((item: CartItem) => {
         const mode = cartModes[item.product.id] ?? 'unidad'
-        const boxUnits = (item.product as any).box_units as number ?? 1
+        const boxUnits = boxUnitsFor(item.product)
         const totalUnits = mode === 'cajon' ? item.quantity * boxUnits : item.quantity
         const unitPrice = priceWithIva(item.product)
         return {
@@ -409,7 +435,7 @@ export function CatalogoClient({
     await Promise.all(
       cartItems.map(item => {
         const mode = cartModes[item.product.id] ?? 'unidad'
-        const boxUnits = (item.product as any).box_units as number ?? 1
+        const boxUnits = boxUnitsFor(item.product)
         const totalUnits = mode === 'cajon' ? item.quantity * boxUnits : item.quantity
         return sb.rpc('adjust_nave_stock', { p_product_id: item.product.id, p_delta: -totalUnits, p_reason: 'pedido', p_order_id: order.id })
       })
@@ -446,7 +472,7 @@ export function CatalogoClient({
         <div className="space-y-3">
           {cartItems.map(({ product, quantity }) => {
             const mode = cartModes[product.id] ?? 'unidad'
-            const boxUnits = (product as any).box_units as number ?? 1
+            const boxUnits = boxUnitsFor(product)
             const isBox = mode === 'cajon'
             const stockInUnits = product.id in stockMap ? stockMap[product.id] : undefined
             const max = stockInUnits !== undefined ? (isBox ? Math.floor(stockInUnits / boxUnits) : stockInUnits) : undefined
@@ -466,7 +492,24 @@ export function CatalogoClient({
               <div key={product.id} className="flex items-center gap-2 text-sm">
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-black leading-tight text-xs">{product.name}</p>
-                  {isBox && <p className="text-[10px] text-gray-500">≈ {quantity * boxUnits} unidades</p>}
+                  {isBox && (
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <span className="text-[10px] text-gray-500">≈ {quantity * boxUnits} unidades ·</span>
+                      <input
+                        type="number"
+                        min={1}
+                        step={1}
+                        value={boxUnits}
+                        onChange={e => {
+                          const v = parseInt(e.target.value, 10)
+                          handleBoxUnitsChange(product.id, isNaN(v) ? 0 : v)
+                        }}
+                        className="w-10 text-[10px] text-center border border-gray-200 rounded px-0.5 py-0 focus:outline-none focus:ring-1 focus:ring-[#1E2B28]"
+                        title="Botellas por caja"
+                      />
+                      <span className="text-[10px] text-gray-500">und/caja</span>
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <button
@@ -821,7 +864,7 @@ export function CatalogoClient({
                   {filteredProducts.map(product => {
                     const cat = (product as any).product_categories
                     const mode = cartModes[product.id] ?? 'unidad'
-                    const boxUnits = (product as any).box_units as number ?? 1
+                    const boxUnits = boxUnitsFor(product)
                     const maxStock = !(product.id in stockMap)
                       ? undefined
                       : mode === 'cajon'
@@ -851,7 +894,7 @@ export function CatalogoClient({
                   {filteredProducts.map(product => {
                     const cat = (product as any).product_categories
                     const mode = cartModes[product.id] ?? 'unidad'
-                    const boxUnits = (product as any).box_units as number ?? 1
+                    const boxUnits = boxUnitsFor(product)
                     const maxStock = !(product.id in stockMap)
                       ? undefined
                       : mode === 'cajon'
