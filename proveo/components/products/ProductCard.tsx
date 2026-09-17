@@ -39,7 +39,7 @@ export const ProductCard = memo(function ProductCard({
   const hasQuantity = quantity > 0
   const increment = isBoxMode ? 1 : (Number(product.order_increment) || 1)
   const minQty    = isBoxMode ? 1 : (Number(product.min_order_quantity) || 1)
-  const unit      = isBoxMode ? 'cajón' : unitLabel(product.unit)
+  const unit      = isBoxMode ? 'caja' : unitLabel(product.unit)
   const outOfStock    = maxStock !== undefined && maxStock <= 0
   const atStockLimit  = maxStock !== undefined && quantity >= maxStock
 
@@ -122,7 +122,7 @@ export const ProductCard = memo(function ProductCard({
 
         {hasQuantity && (
           <div className="absolute top-2 right-2 bg-[#A8793A] text-white text-xs font-bold px-2 py-1 rounded-full shadow-sm">
-            {isBoxMode ? `${quantity} caj.` : `${quantity} ${unit}`}
+            {isBoxMode ? `${quantity} caja` : `${quantity} ${unit}`}
           </div>
         )}
         {outOfStock && (
@@ -164,7 +164,7 @@ export const ProductCard = memo(function ProductCard({
                 isBoxMode ? 'bg-white text-black shadow-sm' : 'text-gray-600 hover:text-gray-800'
               )}
             >
-              Cajón{boxUnits ? ` ≈${boxUnits}` : ''}
+              Caja{boxUnits ? ` ≈${boxUnits}` : ''}
             </button>
           </div>
         )}

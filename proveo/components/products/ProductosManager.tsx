@@ -337,12 +337,12 @@ function ProductFields({
             onChange={e => setAllowsBox(e.target.checked)}
             className="accent-[#1E2B28] w-4 h-4"
           />
-          Se puede pedir también por cajón
+          Se puede pedir también por caja
         </label>
         {allowsBox && (
           <div>
             <label className="text-xs text-blue-800 font-medium block mb-1">
-              Unidades aproximadas por cajón *
+              Unidades aproximadas por caja *
             </label>
             <input
               name="box_units"
@@ -516,12 +516,12 @@ function NuevoModal({
                   onChange={e => setAllowsBox(e.target.checked)}
                   className="accent-[#1E2B28] w-4 h-4"
                 />
-                Se puede pedir también por cajón
+                Se puede pedir también por caja
               </label>
               {allowsBox && (
                 <div>
                   <label className="text-xs text-blue-800 font-medium block mb-1">
-                    Unidades aproximadas por cajón *
+                    Unidades aproximadas por caja *
                   </label>
                   <input
                     name="box_units"

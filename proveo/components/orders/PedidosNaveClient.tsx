@@ -261,7 +261,7 @@ function ItemRow({
         <div className="flex items-center gap-1.5 shrink-0">
           {isCajon ? (
             <span className="text-blue-800 text-[11px]">
-              {item.box_count} cajón{(item.box_count ?? 1) !== 1 ? 'es' : ''}
+              {item.box_count} caja{(item.box_count ?? 1) !== 1 ? 's' : ''}
               {' '}
               {item.box_exact_units != null
                 ? <span className="font-semibold">· {item.box_exact_units} und/caj.</span>
@@ -312,7 +312,7 @@ function ItemRow({
       {isCajon && (
         <div className="flex items-center gap-1.5 pl-6 bg-blue-50 rounded-lg py-1.5 px-2 -mx-0 mt-0.5">
           <span className="text-blue-800 shrink-0 text-[11px] font-medium">
-            Unidades exactas/cajón:
+            Unidades exactas/caja:
           </span>
           <input
             type="number" step="1" min="1"

@@ -34,7 +34,7 @@ export const ProductRow = memo(function ProductRow({
   const hasQuantity = quantity > 0
   const increment = isBoxMode ? 1 : (Number(product.order_increment) || 1)
   const minQty    = isBoxMode ? 1 : (Number(product.min_order_quantity) || 1)
-  const unit      = isBoxMode ? 'cajón' : unitLabel(product.unit)
+  const unit      = isBoxMode ? 'caja' : unitLabel(product.unit)
   const outOfStock   = maxStock !== undefined && maxStock <= 0
   const atStockLimit = maxStock !== undefined && quantity >= maxStock
 
@@ -125,7 +125,7 @@ export const ProductRow = memo(function ProductRow({
         <div className="flex items-center gap-1.5 shrink-0">
           {hasQuantity && (
             <span className="text-xs font-bold bg-[#A8793A] text-white px-2 py-0.5 rounded-full whitespace-nowrap">
-              {isBoxMode ? `${quantity} caj.` : `${quantity} ${unit}`}
+              {isBoxMode ? `${quantity} caja` : `${quantity} ${unit}`}
             </span>
           )}
           {!outOfStock && !expanded && !hasQuantity && (
@@ -180,7 +180,7 @@ export const ProductRow = memo(function ProductRow({
                     isBoxMode ? 'bg-white text-black shadow-sm' : 'text-gray-600 hover:text-gray-800'
                   )}
                 >
-                  Cajón{boxUnits ? ` ≈${boxUnits} und` : ''}
+                  Caja{boxUnits ? ` ≈${boxUnits} und` : ''}
                 </button>
               </div>
             </div>

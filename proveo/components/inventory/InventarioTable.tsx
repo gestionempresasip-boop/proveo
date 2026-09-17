@@ -100,7 +100,7 @@ function InventoryRowItem({
           {row.allows_box_order && (
             <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded-md">
               <PackageOpen className="w-3 h-3" />
-              Cajón{row.box_units ? ` ≈${row.box_units} und` : ''}
+              Caja{row.box_units ? ` ≈${row.box_units} und` : ''}
             </span>
           )}
         </div>
@@ -832,7 +832,7 @@ export function InventarioTable({
                   <p className={`text-2xl font-bold ${filter === 'cajon' ? 'text-white' : 'text-blue-600'}`}>{cajonCount}</p>
                   {filter !== 'cajon' && <PackageOpen className="w-4 h-4 text-blue-400 mb-0.5" />}
                 </div>
-                <p className={`text-xs mt-0.5 ${filter === 'cajon' ? 'text-blue-100' : 'text-gray-700'}`}>Por cajón</p>
+                <p className={`text-xs mt-0.5 ${filter === 'cajon' ? 'text-blue-100' : 'text-gray-700'}`}>Por caja</p>
               </button>
             )}
           </div>

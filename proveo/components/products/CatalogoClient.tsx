@@ -399,7 +399,7 @@ export function CatalogoClient({
       const boxUnits = boxUnitsFor(overStock.product)
       const leftUnits = freshStock[overStock.product.id]
       const leftDisplay = mode === 'cajon' ? Math.floor(leftUnits / boxUnits) : leftUnits
-      const unitDisplay = mode === 'cajon' ? 'cajón' : overStock.product.unit
+      const unitDisplay = mode === 'cajon' ? 'caja' : overStock.product.unit
       setStockError(`No queda suficiente stock de "${overStock.product.name}" (quedan ${leftDisplay} ${unitDisplay})`)
       handleQuantityChange(overStock.product.id, Math.max(0, leftDisplay))
       submittingRef.current = false
@@ -520,7 +520,7 @@ export function CatalogoClient({
                     <Minus className="h-3 w-3 text-gray-700" />
                   </button>
                   <span className="w-14 text-center text-xs font-semibold tabular-nums text-gray-900">
-                    {isBox ? `${quantity} caj.` : `${quantity} ${unitLabel(product.unit)}`}
+                    {isBox ? `${quantity} caja` : `${quantity} ${unitLabel(product.unit)}`}
                   </span>
                   <button
                     onClick={increaseCart}
