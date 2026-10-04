@@ -559,41 +559,43 @@ function ProductsTable({
 }: {
   products: Product[]; categories: Category[]; isNave?: boolean; onEdit: (p: Product) => void; showApprove?: boolean
 }) {
+  // En pantalla grande (xl) es una tabla alineada; en menores, cada producto
+  // es una tarjeta con sus datos etiquetados — así nada se corta por la derecha.
+  const cols = isNave
+    ? 'xl:grid-cols-[minmax(0,1fr)_84px_72px_84px_104px_80px_120px_150px]'
+    : 'xl:grid-cols-[minmax(0,1fr)_100px_80px_120px_150px]'
+  const head = 'text-xs text-gray-600 font-medium'
   return (
-    <div className="overflow-x-auto">
-      <table className={`w-full text-sm ${isNave ? 'min-w-[820px]' : 'min-w-[580px]'}`}>
-        <thead className="bg-gray-50 border-b border-gray-100">
-          <tr>
-            <th className="text-left px-4 py-2.5 text-xs text-gray-600 font-medium">Producto</th>
-            {isNave ? (
-              <>
-                <th className="text-right px-3 py-2.5 text-xs text-gray-600 font-medium">Coste</th>
-                <th className="text-right px-3 py-2.5 text-xs text-gray-600 font-medium">Margen</th>
-                <th className="text-right px-3 py-2.5 text-xs text-gray-600 font-medium">Sin IVA</th>
-                <th className="text-right px-3 py-2.5 text-xs text-amber-600 font-medium">Con IVA</th>
-              </>
-            ) : (
-              <th className="text-right px-4 py-2.5 text-xs text-gray-600 font-medium">Precio</th>
-            )}
-            <th className="text-left px-3 py-2.5 text-xs text-gray-600 font-medium">Unidad</th>
-            <th className="text-center px-3 py-2.5 text-xs text-gray-600 font-medium">Visibilidad</th>
-            <th className="px-4 py-2.5 w-20"></th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-50">
-          {products.map(p => (
-            <ProductRow key={p.id} p={p} categories={categories} isNave={isNave} onEdit={onEdit} showApprove={showApprove} />
-          ))}
-        </tbody>
-      </table>
+    <div>
+      <div className={`hidden xl:grid ${cols} items-center gap-3 px-4 py-2.5 bg-gray-50 border-y border-gray-100`}>
+        <span className={head}>Producto</span>
+        {isNave ? (
+          <>
+            <span className={`${head} text-right`}>Coste</span>
+            <span className={`${head} text-right`}>Margen</span>
+            <span className={`${head} text-right`}>Sin IVA</span>
+            <span className={`${head} text-right !text-amber-600`}>Con IVA</span>
+          </>
+        ) : (
+          <span className={`${head} text-right`}>Precio</span>
+        )}
+        <span className={head}>Unidad</span>
+        <span className={`${head} text-center`}>Visibilidad</span>
+        <span />
+      </div>
+      <div className="xl:divide-y-0">
+        {products.map(p => (
+          <ProductRow key={p.id} p={p} categories={categories} isNave={isNave} onEdit={onEdit} showApprove={showApprove} cols={cols} />
+        ))}
+      </div>
     </div>
   )
 }
 
 function ProductRow({
-  p, categories, isNave, onEdit, showApprove,
+  p, categories, isNave, onEdit, showApprove, cols,
 }: {
-  p: Product; categories: Category[]; isNave?: boolean; onEdit: (p: Product) => void; showApprove?: boolean
+  p: Product; categories: Category[]; isNave?: boolean; onEdit: (p: Product) => void; showApprove?: boolean; cols: string
 }) {
   const [hidden, setHidden] = useState(false)
   if (hidden) return null
@@ -602,68 +604,86 @@ function ProductRow({
   const marginPct = Math.round((Number(p.margin) || 0) * 100)
   const ivaPct    = Math.round((Number(p.iva_rate) || 0) * 100)
   const pFinal    = finalPrice(p)
+  const lbl = 'text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-0.5 xl:hidden'
+
   return (
-              <tr className={`hover:bg-gray-50 transition-colors ${!p.is_active ? 'opacity-50' : ''}`}>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <Package className="w-3.5 h-3.5 text-gray-700 shrink-0" />
-                    <div>
-                      <p className="font-medium text-black leading-tight">{p.name}</p>
-                      {p.description && <p className="text-xs text-gray-600">{p.description}</p>}
-                      {(p.category_ids?.length ?? 0) > 1 && (
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {p.category_ids!.map(cid => {
-                            const c = categories.find(cat => cat.id === cid)
-                            if (!c) return null
-                            return (
-                              <span key={cid} className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-700">
-                                <ColorDot color={c.color} />{c.name}
-                              </span>
-                            )
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </td>
-                {isNave ? (
-                  <>
-                    <td className="px-3 py-3 text-right text-xs tabular-nums text-gray-700">
-                      {hasCost ? `${Number(p.cost_price).toFixed(2)} €` : <span className="text-gray-700">—</span>}
-                    </td>
-                    <td className="px-3 py-3 text-right text-xs tabular-nums">
-                      {hasCost
-                        ? <span className="bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-medium">{marginPct}%</span>
-                        : <span className="text-gray-700">—</span>}
-                    </td>
-                    <td className="px-3 py-3 text-right text-xs tabular-nums text-gray-600 font-medium">
-                      {Number(p.price).toFixed(2)} €
-                    </td>
-                    <td className="px-3 py-3 text-right">
-                      <div className="text-sm font-bold text-[#1E2B28] tabular-nums">
-                        {pFinal.toFixed(2)} €
-                      </div>
-                      {ivaPct > 0 && <div className="text-xs text-gray-600">IVA {ivaPct}%</div>}
-                    </td>
-                  </>
-                ) : (
-                  <td className="px-4 py-3 text-right font-semibold text-[#1E2B28]">{Number(p.price).toFixed(2)} €</td>
-                )}
-                <td className="px-3 py-3 text-gray-700 text-xs">{unitLabel(p.unit)}</td>
-                <td className="px-3 py-3 text-center"><ToggleActiveButton product={p} /></td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center justify-end gap-2 flex-wrap">
-                    {showApprove && (
-                      <ApproveWithoutCostButton product={p} onApproved={() => setHidden(true)} />
-                    )}
-                    <button onClick={() => onEdit(p)} title="Editar"
-                      className="p-1.5 rounded-lg text-gray-600 hover:text-[#1E2B28] hover:bg-green-50 transition-colors">
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                    <DeleteButton product={p} onDeleted={() => setHidden(true)} />
-                  </div>
-                </td>
-              </tr>
+    <div className={`px-4 py-4 border-b border-gray-100 last:border-0 hover:bg-gray-50/60 transition-colors xl:grid ${cols} xl:items-center xl:gap-3 ${!p.is_active ? 'opacity-60' : ''}`}>
+      {/* Producto */}
+      <div className="flex items-start gap-2 min-w-0">
+        <Package className="w-4 h-4 text-gray-500 shrink-0 mt-0.5" />
+        <div className="min-w-0">
+          <p className="font-semibold text-black leading-tight">{p.name}</p>
+          {p.description && <p className="text-xs text-gray-600 mt-0.5">{p.description}</p>}
+          {(p.category_ids?.length ?? 0) > 1 && (
+            <div className="flex flex-wrap gap-1 mt-1">
+              {p.category_ids!.map(cid => {
+                const c = categories.find(cat => cat.id === cid)
+                if (!c) return null
+                return (
+                  <span key={cid} className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-700">
+                    <ColorDot color={c.color} />{c.name}
+                  </span>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Precios */}
+      {isNave ? (
+        <div className="grid grid-cols-4 gap-3 mt-3 xl:contents">
+          <div className="xl:text-right">
+            <p className={lbl}>Coste</p>
+            <p className="text-sm tabular-nums text-gray-700">{hasCost ? `${Number(p.cost_price).toFixed(2)} €` : '—'}</p>
+          </div>
+          <div className="xl:text-right">
+            <p className={lbl}>Margen</p>
+            {hasCost
+              ? <span className="inline-block bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-semibold text-sm tabular-nums">{marginPct}%</span>
+              : <span className="text-sm text-gray-700">—</span>}
+          </div>
+          <div className="xl:text-right">
+            <p className={lbl}>Sin IVA</p>
+            <p className="text-sm tabular-nums text-gray-700 font-medium">{Number(p.price).toFixed(2)} €</p>
+          </div>
+          <div className="xl:text-right">
+            <p className={`${lbl} !text-amber-600`}>Con IVA</p>
+            <p className="text-base font-bold text-[#1E2B28] tabular-nums leading-tight">{pFinal.toFixed(2)} €</p>
+            {ivaPct > 0 && <p className="text-xs text-gray-600">IVA {ivaPct}%</p>}
+          </div>
+        </div>
+      ) : (
+        <div className="mt-3 xl:mt-0 xl:text-right">
+          <p className={lbl}>Precio</p>
+          <p className="font-bold text-[#1E2B28]">{Number(p.price).toFixed(2)} €</p>
+        </div>
+      )}
+
+      {/* Unidad, visibilidad y acciones */}
+      <div className="flex items-center justify-between flex-wrap gap-x-4 gap-y-2 mt-3 xl:mt-0 xl:contents">
+        <div className="xl:text-left">
+          <p className={lbl}>Unidad</p>
+          <p className="text-sm text-gray-700">{unitLabel(p.unit)}</p>
+        </div>
+        <div className="xl:text-center">
+          <p className={lbl}>Visibilidad</p>
+          <ToggleActiveButton product={p} />
+        </div>
+        <div className="flex items-center justify-end gap-2 flex-wrap">
+          {showApprove && (
+            <ApproveWithoutCostButton product={p} onApproved={() => setHidden(true)} />
+          )}
+          <button
+            onClick={() => onEdit(p)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#1E2B28]/[0.07] text-[#1E2B28] text-xs font-semibold hover:bg-[#1E2B28]/15 transition-colors"
+          >
+            <Pencil className="w-3.5 h-3.5" /> Editar
+          </button>
+          <DeleteButton product={p} onDeleted={() => setHidden(true)} />
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -700,9 +720,12 @@ function CategorySection({
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-      <button
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-left"
+        onKeyDown={e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setOpen(v => !v) } }}
+        className="w-full flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3.5 hover:bg-gray-50 transition-colors text-left cursor-pointer"
       >
         <ColorDot color={color} />
         <span className="font-semibold text-black flex-1">{name}</span>
@@ -727,7 +750,7 @@ function CategorySection({
           ) : (
             <button
               onClick={e => { e.stopPropagation(); setMoving(true) }}
-              className="text-xs text-gray-600 hover:text-[#1E2B28] hover:bg-gray-50 px-2 py-1 rounded-lg transition-colors"
+              className="text-xs text-gray-700 border border-gray-200 hover:text-[#1E2B28] hover:bg-gray-50 px-3 py-1.5 rounded-lg transition-colors font-medium"
               title="Mover todos los productos de esta categoría a otra"
             >
               Mover todos
@@ -737,13 +760,13 @@ function CategorySection({
         {moveError && <span className="text-xs text-red-600">{moveError}</span>}
         <button
           onClick={e => { e.stopPropagation(); onAddProduct(categoryId) }}
-          className="flex items-center gap-1 text-xs text-[#1E2B28] hover:bg-green-50 px-2 py-1 rounded-lg transition-colors font-medium"
+          className="flex items-center gap-1 text-xs text-[#1E2B28] border border-[#1E2B28]/30 hover:bg-green-50 px-3 py-1.5 rounded-lg transition-colors font-semibold"
           title={`Añadir producto en ${name}`}
         >
           <Plus className="w-3.5 h-3.5" />Añadir
         </button>
         {open ? <ChevronDown className="w-4 h-4 text-gray-600" /> : <ChevronRight className="w-4 h-4 text-gray-600" />}
-      </button>
+      </div>
       {open && (
         products.length > 0
           ? <ProductsTable products={products} categories={categories} isNave={isNave} onEdit={onEdit} />

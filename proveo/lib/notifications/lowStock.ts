@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { notifyLowStockInApp } from '@/lib/notifications/appNotify'
 
 // Antes, el aviso de "stock bajo" era solo un color en la pantalla de
 // Inventario — si nadie entraba a mirar, no se enteraba nadie. Esto manda
@@ -23,6 +24,15 @@ export async function checkAndNotifyLowStock(productIds: string[]): Promise<LowS
     .select('product_id, current_stock, min_stock, products(name)')
     .in('product_id', uniqueIds)
   if (!rows || rows.length === 0) return []
+
+  // Aviso dentro de la app (campana): productos que se acaban de agotar o
+  // están bajo mínimo. Se calcula aparte del email para no cambiar su
+  // comportamiento: aquí un producto a 0 avisa aunque no tenga mínimo puesto.
+  await notifyLowStockInApp(
+    (rows as any[])
+      .filter(r => Number(r.current_stock) <= 0 || (Number(r.min_stock) > 0 && Number(r.current_stock) <= Number(r.min_stock)))
+      .map(r => ({ productId: r.product_id, name: r.products?.name ?? 'Producto', level: Number(r.current_stock) <= 0 ? 'agotado' as const : 'bajo' as const }))
+  )
 
   const belowMin = (rows as any[]).filter(r => Number(r.min_stock) > 0 && Number(r.current_stock) <= Number(r.min_stock))
   if (belowMin.length === 0) return []

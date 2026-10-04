@@ -7,6 +7,12 @@ import { unitLabel, realQuantityLabel, CONVERTIBLE_UNITS, toKg, toLitros } from 
 import { exportReportExcel, exportReportPDF, exportExecutiveSummaryPDF, type ReportSection } from '@/lib/reportExport'
 import { ExportMenu } from '@/components/stats/ExportMenu'
 import { FinanzasTab } from '@/components/stats/FinanzasTab'
+import { SituacionTab } from '@/components/stats/SituacionTab'
+import { PuntoMuertoTab } from '@/components/stats/PuntoMuertoTab'
+import { RentabilidadTab } from '@/components/stats/RentabilidadTab'
+import { currentPeriod, type FinPeriod } from '@/components/stats/PeriodPicker'
+import type { OrgCostItem } from '@/app/actions/orgCosts'
+import type { MonthlySale } from '@/lib/finance'
 import type { FixedCost } from '@/app/actions/fixedCosts'
 import { createFixedCost, updateFixedCost, toggleFixedCostActive, deleteFixedCost } from '@/app/actions/fixedCosts'
 
@@ -208,14 +214,27 @@ function UnitConverter() {
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 
-export function EstadisticasClient({ lines, restaurants, stockRows, returns, fixedCosts: initialFixedCosts }: { lines: OrderLine[]; restaurants: Restaurant[]; stockRows: StockRow[]; returns: ReturnLine[]; fixedCosts: FixedCost[] }) {
+export function EstadisticasClient({
+  lines, restaurants, stockRows, returns, fixedCosts: initialFixedCosts,
+  costItems: initialCostItems, monthlySales: initialSales, pendingOrders, stockAlerts, naveOrgId,
+}: {
+  lines: OrderLine[]; restaurants: Restaurant[]; stockRows: StockRow[]; returns: ReturnLine[]; fixedCosts: FixedCost[]
+  costItems: OrgCostItem[]; monthlySales: MonthlySale[]; pendingOrders: number; stockAlerts: { out: number; low: number }; naveOrgId: string | null
+}) {
   const [dateFilter, setDateFilter] = useState<DateFilter>('mes')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [groupBy, setGroupBy] = useState<GroupBy>('mes')
   const [restFilter, setRestFilter] = useState('todos')
-  const [tab, setTab] = useState<'resumen' | 'periodo' | 'productos' | 'ranking' | 'calidad' | 'restaurantes' | 'finanzas'>('resumen')
+  const [tab, setTab] = useState<'situacion' | 'puntomuerto' | 'rentabilidad' | 'resumen' | 'periodo' | 'productos' | 'ranking' | 'calidad' | 'restaurantes' | 'finanzas'>('situacion')
+  // Periodo compartido por Punto muerto y Rentabilidad (mes a mes o personalizado).
+  const [finPeriod, setFinPeriod] = useState<FinPeriod>(() => currentPeriod())
+  const [costItems, setCostItems] = useState<OrgCostItem[]>(initialCostItems)
+  const [monthlySales, setMonthlySales] = useState<MonthlySale[]>(initialSales)
   const [fixedCosts, setFixedCosts] = useState<FixedCost[]>(initialFixedCosts)
+  const naveFixedMonthly = fixedCosts.filter(c => c.active).reduce((sum, c) => sum + c.monthly_amount, 0)
+  const naveVariableItems = costItems.filter(i => i.organization_id === naveOrgId && i.kind === 'variable')
+  const isFinView = tab === 'situacion' || tab === 'puntomuerto' || tab === 'rentabilidad'
   const [prodSearch, setProdSearch] = useState('')
   const [showMargin, setShowMargin] = useState(false)
   const [marginFilter, setMarginFilter] = useState<'todos' | MarginBracket>('todos')
@@ -907,7 +926,7 @@ export function EstadisticasClient({ lines, restaurants, stockRows, returns, fix
   function periodoSections(): ReportSection[] {
     const { periods, restNames, cell, rowTotal, colTotal, grandTotal } = periodoTable
     return [{
-      heading: 'Gasto por período',
+      heading: 'Ventas por período (ingreso de la nave)',
       headers: ['Restaurante', ...periods, 'TOTAL'],
       rows: [
         ...restNames.map(r => [
@@ -980,12 +999,12 @@ export function EstadisticasClient({ lines, restaurants, stockRows, returns, fix
     return [
       {
         heading: 'Restaurantes por gasto',
-        headers: ['#', 'Restaurante', 'Pedidos', 'Gasto total €'],
+        headers: ['#', 'Restaurante', 'Pedidos', 'Ventas (ingreso nave) €'],
         rows: ranking.rests.map((r, i) => [i + 1, r.name, r.pedidos.size, Number(r.euros.toFixed(2))]),
       },
       {
         heading: 'Productos más consumidos',
-        headers: ['#', 'Producto', 'Cantidad', 'Unidad', 'Gasto total €'],
+        headers: ['#', 'Producto', 'Cantidad', 'Unidad', 'Ventas (ingreso nave) €'],
         rows: ranking.prods.map((p, i) => [i + 1, p.name, Number(p.qty.toFixed(2)), unitLabel(p.unit), Number(p.euros.toFixed(2))]),
       },
     ]
@@ -1002,11 +1021,12 @@ export function EstadisticasClient({ lines, restaurants, stockRows, returns, fix
     <div className="p-4 sm:p-6 max-w-full mx-auto space-y-5">
       {/* Header */}
       <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-black">Estadísticas</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-black">Informes</h1>
         <p className="text-gray-700 text-sm mt-1">Consumo comparativo por restaurante y producto</p>
       </div>
 
       {/* Filters */}
+      {!isFinView && (
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="flex border-b border-gray-100">
           {([['dia','Hoy'],['semana','Esta semana'],['mes','Este mes'],['año','Este año'],['custom','Personalizado']] as [DateFilter,string][]).map(([k,l]) => (
@@ -1042,25 +1062,33 @@ export function EstadisticasClient({ lines, restaurants, stockRows, returns, fix
               <ChevronDown className="w-4 h-4 text-gray-600 absolute right-2.5 top-2.5 pointer-events-none" />
             </div>
           </div>
-          <div className="flex-1 min-w-[180px]">
-            <label className="text-xs text-gray-600 block mb-1">Restaurante</label>
-            <div className="relative">
-              <select value={restFilter} onChange={e => setRestFilter(e.target.value)}
-                className="w-full border border-[#1E2B28]/25 bg-[#1E2B28]/10 text-black rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28] appearance-none pr-8">
-                <option value="todos">Todos</option>
-                {restaurants.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-              </select>
-              <ChevronDown className="w-4 h-4 text-gray-600 absolute right-2.5 top-2.5 pointer-events-none" />
-            </div>
+        </div>
+        <div className="px-3 pb-3">
+          <label className="text-xs text-gray-600 block mb-1.5">Restaurante</label>
+          <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {[{ id: 'todos', name: 'Todos' }, ...restaurants].map(r => (
+              <button
+                key={r.id}
+                onClick={() => setRestFilter(r.id)}
+                className={`shrink-0 px-3.5 py-2 rounded-full text-sm font-medium border transition-colors whitespace-nowrap ${
+                  restFilter === r.id ? 'bg-[#1E2B28] text-white border-[#1E2B28]' : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                {r.name}
+              </button>
+            ))}
           </div>
         </div>
       </div>
 
+      )}
+
       {/* KPIs rápidos */}
+      {!isFinView && (
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: 'Pedidos', value: totalPedidos, suffix: '' },
-          { label: 'Gasto total', value: totalGasto.toFixed(2), suffix: '€' },
+          { label: 'Ventas (ingreso nave)', value: totalGasto.toFixed(2), suffix: '€' },
           { label: 'Restaurantes', value: new Set(filtered.map(l => l.restaurant_id)).size, suffix: '' },
           { label: 'Productos distintos', value: new Set(filtered.map(l => l.product_id)).size, suffix: '' },
         ].map(k => (
@@ -1071,15 +1099,58 @@ export function EstadisticasClient({ lines, restaurants, stockRows, returns, fix
         ))}
       </div>
 
+      )}
+
       {/* Tabs */}
-      <div className="flex flex-wrap gap-1 bg-gray-100 rounded-xl p-1 w-full sm:w-fit">
-        {([['resumen','Resumen'],['periodo','Por período'],['productos','Por producto'],['ranking','Ranking'],['calidad','Calidad'],['restaurantes','Restaurantes'],['finanzas','Finanzas']] as const).map(([k,l]) => (
+      <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-full sm:w-fit max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {([['situacion','Situación'],['puntomuerto','Punto muerto'],['rentabilidad','Rentabilidad restaurantes'],['resumen','Resumen'],['periodo','Por período'],['productos','Por producto'],['ranking','Ranking'],['calidad','Calidad'],['restaurantes','Restaurantes'],['finanzas','Costes fijos']] as const).map(([k,l]) => (
           <button key={k} onClick={() => setTab(k)}
-            className={`flex-1 sm:flex-none px-2.5 sm:px-4 py-2 rounded-lg text-[11px] sm:text-sm font-medium transition-colors whitespace-nowrap ${
+            className={`shrink-0 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
               tab === k ? 'bg-white text-black shadow-sm' : 'text-gray-700 hover:text-gray-700'
             }`}>{l}</button>
         ))}
       </div>
+
+      {/* ── TAB: SITUACIÓN ───────────────────────────────────────────────── */}
+      {tab === 'situacion' && (
+        <SituacionTab
+          lines={lines}
+          restaurants={restaurants}
+          naveFixedMonthly={naveFixedMonthly}
+          naveItems={naveVariableItems}
+          pendingOrders={pendingOrders}
+          stockAlerts={stockAlerts}
+          onGoTab={t => setTab(t)}
+        />
+      )}
+
+      {/* ── TAB: PUNTO MUERTO (interactivo) ──────────────────────────────── */}
+      {tab === 'puntomuerto' && (
+        <PuntoMuertoTab
+          lines={lines}
+          naveFixedMonthly={naveFixedMonthly}
+          naveItems={naveVariableItems}
+          naveOrgId={naveOrgId}
+          period={finPeriod}
+          onPeriod={setFinPeriod}
+          onEditFixed={() => setTab('finanzas')}
+          onItemsChange={next => setCostItems(prev => [...prev.filter(i => i.organization_id !== naveOrgId || i.kind !== 'variable'), ...next.filter(i => i.organization_id === naveOrgId && i.kind === 'variable')])}
+        />
+      )}
+
+      {/* ── TAB: RENTABILIDAD DE RESTAURANTES ────────────────────────────── */}
+      {tab === 'rentabilidad' && (
+        <RentabilidadTab
+          lines={lines}
+          restaurants={restaurants}
+          monthlySales={monthlySales}
+          costItems={costItems}
+          period={finPeriod}
+          onPeriod={setFinPeriod}
+          onSalesChange={setMonthlySales}
+          onItemsChange={setCostItems}
+        />
+      )}
 
       {/* ── TAB: RESUMEN ─────────────────────────────────────────────────── */}
       {tab === 'resumen' && (
@@ -1092,7 +1163,7 @@ export function EstadisticasClient({ lines, restaurants, stockRows, returns, fix
               onClick={() => exportExecutiveSummaryPDF({
                 subtitle: reportSubtitle,
                 kpis: [
-                  { label: 'Gasto total', value: `${currentSummary.euros.toFixed(0)}€`, trend: pctChange(currentSummary.euros, previousSummary.euros) },
+                  { label: 'Ventas (ingreso nave)', value: `${currentSummary.euros.toFixed(0)}€`, trend: pctChange(currentSummary.euros, previousSummary.euros) },
                   { label: 'Pedidos', value: String(currentSummary.pedidos), trend: pctChange(currentSummary.pedidos, previousSummary.pedidos) },
                   { label: 'Ticket medio', value: `${currentSummary.ticketMedio.toFixed(2)}€`, trend: pctChange(currentSummary.ticketMedio, previousSummary.ticketMedio) },
                   { label: 'Restaurantes activos', value: String(currentSummary.restaurantes), trend: null },
@@ -1114,7 +1185,7 @@ export function EstadisticasClient({ lines, restaurants, stockRows, returns, fix
           {/* KPIs con tendencia */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {[
-              { label: 'Gasto total', value: `${currentSummary.euros.toFixed(0)}€`, trend: pctChange(currentSummary.euros, previousSummary.euros) },
+              { label: 'Ventas (ingreso nave)', value: `${currentSummary.euros.toFixed(0)}€`, trend: pctChange(currentSummary.euros, previousSummary.euros) },
               { label: 'Pedidos', value: String(currentSummary.pedidos), trend: pctChange(currentSummary.pedidos, previousSummary.pedidos) },
               { label: 'Ticket medio', value: `${currentSummary.ticketMedio.toFixed(2)}€`, trend: pctChange(currentSummary.ticketMedio, previousSummary.ticketMedio) },
               {
@@ -1161,7 +1232,7 @@ export function EstadisticasClient({ lines, restaurants, stockRows, returns, fix
                   <XAxis dataKey="periodo" tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} width={50} />
                   <Tooltip
-                    formatter={((value: any, name: any) => [name === 'euros' ? `${value}€` : value, name === 'euros' ? 'Gasto' : 'Pedidos']) as any}
+                    formatter={((value: any, name: any) => [name === 'euros' ? `${value}€` : value, name === 'euros' ? 'Ventas' : 'Pedidos']) as any}
                     contentStyle={{ borderRadius: 10, border: '1px solid #eee', fontSize: 12 }}
                   />
                   <Area type="monotone" dataKey="euros" stroke="#1B4332" strokeWidth={2} fill="url(#euroGradient)" />
@@ -1349,7 +1420,7 @@ export function EstadisticasClient({ lines, restaurants, stockRows, returns, fix
           {/* Gasto por categoría + patrón por día de la semana */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="bg-white rounded-2xl border border-gray-100 p-4">
-              <h2 className="text-sm font-semibold text-black mb-3">Gasto por categoría</h2>
+              <h2 className="text-sm font-semibold text-black mb-3">Ventas por categoría <span className="text-xs font-normal text-gray-500">(ingreso nave · gasto de los restaurantes)</span></h2>
               {categoryBreakdown.list.length === 0 ? (
                 <p className="text-center py-8 text-gray-600 text-sm">Sin datos para este período</p>
               ) : (
@@ -1469,7 +1540,7 @@ export function EstadisticasClient({ lines, restaurants, stockRows, returns, fix
               <p className="text-xs text-gray-600">Las celdas más oscuras = mayor gasto. Mueve la tabla horizontalmente si no caben todas las columnas.</p>
               <ExportMenu
                 onExcel={() => exportReportExcel(periodoSections(), 'estadisticas-periodo.xlsx')}
-                onPDF={() => exportReportPDF('Gasto por período', reportSubtitle, periodoSections(), 'estadisticas-periodo.pdf')}
+                onPDF={() => exportReportPDF('Ventas por período', reportSubtitle, periodoSections(), 'estadisticas-periodo.pdf')}
                 onCSV={exportPeriodo}
               />
             </div>

@@ -233,7 +233,7 @@ export function PromocionesNaveManager({
   const today = new Date().toISOString().split('T')[0]
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
 
       {/* ── Flow 1: buscar producto existente ──────────────────────────── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
@@ -472,8 +472,8 @@ export function PromocionesNaveManager({
         )}
       </div>
 
-      {/* ── Lista de activas ────────────────────────────────────────────── */}
-      <div>
+      {/* ── Lista de activas: arriba del todo cuando hay alguna ─────────── */}
+      <div className={promos.length > 0 ? 'order-first' : ''}>
         <h2 className="font-semibold text-black text-base mb-3 flex items-center gap-2">
           <Tag className="h-4 w-4 text-amber-600" />
           Activas ahora
@@ -513,24 +513,35 @@ export function PromocionesNaveManager({
                   {promo.notes && (
                     <p className="text-xs text-gray-600 mt-0.5 truncate">{promo.notes}</p>
                   )}
-                  {promo.expires_at && (
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      Válido hasta:{' '}
-                      {new Date(promo.expires_at + 'T12:00:00').toLocaleDateString('es-ES', {
-                        day: 'numeric', month: 'long',
-                      })}
-                    </p>
-                  )}
+                  {promo.expires_at && (() => {
+                    const daysLeft = Math.ceil((new Date(promo.expires_at + 'T23:59:59').getTime() - Date.now()) / 86400000)
+                    return (
+                      <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-2 flex-wrap">
+                        <span>
+                          Válido hasta:{' '}
+                          {new Date(promo.expires_at + 'T12:00:00').toLocaleDateString('es-ES', {
+                            day: 'numeric', month: 'long',
+                          })}
+                        </span>
+                        {daysLeft <= 2 && (
+                          <span className="font-semibold text-red-600 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded-full">
+                            {daysLeft <= 0 ? 'Caduca hoy' : daysLeft === 1 ? 'Caduca mañana' : 'Caduca en 2 días'}
+                          </span>
+                        )}
+                      </p>
+                    )
+                  })()}
                 </div>
                 <button
                   onClick={() => handleRemove(promo.id)}
                   disabled={removing === promo.id}
                   title="Quitar de promociones"
-                  className="shrink-0 w-9 h-9 rounded-xl flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                  className="shrink-0 flex items-center gap-1.5 text-sm font-medium px-3.5 py-2.5 rounded-xl border border-red-200 text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50"
                 >
                   {removing === promo.id
                     ? <Loader2 className="h-4 w-4 animate-spin" />
                     : <Trash2 className="h-4 w-4" />}
+                  Quitar
                 </button>
               </div>
             ))}

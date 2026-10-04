@@ -428,83 +428,37 @@ function OrderActions({ order, onDeleted, onStatusChange }: { order: Order; onDe
     a.download = `pedido-${order.order_number}.csv`; a.click()
   }
 
+  const unreadyCount = pendingItems.filter(i => !i.prepared).length
+  const docBtn = 'flex items-center gap-1.5 text-sm font-medium px-3.5 py-2.5 rounded-xl border transition-colors'
+
   return (
-    <div className="mt-3">
+    <div className="mt-4 space-y-3">
       {blockedMsg && (
-        <p className="text-xs text-red-600 font-medium mb-2 flex items-center gap-1.5">
-          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+        <p className="text-sm text-red-600 font-medium flex items-center gap-1.5">
+          <AlertCircle className="w-4 h-4 shrink-0" />
           Marca primero todos los artículos como listos (checkbox) antes de continuar
         </p>
       )}
       {reopenError && (
-        <p className="text-xs text-red-600 font-medium mb-2 flex items-center gap-1.5">
-          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+        <p className="text-sm text-red-600 font-medium flex items-center gap-1.5">
+          <AlertCircle className="w-4 h-4 shrink-0" />
           {reopenError}
         </p>
       )}
-      <div className="flex flex-wrap gap-2">
-      {/* Cambio de estado */}
+
+      {/* Acción principal: pasar el pedido al siguiente estado */}
       {nextAction && (
         <button
           onClick={handleStatus}
           disabled={loading}
           title={needsPrepCheck && !allPrepared ? 'Faltan artículos por marcar como listos' : undefined}
-          className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl transition-colors disabled:opacity-50 ${
+          className={`w-full sm:w-auto flex items-center justify-center gap-2 text-sm font-bold px-6 py-3 rounded-xl shadow-sm transition-colors disabled:opacity-50 ${
             needsPrepCheck && !allPrepared ? 'bg-gray-500 text-white' : nextAction.color
           }`}
         >
           {loading ? 'Actualizando...' : nextAction.label}
+          {needsPrepCheck && !allPrepared && <span className="text-xs font-medium opacity-90">· faltan {unreadyCount} por marcar</span>}
         </button>
-      )}
-
-      {/* Albarán */}
-      {noteId ? (
-        <Link
-          href={`/albaranes/${noteId}`}
-          className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-xl border border-[#1E2B28] text-[#1E2B28] hover:bg-green-50 transition-colors"
-        >
-          <FileText className="w-3.5 h-3.5" />
-          {noteNumber ? `Albarán #${noteNumber}` : 'Ver albarán'}
-        </Link>
-      ) : (
-        <button
-          onClick={handleGenNote}
-          disabled={loading}
-          className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40"
-        >
-          <FileText className="w-3.5 h-3.5" />
-          Generar albarán
-        </button>
-      )}
-
-      {/* WhatsApp */}
-      <button
-        onClick={shareWhatsApp}
-        className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-xl border border-green-200 text-green-700 hover:bg-green-50 transition-colors"
-      >
-        <MessageCircle className="w-3.5 h-3.5" />
-        WhatsApp
-      </button>
-
-      {/* CSV / Excel */}
-      <button
-        onClick={exportCSV}
-        className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
-      >
-        <Download className="w-3.5 h-3.5" />
-        Excel / CSV
-      </button>
-
-      {/* Imprimir */}
-      {noteId && (
-        <Link
-          href={`/albaranes/${noteId}`}
-          target="_blank"
-          className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
-        >
-          <Printer className="w-3.5 h-3.5" />
-          Imprimir
-        </Link>
       )}
 
       {/* Restablecer pedido cancelado por error */}
@@ -512,70 +466,116 @@ function OrderActions({ order, onDeleted, onStatusChange }: { order: Order; onDe
         <button
           onClick={handleReopen}
           disabled={reopening}
-          className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white transition-colors disabled:opacity-50"
+          className="w-full sm:w-auto flex items-center justify-center gap-2 text-sm font-bold px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white shadow-sm transition-colors disabled:opacity-50"
         >
-          <RotateCcw className="w-3.5 h-3.5" />
+          <RotateCcw className="w-4 h-4" />
           {reopening ? 'Restableciendo...' : 'Restablecer pedido'}
         </button>
       )}
 
-      {/* Cancelar pedido completo */}
-      {canCancelOrder && (
-        !confirmCancel ? (
-          <button
-            onClick={() => setConfirmCancel(true)}
-            className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-xl border border-red-200 text-red-500 hover:bg-red-50 transition-colors"
+      {/* Documentos y envío */}
+      <div className="flex flex-wrap gap-2">
+        {noteId ? (
+          <Link
+            href={`/albaranes/${noteId}`}
+            className={`${docBtn} border-[#1E2B28] text-[#1E2B28] hover:bg-green-50`}
           >
-            <Ban className="w-3.5 h-3.5" />
-            Cancelar pedido
+            <FileText className="w-4 h-4" />
+            {noteNumber ? `Albarán #${noteNumber}` : 'Ver albarán'}
+          </Link>
+        ) : (
+          <button
+            onClick={handleGenNote}
+            disabled={loading}
+            className={`${docBtn} border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-40`}
+          >
+            <FileText className="w-4 h-4" />
+            Generar albarán
+          </button>
+        )}
+        {noteId && (
+          <Link
+            href={`/albaranes/${noteId}`}
+            target="_blank"
+            className={`${docBtn} border-gray-300 text-gray-700 hover:bg-gray-50`}
+          >
+            <Printer className="w-4 h-4" />
+            Imprimir
+          </Link>
+        )}
+        <button
+          onClick={shareWhatsApp}
+          className={`${docBtn} border-green-300 text-green-700 hover:bg-green-50`}
+        >
+          <MessageCircle className="w-4 h-4" />
+          WhatsApp
+        </button>
+        <button
+          onClick={exportCSV}
+          className={`${docBtn} border-gray-300 text-gray-700 hover:bg-gray-50`}
+        >
+          <Download className="w-4 h-4" />
+          Excel / CSV
+        </button>
+      </div>
+
+      {/* Zona de cuidado: cancelar y eliminar, separadas del resto */}
+      <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-gray-100">
+        {canCancelOrder && (
+          !confirmCancel ? (
+            <button
+              onClick={() => setConfirmCancel(true)}
+              className={`${docBtn} border-red-200 text-red-500 hover:bg-red-50`}
+            >
+              <Ban className="w-4 h-4" />
+              Cancelar pedido
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-red-600 font-medium">¿Seguro?</span>
+              <button
+                onClick={handleCancelOrder}
+                disabled={loading}
+                className="text-sm font-semibold px-3.5 py-2 rounded-xl bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+              >
+                {loading ? 'Cancelando...' : 'Sí, cancelar'}
+              </button>
+              <button
+                onClick={() => setConfirmCancel(false)}
+                className="text-sm font-medium px-3.5 py-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                Volver
+              </button>
+            </div>
+          )
+        )}
+
+        {!confirmDelete ? (
+          <button
+            onClick={() => setConfirmDelete(true)}
+            className={`${docBtn} border-red-200 text-red-500 hover:bg-red-50 ml-auto`}
+          >
+            <Trash2 className="w-4 h-4" />
+            Eliminar
           </button>
         ) : (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-red-600 font-medium">¿Seguro?</span>
+          <div className="flex items-center gap-2 ml-auto">
+            <span className="text-sm text-red-600 font-medium">¿Seguro?</span>
             <button
-              onClick={handleCancelOrder}
+              onClick={() => { setLoading(true); onDeleted(order); deleteOrder(order.id) }}
               disabled={loading}
-              className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+              className="text-sm font-semibold px-3.5 py-2 rounded-xl bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
             >
-              {loading ? 'Cancelando...' : 'Sí, cancelar'}
+              {loading ? 'Eliminando...' : 'Sí, eliminar'}
             </button>
             <button
-              onClick={() => setConfirmCancel(false)}
-              className="text-xs font-medium px-3 py-1.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+              onClick={() => setConfirmDelete(false)}
+              className="text-sm font-medium px-3.5 py-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
             >
-              Volver
+              Cancelar
             </button>
           </div>
-        )
-      )}
-
-      {/* Eliminar */}
-      {!confirmDelete ? (
-        <button
-          onClick={() => setConfirmDelete(true)}
-          className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-xl border border-red-200 text-red-500 hover:bg-red-50 transition-colors ml-auto"
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-          Eliminar
-        </button>
-      ) : (
-        <div className="flex items-center gap-2 ml-auto">
-          <span className="text-xs text-red-600 font-medium">¿Seguro?</span>
-          <button
-            onClick={() => { setLoading(true); onDeleted(order); deleteOrder(order.id) }}
-            disabled={loading}
-            className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
-          >
-            {loading ? 'Eliminando...' : 'Sí, eliminar'}
-          </button>
-          <button
-            onClick={() => setConfirmDelete(false)}
-            className="text-xs font-medium px-3 py-1.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
-          >
-            Cancelar
-          </button>
-        </div>
-      )}
+        )}
       </div>
     </div>
   )
@@ -636,6 +636,19 @@ function OrderCard({
             </span>
             <span className="font-semibold text-[#1E2B28] text-sm ml-auto">{Number(order.total_price).toFixed(2)}€</span>
           </div>
+          {status === 'pendiente' && (() => {
+            const live = order.order_items.filter(i => Number(i.rectified_quantity ?? -1) !== 0)
+            if (live.length === 0) return null
+            const done = live.filter(i => i.prepared).length
+            return (
+              <div className="mt-2 flex items-center gap-2">
+                <div className="flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                  <div className="h-full bg-green-500 transition-all" style={{ width: `${(done / live.length) * 100}%` }} />
+                </div>
+                <span className="text-[11px] font-medium text-gray-600 shrink-0">Preparados {done}/{live.length}</span>
+              </div>
+            )
+          })()}
           {order.notes && <p className="text-xs text-gray-600 italic mt-1 whitespace-pre-wrap break-words">"{order.notes}"</p>}
         </div>
         <div className="shrink-0 text-gray-600 mt-1">
@@ -873,7 +886,7 @@ export function PedidosNaveClient({ orders: initialOrders, deletedOrders: initia
           <button
             key={c.key}
             onClick={() => setStatusFilter(s => s === c.key ? 'todos' : c.key as StatusFilter)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${c.color} ${statusFilter === c.key ? 'ring-2 ring-offset-1 ring-current' : 'opacity-80 hover:opacity-100'}`}
+            className={`px-4 py-2.5 rounded-xl text-sm font-semibold ${c.color} ${statusFilter === c.key ? 'ring-2 ring-offset-1 ring-current' : 'opacity-80 hover:opacity-100'}`}
           >
             {c.label} ({c.n})
           </button>

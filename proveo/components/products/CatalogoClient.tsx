@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { ProductCard } from '@/components/products/ProductCard'
 import { ProductRow } from '@/components/products/ProductRow'
 import { Badge } from '@/components/ui/badge'
 import { ShoppingCart, Loader2, Check, X, ChevronUp, ChevronDown, Search, Star, Plus, Minus, ArrowUp } from 'lucide-react'
@@ -11,6 +10,7 @@ import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { takeRepeatOrder } from '@/lib/repeatOrder'
 import { notifyLowStock } from '@/app/actions/stockAlerts'
+import { notifyNewOrder } from '@/app/actions/notifications'
 import { loadCartDraft, saveCartDraft, clearCartDraft } from '@/lib/cartDraft'
 import { savePendingCart, clearPendingCart } from '@/app/actions/pendingCart'
 import { setFavoriteProduct } from '@/app/actions/favorites'
@@ -126,7 +126,6 @@ export function CatalogoClient({
   const [notes, setNotes] = useState('')
   const [destination, setDestination] = useState<'sala' | 'cocina' | ''>('')
   const [cartOpen, setCartOpen] = useState(false)
-  const [categoryMenuOpen, setCategoryMenuOpen] = useState(false)
   const initialMaps = buildStockMaps(initialStock)
   const [stockMap, setStockMap] = useState<Record<string, number>>(initialMaps.sMap)
   const [stockError, setStockError] = useState<string | null>(null)
@@ -365,9 +364,6 @@ export function CatalogoClient({
     () => categories.filter(c => countByCat[c.id] > 0),
     [categories, countByCat]
   )
-  const selectedCatObj = visibleCategories.find(c => c.id === selectedCategory)
-  const selectedCatLabel = selectedCategory === 'todos' ? 'Todas las categorías' : (selectedCatObj?.name ?? 'Todas las categorías')
-  const selectedCatCount = selectedCategory === 'todos' ? products.length : (countByCat[selectedCategory] ?? 0)
 
   async function submitOrder() {
     if (cartItems.length === 0) return
@@ -445,6 +441,8 @@ export function CatalogoClient({
     // Best-effort: si este pedido deja algo bajo mínimo, avisa a la nave.
     // No bloquea la confirmación del pedido si falla.
     notifyLowStock(cartItems.map(i => i.product.id)).catch(() => {})
+    // Aviso a la nave de que ha entrado un pedido nuevo (también best-effort).
+    notifyNewOrder(order.id).catch(() => {})
     setSubmitted(true); setCart({}); setCartOpen(false); setDestination('')
     setTimeout(() => router.push('/pedidos'), 2000)
   }
@@ -664,73 +662,36 @@ export function CatalogoClient({
           )}
         </div>
 
-        {/* Todos / Favoritos */}
-        <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
+        {/* Filtros en una sola fila: Todos · Favoritos · categorías */}
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 sm:-mx-6 sm:px-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <button
-            onClick={() => setShowFavorites(false)}
-            className={cn('px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors', !showFavorites ? 'bg-white text-black shadow-sm' : 'text-gray-700')}
+            onClick={() => { setShowFavorites(false); setSelectedCategory('todos') }}
+            className={cn('shrink-0 px-3.5 py-2 rounded-full text-sm font-medium border transition-colors',
+              !showFavorites && selectedCategory === 'todos' ? 'bg-[#1E2B28] text-white border-[#1E2B28]' : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300')}
           >
             Todos
           </button>
           <button
-            onClick={() => setShowFavorites(true)}
-            className={cn('flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors', showFavorites ? 'bg-white text-black shadow-sm' : 'text-gray-700')}
+            onClick={() => setShowFavorites(v => !v)}
+            className={cn('shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-medium border transition-colors',
+              showFavorites ? 'bg-[#A8793A] text-white border-[#A8793A]' : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300')}
           >
-            <Star className="w-3.5 h-3.5" /> Favoritos {favoriteIds.size > 0 && `(${favoriteIds.size})`}
+            <Star className={cn('w-3.5 h-3.5', showFavorites && 'fill-current')} /> Favoritos{favoriteIds.size > 0 && ` (${favoriteIds.size})`}
           </button>
+          {visibleCategories.map(cat => (
+            <button
+              key={cat.id}
+              onClick={() => setSelectedCategory(selectedCategory === cat.id ? 'todos' : cat.id)}
+              className={cn('shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-medium border transition-colors whitespace-nowrap',
+                selectedCategory === cat.id ? 'bg-[#1E2B28] text-white border-[#1E2B28]' : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300')}
+            >
+              <CatDot color={(cat as any).color} />
+              {cat.name}
+              <span className={cn('text-xs', selectedCategory === cat.id ? 'text-white/70' : 'text-gray-500')}>{countByCat[cat.id]}</span>
+            </button>
+          ))}
         </div>
         {favoriteError && <p className="text-xs text-red-600">{favoriteError}</p>}
-
-        {/* Category dropdown */}
-        <div className="relative">
-          <button
-            onClick={() => setCategoryMenuOpen(v => !v)}
-            className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:border-gray-300 transition-colors"
-          >
-            <span className="flex items-center gap-2 truncate">
-              {selectedCategory !== 'todos' && <CatDot color={(selectedCatObj as any)?.color} />}
-              <span className="truncate">{selectedCatLabel}</span>
-              <span className="text-xs px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-700 shrink-0">
-                {selectedCatCount}
-              </span>
-            </span>
-            <ChevronDown className={cn('h-4 w-4 text-gray-600 transition-transform shrink-0', categoryMenuOpen && 'rotate-180')} />
-          </button>
-
-          {categoryMenuOpen && (
-            <>
-              <div className="fixed inset-0 z-30" onClick={() => setCategoryMenuOpen(false)} />
-              <div className="absolute left-0 right-0 mt-2 z-40 bg-white rounded-xl border border-gray-100 shadow-lg max-h-80 overflow-y-auto py-1.5">
-                <button
-                  onClick={() => { setSelectedCategory('todos'); setCategoryMenuOpen(false) }}
-                  className={cn(
-                    'w-full flex items-center justify-between gap-2 px-3.5 py-2.5 text-sm transition-colors',
-                    selectedCategory === 'todos' ? 'bg-[#1E2B28]/[0.06] text-[#1E2B28] font-semibold' : 'text-gray-600 hover:bg-gray-50'
-                  )}
-                >
-                  <span>Todas las categorías</span>
-                  <span className="text-xs text-gray-600">{products.length}</span>
-                </button>
-                {visibleCategories.map(cat => (
-                  <button
-                    key={cat.id}
-                    onClick={() => { setSelectedCategory(cat.id); setCategoryMenuOpen(false) }}
-                    className={cn(
-                      'w-full flex items-center justify-between gap-2 px-3.5 py-2.5 text-sm transition-colors',
-                      selectedCategory === cat.id ? 'bg-[#1E2B28]/[0.06] text-[#1E2B28] font-semibold' : 'text-gray-600 hover:bg-gray-50'
-                    )}
-                  >
-                    <span className="flex items-center gap-2 truncate">
-                      <CatDot color={(cat as any).color} />
-                      <span className="truncate">{cat.name}</span>
-                    </span>
-                    <span className="text-xs text-gray-600 shrink-0">{countByCat[cat.id]}</span>
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
       </div>
 
       {/* ── Main content: products grid + desktop cart ───────────────────
@@ -777,7 +738,7 @@ export function CatalogoClient({
                     <div
                       key={promo.id}
                       className={cn(
-                        'shrink-0 snap-start min-w-[190px] md:min-w-0 bg-white rounded-xl border-2 p-3 flex flex-col gap-2 transition-all',
+                        'shrink-0 min-w-[190px] md:min-w-0 bg-white rounded-xl border-2 p-3 flex flex-col gap-2 transition-all',
                         hasQty ? 'border-[#A8793A] shadow-sm' : 'border-amber-100'
                       )}
                     >
@@ -859,8 +820,8 @@ export function CatalogoClient({
               </div>
             ) : (
               <>
-                {/* ── Mobile / tablet: compact list ──────────────────────── */}
-                <div className="lg:hidden bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                {/* Una sola lista compacta (1 columna; 2 en pantallas muy grandes) */}
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden 2xl:grid 2xl:grid-cols-2">
                   {filteredProducts.map(product => {
                     const cat = (product as any).product_categories
                     const mode = cartModes[product.id] ?? 'unidad'
@@ -872,36 +833,6 @@ export function CatalogoClient({
                         : stockMap[product.id]
                     return (
                       <ProductRow
-                        key={product.id}
-                        product={product}
-                        quantity={cart[product.id] ?? 0}
-                        onQuantityChange={handleQuantityChange}
-                        categoryColor={cat?.color}
-                        categoryName={cat?.name}
-                        maxStock={maxStock}
-                        justRestocked={restockedMap[product.id]}
-                        isFavorite={favoriteIds.has(product.id)}
-                        onToggleFavorite={toggleFavorite}
-                        boxMode={mode}
-                        onBoxModeChange={handleBoxModeChange}
-                      />
-                    )
-                  })}
-                </div>
-
-                {/* ── Desktop: card grid ─────────────────────────────────── */}
-                <div className="hidden lg:grid grid-cols-3 xl:grid-cols-4 gap-4">
-                  {filteredProducts.map(product => {
-                    const cat = (product as any).product_categories
-                    const mode = cartModes[product.id] ?? 'unidad'
-                    const boxUnits = boxUnitsFor(product)
-                    const maxStock = !(product.id in stockMap)
-                      ? undefined
-                      : mode === 'cajon'
-                        ? Math.floor(stockMap[product.id] / boxUnits)
-                        : stockMap[product.id]
-                    return (
-                      <ProductCard
                         key={product.id}
                         product={product}
                         quantity={cart[product.id] ?? 0}

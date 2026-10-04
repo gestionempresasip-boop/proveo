@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import type { ProfileWithOrg } from '@/types/database'
 import { ORG_LOGOS } from '@/lib/orgLogos'
+import { NotificationBell } from '@/components/notifications/NotificationProvider'
 
 // Barra superior en móvil. A diferencia de la de abajo (fija), esta va en el
 // flujo normal de la página para que se desplace al deslizar y deje ver bien
@@ -48,6 +49,7 @@ export function MobileTopBar({ profile }: { profile: ProfileWithOrg }) {
       </div>
       <div className="flex items-center gap-3">
         <span className="text-gray-600 text-xs">{orgLabel}</span>
+        <NotificationBell className="w-7 h-7 bg-white/15 text-white hover:bg-white/25" />
         <button
           onClick={handleRefresh}
           disabled={refreshing}

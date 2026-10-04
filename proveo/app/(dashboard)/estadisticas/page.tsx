@@ -4,6 +4,7 @@ import { EstadisticasClient } from '@/components/stats/EstadisticasClient'
 import { InformesGate } from '@/components/stats/InformesGate'
 import { isInformesUnlocked } from '@/app/actions/informesGate'
 import { redirect } from 'next/navigation'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 // Algunos productos tienen el coste registrado por caja/pieza entera en
 // products.cost_price (ej. "Jamón bellota" a 518,40€ la caja de 40 sobres),
@@ -79,6 +80,31 @@ export default async function EstadisticasPage() {
       .order('category')
       .order('name'),
   ])
+
+  // Costes (fijos/variables) de nave y restaurantes, ventas mensuales de cada
+  // restaurante, y datos de situación (pedidos por preparar, id de la nave).
+  // Todo va por la service role (las tablas no tienen políticas RLS) y esta
+  // página ya está limitada a la nave. Si las tablas aún no existen, se
+  // devuelve vacío en vez de romper Informes.
+  const admin = createAdminClient() as any
+  const [costRes, salesRes, pendingRes, naveRes] = await Promise.all([
+    admin.from('org_cost_items').select('id, organization_id, kind, mode, name, value, active').order('created_at'),
+    admin.from('restaurant_monthly_sales').select('organization_id, month, amount'),
+    sb.from('orders').select('id', { count: 'exact', head: true }).in('status', ['pendiente', 'en_preparacion', 'hecho', 'listo']).is('deleted_at', null),
+    sb.from('organizations').select('id').eq('type', 'nave').limit(1).maybeSingle(),
+  ])
+  const costItems = (costRes.data ?? []).map((c: any) => ({ ...c, value: Number(c.value) }))
+  const monthlySales = (salesRes.data ?? []).map((m: any) => ({ organization_id: m.organization_id, month: String(m.month).slice(0, 10), amount: Number(m.amount) }))
+  const pendingOrders = pendingRes.count ?? 0
+  // Stock agotado / bajo SOLO de productos activos (nave_inventory guarda también filas de productos archivados).
+  const { data: activeStock } = await sb
+    .from('nave_inventory')
+    .select('current_stock, min_stock, products!inner(is_active, deleted_at)')
+    .eq('products.is_active', true)
+    .is('products.deleted_at', null)
+  const stockOut = (activeStock ?? []).filter((r: any) => Number(r.current_stock) === 0).length
+  const stockLow = (activeStock ?? []).filter((r: any) => Number(r.current_stock) > 0 && Number(r.min_stock) > 0 && Number(r.current_stock) <= Number(r.min_stock)).length
+  const naveOrgId = naveRes.data?.id ?? null
 
   // Aplanar a filas por línea de pedido (para cálculos granulares)
   type Line = {
@@ -166,6 +192,11 @@ export default async function EstadisticasPage() {
       stockRows={stockRows}
       returns={returns}
       fixedCosts={fixedCostRows}
+      costItems={costItems}
+      monthlySales={monthlySales}
+      pendingOrders={pendingOrders}
+      stockAlerts={{ out: stockOut, low: stockLow }}
+      naveOrgId={naveOrgId}
     />
   )
 }

@@ -9,7 +9,7 @@ import { BackupsPanel } from './BackupsPanel'
 import { MovementsTab } from './MovementsTab'
 import { StockCountFlow } from './StockCountFlow'
 import { PurchaseSuggestionTab } from './PurchaseSuggestionTab'
-import { AlertTriangle, CheckCircle2, XCircle, Save, ChevronDown, ChevronUp, History, Package, Download, ListChecks, X, Check, FileSpreadsheet, Trash2, Shield, ArrowUp, PackageOpen, ClipboardList, ShoppingCart } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, XCircle, Save, ChevronDown, ChevronUp, History, Package, Download, ListChecks, X, Check, FileSpreadsheet, Trash2, Shield, ArrowUp, PackageOpen, ClipboardList, ShoppingCart, Search, Minus, Plus } from 'lucide-react'
 
 type InventoryRow = {
   product_id: string
@@ -91,86 +91,111 @@ function InventoryRowItem({
   const isLow = minNum > 0 && currentNum <= minNum
   const isEmpty = currentNum === 0
 
+  function bump(delta: number) {
+    const next = Math.max(0, Math.round((currentNum + delta) * 1000) / 1000)
+    onStockChange(String(next))
+  }
+
   return (
-    <tr className={`border-b border-gray-50 hover:bg-gray-50/50 transition-colors ${isEmpty ? 'bg-red-50/20' : isLow ? 'bg-orange-50/20' : ''}`}>
-      <td className="px-4 py-3">
-        <p className="font-medium text-black text-sm">{row.product_name}</p>
-        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-          {row.category_name && <p className="text-xs text-gray-600">{row.category_name}</p>}
-          {row.allows_box_order && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded-md">
-              <PackageOpen className="w-3 h-3" />
-              Caja{row.box_units ? ` ≈${row.box_units} und` : ''}
-            </span>
-          )}
-        </div>
-      </td>
-      <td className="px-4 py-3 text-xs text-gray-600">{row.product_unit}</td>
-      <td className="px-4 py-3">
-        <div className="flex items-center gap-1.5">
-          <input
-            type="number"
-            min="0"
-            step="0.001"
-            value={stockValue}
-            onChange={e => onStockChange(e.target.value)}
-            className={`w-24 border rounded-lg px-2 py-1 text-sm text-center font-semibold focus:outline-none focus:ring-2 focus:ring-[#1E2B28] ${
-              isEmpty ? 'border-red-300 text-red-600' : isLow ? 'border-orange-300 text-orange-600' : 'border-gray-200 text-[#1E2B28]'
-            }`}
-          />
-          <div>
-            <span className="text-xs text-gray-600 block">{row.product_unit}</span>
-            {row.allows_box_order && row.box_units && currentNum > 0 && (
-              <span className="text-[10px] text-blue-600 font-medium block whitespace-nowrap">
-                ≈{Math.floor(currentNum / row.box_units)} caj.
+    <div className={`px-4 py-4 border-b border-gray-100 last:border-0 border-l-4 ${
+      dirty ? 'border-l-[#A8793A] bg-amber-50/50' : isEmpty ? 'border-l-red-400 bg-red-50/30' : isLow ? 'border-l-orange-400 bg-orange-50/30' : 'border-l-transparent'
+    }`}>
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+        {/* Producto */}
+        <div className="flex-1 min-w-[200px]">
+          <p className="font-semibold text-black text-sm leading-tight">{row.product_name}</p>
+          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+            <StockStatus current={currentNum} min={minNum} />
+            <span className="text-xs text-gray-600">· {row.product_unit}</span>
+            {row.allows_box_order && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded-md">
+                <PackageOpen className="w-3 h-3" />
+                Caja{row.box_units ? ` ≈${row.box_units} und` : ''}
               </span>
             )}
           </div>
+          {row.category_name && <p className="text-xs text-gray-500 mt-1">{row.category_name}</p>}
         </div>
-      </td>
-      <td className="px-4 py-3">
-        <div className="flex items-center gap-1.5">
-          <input
-            type="number"
-            min="0"
-            step="0.001"
-            value={minValue}
-            onChange={e => onMinChange(e.target.value)}
-            className="w-24 border border-gray-200 rounded-lg px-2 py-1 text-sm text-center text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
-          />
-          <span className="text-xs text-gray-600">{row.product_unit}</span>
+
+        {/* Stock actual */}
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-600 mb-1">Stock actual</p>
+          <div className="flex items-center gap-1.5">
+            <button onClick={() => bump(-1)} className="w-9 h-9 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center active:scale-95" aria-label="Restar 1">
+              <Minus className="w-4 h-4" />
+            </button>
+            <input
+              type="number"
+              min="0"
+              step="0.001"
+              value={stockValue}
+              onChange={e => onStockChange(e.target.value)}
+              className={`w-24 border rounded-lg px-2 py-2 text-base text-center font-bold focus:outline-none focus:ring-2 focus:ring-[#1E2B28] ${
+                isEmpty ? 'border-red-300 text-red-600' : isLow ? 'border-orange-300 text-orange-600' : 'border-gray-200 text-[#1E2B28]'
+              }`}
+            />
+            <button onClick={() => bump(1)} className="w-9 h-9 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center active:scale-95" aria-label="Sumar 1">
+              <Plus className="w-4 h-4" />
+            </button>
+            <div className="ml-1">
+              <span className="text-xs text-gray-600 block">{row.product_unit}</span>
+              {row.allows_box_order && row.box_units && currentNum > 0 && (
+                <span className="text-[10px] text-blue-600 font-medium block whitespace-nowrap">
+                  ≈{Math.floor(currentNum / row.box_units)} caj.
+                </span>
+              )}
+            </div>
+          </div>
         </div>
-      </td>
-      <td className="px-4 py-3">
-        <StockStatus current={currentNum} min={minNum} />
-      </td>
-      <td className="px-4 py-3 text-xs text-gray-700 hidden sm:table-cell">
-        {row.last_updated
-          ? new Date(row.last_updated).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-          : '—'}
-      </td>
-      <td className="px-4 py-3 text-right">
-        <div className="flex items-center justify-end gap-1">
+
+        {/* Mínimo */}
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-600 mb-1">Mínimo (alerta)</p>
+          <div className="flex items-center gap-1.5">
+            <input
+              type="number"
+              min="0"
+              step="0.001"
+              value={minValue}
+              onChange={e => onMinChange(e.target.value)}
+              className="w-24 border border-gray-200 rounded-lg px-2 py-2 text-base text-center text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
+            />
+            <span className="text-xs text-gray-600">{row.product_unit}</span>
+          </div>
+        </div>
+
+        {/* Actualizado */}
+        <div className="hidden lg:block w-28">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-600 mb-1">Actualizado</p>
+          <p className="text-xs text-gray-700">
+            {row.last_updated
+              ? new Date(row.last_updated).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+              : '—'}
+          </p>
+        </div>
+
+        {/* Acciones */}
+        <div className="flex items-center gap-2 ml-auto">
           {saved ? (
-            <span className="text-xs text-green-600 font-medium">✓ Guardado</span>
+            <span className="text-sm text-green-600 font-semibold px-3">✓ Guardado</span>
           ) : (
             <button
               onClick={onSave}
               disabled={saving || !dirty}
-              className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
+              className={`flex items-center gap-1.5 text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors ${
                 dirty
-                  ? 'bg-[#1E2B28] text-white hover:bg-[#141F1C]'
-                  : 'text-gray-700 cursor-default'
+                  ? 'bg-[#A8793A] text-white hover:bg-[#8C6430] shadow-sm'
+                  : 'bg-gray-100 text-gray-400 cursor-default'
               }`}
             >
-              <Save className="w-3.5 h-3.5" />
-              {saving ? 'Guardando...' : 'Guardar'}
+              <Save className="w-4 h-4" />
+              {saving ? 'Guardando…' : 'Guardar'}
             </button>
           )}
           {isNave && <DeleteProductButton productName={row.product_name} deleting={deleting} onDelete={onDelete} />}
         </div>
-      </td>
-    </tr>
+      </div>
+    </div>
   )
 }
 
@@ -726,10 +751,10 @@ export function InventarioTable({
   return (
     <div className="space-y-4">
       {/* Tabs */}
-      <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
+      <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <button
           onClick={() => setTab('stock')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+          className={`shrink-0 whitespace-nowrap px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
             tab === 'stock' ? 'bg-white text-black shadow-sm' : 'text-gray-700 hover:text-gray-700'
           }`}
         >
@@ -738,7 +763,7 @@ export function InventarioTable({
         {isNave && (
           <button
             onClick={() => setTab('movimientos')}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`flex items-center gap-1.5 shrink-0 whitespace-nowrap px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
               tab === 'movimientos' ? 'bg-white text-black shadow-sm' : 'text-gray-700 hover:text-gray-700'
             }`}
           >
@@ -749,7 +774,7 @@ export function InventarioTable({
         {isNave && (
           <button
             onClick={() => setTab('sugerencia')}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`flex items-center gap-1.5 shrink-0 whitespace-nowrap px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
               tab === 'sugerencia' ? 'bg-white text-black shadow-sm' : 'text-gray-700 hover:text-gray-700'
             }`}
           >
@@ -759,7 +784,7 @@ export function InventarioTable({
         )}
         <button
           onClick={() => setTab('historial')}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+          className={`flex items-center gap-1.5 shrink-0 whitespace-nowrap px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
             tab === 'historial' ? 'bg-white text-black shadow-sm' : 'text-gray-700 hover:text-gray-700'
           }`}
         >
@@ -768,7 +793,7 @@ export function InventarioTable({
         </button>
         <button
           onClick={() => setTab('valorado')}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+          className={`flex items-center gap-1.5 shrink-0 whitespace-nowrap px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
             tab === 'valorado' ? 'bg-white text-black shadow-sm' : 'text-gray-700 hover:text-gray-700'
           }`}
         >
@@ -778,7 +803,7 @@ export function InventarioTable({
         {isNave && (
           <button
             onClick={() => setTab('backups')}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`flex items-center gap-1.5 shrink-0 whitespace-nowrap px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
               tab === 'backups' ? 'bg-white text-black shadow-sm' : 'text-gray-700 hover:text-gray-700'
             }`}
           >
@@ -837,15 +862,23 @@ export function InventarioTable({
             )}
           </div>
 
-          {/* Buscador + acción masiva */}
-          <div className="flex flex-col sm:flex-row gap-2">
-            <input
-              type="text"
-              placeholder="Buscar producto..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
-            />
+          {/* Buscador + acciones */}
+          <div className="flex flex-col lg:flex-row gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Buscar producto..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="w-full border border-gray-200 rounded-xl pl-9 pr-9 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
+              />
+              {search && (
+                <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600" aria-label="Borrar búsqueda">
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
             <select
               value={categoryFilter}
               onChange={e => setCategoryFilter(e.target.value)}
@@ -855,31 +888,30 @@ export function InventarioTable({
               {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               <option value="__none__">Sin categoría</option>
             </select>
-            {isNave && (
-              <button
-                onClick={() => setShowBulkMin(true)}
-                className="flex items-center justify-center gap-2 border border-[#1E2B28] text-[#1E2B28] text-sm font-medium px-4 py-2.5 rounded-xl hover:bg-green-50 transition-colors shrink-0"
-              >
-                <ListChecks className="w-4 h-4" /> Mínimo en masa
-              </button>
-            )}
-            {isNave && (
-              <button
-                onClick={() => setShowBulkDelete(true)}
-                className="flex items-center justify-center gap-2 border border-red-200 text-red-600 text-sm font-medium px-4 py-2.5 rounded-xl hover:bg-red-50 transition-colors shrink-0"
-              >
-                <Trash2 className="w-4 h-4" /> Borrar productos
-              </button>
-            )}
-            {isNave && (
+          </div>
+
+          {isNave && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <button
                 onClick={() => setShowStockCount(true)}
-                className="flex items-center justify-center gap-2 border border-[#A8793A] text-[#A8793A] text-sm font-medium px-4 py-2.5 rounded-xl hover:bg-amber-50 transition-colors shrink-0"
+                className="flex items-center justify-center gap-2 bg-[#A8793A] text-white text-sm font-semibold px-4 py-3 rounded-xl hover:bg-[#8C6430] shadow-sm transition-colors"
               >
                 <ClipboardList className="w-4 h-4" /> Recuento físico
               </button>
-            )}
-          </div>
+              <button
+                onClick={() => setShowBulkMin(true)}
+                className="flex items-center justify-center gap-2 bg-[#1E2B28] text-white text-sm font-semibold px-4 py-3 rounded-xl hover:bg-[#141F1C] shadow-sm transition-colors"
+              >
+                <ListChecks className="w-4 h-4" /> Mínimo en masa
+              </button>
+              <button
+                onClick={() => setShowBulkDelete(true)}
+                className="flex items-center justify-center gap-2 border-2 border-red-300 text-red-600 text-sm font-semibold px-4 py-3 rounded-xl hover:bg-red-50 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" /> Borrar productos
+              </button>
+            </div>
+          )}
 
           {saveError && (
             <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-2.5 text-sm text-red-600">
@@ -888,7 +920,7 @@ export function InventarioTable({
           )}
 
           {dirtyRows.length > 0 && (
-            <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5">
+            <div className="sticky bottom-20 md:bottom-4 z-30 flex items-center justify-between bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 shadow-lg">
               <span className="text-sm text-amber-700">
                 {dirtyRows.length} producto{dirtyRows.length !== 1 ? 's' : ''} con cambios sin guardar
               </span>
@@ -935,14 +967,30 @@ export function InventarioTable({
             />
           )}
 
-          {/* Tabla agrupada por categoría */}
+          {/* Lista agrupada por categoría */}
+          {Object.keys(byCategory).length > 1 && (
+            <div className="flex items-center justify-end gap-3 text-xs">
+              <button
+                onClick={() => setOpenCategories(Object.fromEntries(Object.keys(byCategory).map(c => [c, true])))}
+                className="font-medium text-[#1E2B28] underline"
+              >
+                Desplegar todo
+              </button>
+              <button
+                onClick={() => setOpenCategories(Object.fromEntries(Object.keys(byCategory).map(c => [c, false])))}
+                className="font-medium text-[#1E2B28] underline"
+              >
+                Plegar todo
+              </button>
+            </div>
+          )}
           {Object.entries(byCategory).map(([cat, group]) => {
             const isOpen = openCategories[cat] !== false
             return (
               <div key={cat} className="bg-white rounded-xl border border-gray-100 overflow-hidden">
                 <button
-                  onClick={() => toggleCategory(cat)}
-                  className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors"
+                  onClick={() => setOpenCategories(prev => ({ ...prev, [cat]: !isOpen }))}
+                  className="w-full flex items-center justify-between px-4 py-3.5 bg-gray-50 hover:bg-gray-100 transition-colors"
                 >
                   <span className="flex items-center gap-2 font-semibold text-sm text-black">
                     <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: group.color ?? '#9CA3AF' }} />
@@ -955,39 +1003,24 @@ export function InventarioTable({
                 </button>
 
                 {isOpen && (
-                  <div className="overflow-x-auto">
-                  <table className="w-full text-sm min-w-[600px]">
-                    <thead className="border-b border-gray-100">
-                      <tr>
-                        <th className="text-left px-4 py-2 text-xs text-gray-600 font-medium">Producto</th>
-                        <th className="text-left px-4 py-2 text-xs text-gray-600 font-medium">Ud.</th>
-                        <th className="text-left px-4 py-2 text-xs text-gray-600 font-medium">Stock actual</th>
-                        <th className="text-left px-4 py-2 text-xs text-gray-600 font-medium">Mínimo (alerta)</th>
-                        <th className="text-left px-4 py-2 text-xs text-gray-600 font-medium">Estado</th>
-                        <th className="text-left px-4 py-2 text-xs text-gray-600 font-medium hidden sm:table-cell">Actualizado</th>
-                        <th className="px-4 py-2"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {group.rows.map(row => (
-                        <InventoryRowItem
-                          key={row.product_id}
-                          row={row}
-                          stockValue={getStockValue(row)}
-                          minValue={getMinValue(row)}
-                          dirty={isDirty(row)}
-                          saving={savingRow === row.product_id}
-                          saved={savedRows.has(row.product_id)}
-                          isNave={isNave}
-                          deleting={deletingRow === row.product_id}
-                          onStockChange={v => setStockEdit(row, v)}
-                          onMinChange={v => setMinEdit(row, v)}
-                          onSave={() => saveRow(row)}
-                          onDelete={() => deleteRow(row)}
-                        />
-                      ))}
-                    </tbody>
-                  </table>
+                  <div>
+                    {group.rows.map(row => (
+                      <InventoryRowItem
+                        key={row.product_id}
+                        row={row}
+                        stockValue={getStockValue(row)}
+                        minValue={getMinValue(row)}
+                        dirty={isDirty(row)}
+                        saving={savingRow === row.product_id}
+                        saved={savedRows.has(row.product_id)}
+                        isNave={isNave}
+                        deleting={deletingRow === row.product_id}
+                        onStockChange={v => setStockEdit(row, v)}
+                        onMinChange={v => setMinEdit(row, v)}
+                        onSave={() => saveRow(row)}
+                        onDelete={() => deleteRow(row)}
+                      />
+                    ))}
                   </div>
                 )}
               </div>

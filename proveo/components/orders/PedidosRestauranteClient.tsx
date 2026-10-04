@@ -2,32 +2,22 @@
 
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Card, CardContent } from '@/components/ui/card'
-import { Package, Clock, Ban, Search, ChevronDown, X, Undo2, ThumbsUp, AlertTriangle, Repeat, MessageCircle, Trash2 } from 'lucide-react'
-import { updateOrderStatus, createReturn, type ReturnReason } from '@/app/actions/orders'
+import { Package, Ban, Search, ChevronDown, X, Undo2, Repeat, MessageCircle, Trash2 } from 'lucide-react'
+import { updateOrderStatus, type ReturnReason } from '@/app/actions/orders'
 import { setRepeatOrder, type RepeatOrderItem } from '@/lib/repeatOrder'
 import { cn } from '@/lib/utils'
 import { unitLabel } from '@/lib/units'
 import { OrderChat } from '@/components/orders/OrderChat'
+import { ReturnSheet, type ReturnLine } from '@/components/orders/ReturnSheet'
 
-const STATUS_COLORS: Record<string, string> = {
-  pendiente:      'bg-yellow-100 text-yellow-800 border-yellow-200',
-  en_preparacion: 'bg-blue-100 text-blue-800 border-blue-200',
-  hecho:          'bg-blue-100 text-blue-800 border-blue-200',
-  listo:          'bg-green-100 text-green-800 border-green-200',
-  entregado:      'bg-gray-100 text-gray-600 border-gray-200',
-  enviado:        'bg-green-100 text-green-800 border-green-200',
-  cancelado:      'bg-red-100 text-red-700 border-red-200',
-}
-
-const STATUS_LABELS: Record<string, string> = {
-  pendiente:      '🕐 Pendiente',
-  en_preparacion: '👨‍🍳 En preparación',
-  hecho:          '✅ Hecho',
-  listo:          '✅ Listo',
-  entregado:      '📦 Enviado',
-  enviado:        '📦 Enviado',
-  cancelado:      '❌ Cancelado',
+const STATUS_STYLE: Record<string, { label: string; cls: string }> = {
+  pendiente:      { label: 'Pendiente',      cls: 'bg-yellow-100 text-yellow-800' },
+  en_preparacion: { label: 'En preparación', cls: 'bg-blue-100 text-blue-800' },
+  hecho:          { label: 'Hecho',          cls: 'bg-blue-100 text-blue-800' },
+  listo:          { label: 'Listo',          cls: 'bg-green-100 text-green-800' },
+  entregado:      { label: 'Enviado',        cls: 'bg-green-100 text-green-800' },
+  enviado:        { label: 'Enviado',        cls: 'bg-green-100 text-green-800' },
+  cancelado:      { label: 'Cancelado',      cls: 'bg-red-100 text-red-700' },
 }
 
 type OrderItem = {
@@ -45,6 +35,10 @@ type DeletedOrder = Order & { deleted_at: string | null; deleted_by_profile?: { 
 
 const DELIVERED_STATUSES = new Set(['entregado', 'enviado'])
 
+function isCanceledItem(item: OrderItem) {
+  return item.rectified_quantity != null && Number(item.rectified_quantity) === 0
+}
+
 function alreadyReturned(order: Order, productId: string): number {
   return (order.delivery_notes ?? [])
     .filter(n => n.type === 'devolucion')
@@ -53,83 +47,9 @@ function alreadyReturned(order: Order, productId: string): number {
     .reduce((sum, i) => sum + Number(i.delivered_quantity), 0)
 }
 
-// Botones de devolución de un artículo ya entregado. "Reutilizable" (error
-// de pedido, no se necesita...) repone stock en la nave; "No utilizable"
-// (mal estado, rotura...) no repone — la nave nunca podría volver a venderlo.
-function ReturnControls({ order, item, onReturned }: { order: Order; item: OrderItem; onReturned: (orderId: string, productId: string, qty: number, reason: ReturnReason) => void }) {
-  const [open, setOpen] = useState(false)
-  const [qty, setQty] = useState('')
-  const [pending, setPending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const delivered = Number(item.rectified_quantity ?? item.quantity)
-  const remaining = delivered - alreadyReturned(order, item.product_id)
-
-  if (remaining <= 0) {
-    return (
-      <span className="mt-1.5 inline-flex items-center gap-1.5 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-200 px-2.5 py-1.5 rounded-lg">
-        <Undo2 className="w-3.5 h-3.5" /> Ya devuelto
-      </span>
-    )
-  }
-
-  function submit(reason: ReturnReason) {
-    const q = parseFloat((qty || String(remaining)).replace(',', '.'))
-    if (isNaN(q) || q <= 0 || q > remaining) { setError(`Cantidad entre 0 y ${remaining}`); return }
-    setError(null)
-    setPending(true)
-    onReturned(order.id, item.product_id, q, reason)
-    createReturn(order.id, [{
-      product_id: item.product_id, quantity: q, unit: item.unit, unit_price: Number(item.unit_price),
-      reason, lot_number: item.lot_number ?? null,
-    }])
-      .then(() => { setOpen(false); setQty('') })
-      .catch((e: any) => {
-        onReturned(order.id, item.product_id, -q, reason)
-        setError(e?.message ?? 'No se pudo registrar la devolución, inténtalo de nuevo')
-      })
-      .finally(() => setPending(false))
-  }
-
-  if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        className="mt-1.5 inline-flex items-center gap-1.5 text-xs font-semibold text-[#1E2B28] bg-[#1E2B28]/10 border border-[#1E2B28]/30 px-2.5 py-1.5 rounded-lg hover:bg-[#1E2B28]/20 transition-colors"
-      >
-        <Undo2 className="w-3.5 h-3.5" /> Devolver artículo
-      </button>
-    )
-  }
-
-  return (
-    <div className="mt-1.5 p-2 rounded-lg bg-white border border-gray-200 space-y-1.5">
-      <div className="flex items-center gap-1.5">
-        <input
-          type="number" step="0.001" min="0" max={remaining} autoFocus
-          placeholder={String(remaining)}
-          value={qty} onChange={e => setQty(e.target.value)}
-          className="w-16 border border-gray-200 rounded-lg px-1.5 py-1 text-xs text-center focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
-        />
-        <span className="text-[11px] text-gray-600">{unitLabel(item.unit)} de {remaining} disponibles</span>
-        <button onClick={() => { setOpen(false); setQty(''); setError(null) }} className="ml-auto p-0.5 rounded text-gray-600 hover:bg-gray-100"><X className="w-3.5 h-3.5" /></button>
-      </div>
-      <div className="flex flex-wrap gap-1.5">
-        <button
-          disabled={pending} onClick={() => submit('reutilizable')}
-          className="flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-lg bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 disabled:opacity-50"
-        >
-          <ThumbsUp className="w-3 h-3" /> Error de pedido / no se necesita
-        </button>
-        <button
-          disabled={pending} onClick={() => submit('no_utilizable')}
-          className="flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-lg bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 disabled:opacity-50"
-        >
-          <AlertTriangle className="w-3 h-3" /> Mal estado / no se puede usar
-        </button>
-      </div>
-      {error && <p className="text-[11px] text-red-600">{error}</p>}
-    </div>
-  )
+function remainingToReturn(order: Order, item: OrderItem): number {
+  if (!DELIVERED_STATUSES.has(order.status) || isCanceledItem(item)) return 0
+  return Number(item.rectified_quantity ?? item.quantity) - alreadyReturned(order, item.product_id)
 }
 
 function dayKey(dateStr: string): string {
@@ -154,12 +74,50 @@ function dayLabel(dateStr: string): string {
   })
 }
 
-function OrderRow({ order, onCanceled, onReturned, currentUserId }: { order: Order; onCanceled: (id: string) => void; onReturned: (orderId: string, productId: string, qty: number, reason: ReturnReason) => void; currentUserId: string }) {
+function fmtQty(n: number) {
+  return Number.isInteger(n) ? String(n) : String(Math.round(n * 1000) / 1000)
+}
+
+// El chat solo se monta (y empieza a consultar al servidor) cuando el
+// restaurante lo abre — antes se montaba uno por cada pedido de la lista y
+// todos consultaban cada 6 s aunque nadie los mirase.
+function ChatToggle({ orderId, currentUserId }: { orderId: string; currentUserId: string }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div>
+      <button
+        onClick={() => setOpen(v => !v)}
+        className={cn(
+          'flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-xl border transition-colors',
+          open ? 'bg-gray-100 border-gray-300 text-black' : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+        )}
+      >
+        <MessageCircle className="w-3.5 h-3.5" />
+        {open ? 'Cerrar chat' : 'Chat con la nave'}
+      </button>
+      {open && (
+        <div className="mt-3">
+          <OrderChat orderId={orderId} currentUserId={currentUserId} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function OrderRow({ order, onCanceled, onReturn, currentUserId }: {
+  order: Order
+  onCanceled: (id: string) => void
+  onReturn: (orderId: string, productId: string) => void
+  currentUserId: string
+}) {
   const router = useRouter()
-  const [confirm, setConfirm] = useState(false)
+  const [open, setOpen] = useState(false)
+  const [confirmCancel, setConfirmCancel] = useState(false)
   const [loading, setLoading] = useState(false)
+  const status = STATUS_STYLE[order.status] ?? { label: order.status, cls: 'bg-gray-100 text-gray-700' }
   const canCancel = order.status === 'pendiente'
-  const canReturn = DELIVERED_STATUSES.has(order.status)
+  const liveItems = order.order_items?.filter(i => !isCanceledItem(i)) ?? []
+  const canReturn = (order.order_items ?? []).some(i => remainingToReturn(order, i) > 0)
 
   function handleCancel() {
     setLoading(true)
@@ -167,129 +125,129 @@ function OrderRow({ order, onCanceled, onReturned, currentUserId }: { order: Ord
     updateOrderStatus(order.id, 'cancelado')
   }
 
-  return (
-    <Card className="border-0 shadow-sm">
-      <CardContent className="p-4 sm:p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 bg-[#1E2B28] rounded-xl flex items-center justify-center shrink-0">
-              <span className="text-white text-xs font-bold">#{order.order_number}</span>
-            </div>
-            <div>
-              <div className="flex items-center gap-2 text-xs text-gray-600">
-                <Clock className="h-3 w-3" />
-                {new Date(order.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
-                {', '}
-                {new Date(order.created_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-              </div>
-              {order.notes && (
-                <p className="text-xs text-gray-700 mt-1 italic">"{order.notes}"</p>
-              )}
-            </div>
-          </div>
-          <div className="flex flex-col items-end gap-2 shrink-0">
-            <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${STATUS_COLORS[order.status] ?? ''}`}>
-              {STATUS_LABELS[order.status] ?? order.status}
-            </span>
-          </div>
-        </div>
+  function handleRepeat() {
+    const items: RepeatOrderItem[] = order.order_items
+      .filter(it => !isCanceledItem(it))
+      .map(it => ({ product_id: it.product_id, quantity: Number(it.rectified_quantity ?? it.quantity) }))
+    setRepeatOrder(items)
+    router.push('/catalogo')
+  }
 
-        <div className="mt-3 pt-3 border-t border-gray-100 grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {order.order_items?.map((item, i) => {
-            const isCanceled = item.rectified_quantity != null && Number(item.rectified_quantity) === 0
-            const isRectified = !isCanceled && item.rectified_quantity != null && Number(item.rectified_quantity) !== Number(item.quantity)
-            if (isCanceled) {
+  return (
+    <div className={cn(
+      'rounded-2xl border bg-white overflow-hidden',
+      order.status === 'pendiente' ? 'border-yellow-200' : 'border-gray-100'
+    )}>
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50/70 transition-colors"
+      >
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-black text-sm">
+            #{order.order_number}
+            <span className="font-normal text-gray-600">
+              {' · '}{new Date(order.created_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          </p>
+          <p className="text-xs text-gray-600 mt-0.5">
+            {liveItems.length} producto{liveItems.length !== 1 ? 's' : ''} · {Number(order.total_price).toFixed(2)}€
+          </p>
+        </div>
+        <span className={cn('text-xs font-semibold px-2.5 py-1 rounded-full shrink-0', status.cls)}>{status.label}</span>
+        <ChevronDown className={cn('h-4 w-4 text-gray-500 transition-transform shrink-0', open && 'rotate-180')} />
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4 space-y-4 border-t border-gray-100">
+          {order.notes && <p className="text-xs text-gray-700 italic pt-3">«{order.notes}»</p>}
+
+          <div className="divide-y divide-gray-50 pt-1">
+            {order.order_items?.map((item, i) => {
+              const canceled = isCanceledItem(item)
+              const rectified = !canceled && item.rectified_quantity != null && Number(item.rectified_quantity) !== Number(item.quantity)
+              const remaining = remainingToReturn(order, item)
               return (
-                <div key={i} className="text-xs rounded-xl px-3 py-2 bg-red-50 border border-red-200">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-black flex items-center gap-1.5">
-                      <Ban className="h-3 w-3 text-red-500 shrink-0" />{item.products?.name}
-                    </span>
-                    <span className="text-red-600 font-semibold shrink-0 ml-2">❌ No disponible</span>
+                <div key={i} className="py-2.5 flex items-start gap-3 text-sm">
+                  <div className="flex-1 min-w-0">
+                    <p className={cn('font-medium leading-tight', canceled ? 'text-gray-500 line-through' : 'text-black')}>{item.products?.name}</p>
+                    {canceled && <p className="text-xs text-red-600 mt-0.5">No disponible{item.rectification_note ? ` · ${item.rectification_note}` : ''}</p>}
+                    {item.actual_weight != null && <p className="text-xs text-gray-600 mt-0.5">Peso real: {Number(item.actual_weight).toFixed(2)} kg</p>}
+                    {DELIVERED_STATUSES.has(order.status) && !canceled && remaining <= 0 && (
+                      <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1"><Undo2 className="w-3 h-3" /> Ya devuelto</p>
+                    )}
                   </div>
-                  {item.rectification_note && <p className="text-red-500 mt-0.5">{item.rectification_note}</p>}
-                </div>
-              )
-            }
-            return (
-              <div key={i} className={cn('text-xs rounded-xl px-3 py-2', isRectified ? 'bg-amber-50 border border-amber-200' : 'bg-gray-50')}>
-                <div className="flex justify-between">
-                  <span className="font-medium text-black">{item.products?.name}</span>
-                  {isRectified ? (
-                    <span className="text-amber-700 shrink-0 ml-2">
-                      Pedido: <span className="line-through text-gray-600">{item.quantity}</span> · Confirmado: <span className="font-semibold">{item.rectified_quantity} {unitLabel(item.unit)}</span>
-                    </span>
-                  ) : (
-                    <span className="text-gray-600 shrink-0 ml-2">{item.quantity} {unitLabel(item.unit)}</span>
+                  {!canceled && (
+                    <div className="text-right shrink-0">
+                      {rectified ? (
+                        <p className="text-amber-700 text-xs">
+                          <span className="line-through text-gray-500">{fmtQty(Number(item.quantity))}</span>{' '}
+                          <span className="font-semibold">{fmtQty(Number(item.rectified_quantity))} {unitLabel(item.unit)}</span>
+                        </p>
+                      ) : (
+                        <p className="text-gray-700 text-xs font-medium">{fmtQty(Number(item.quantity))} {unitLabel(item.unit)}</p>
+                      )}
+                      {remaining > 0 && (
+                        <button
+                          onClick={() => onReturn(order.id, item.product_id)}
+                          className="mt-1 text-xs font-semibold text-[#1E2B28] underline"
+                        >
+                          Devolver
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
-                {item.actual_weight != null && (
-                  <p className="text-gray-600 mt-0.5">Peso real: {Number(item.actual_weight).toFixed(2)} kg</p>
-                )}
-                {canReturn && <ReturnControls order={order} item={item} onReturned={onReturned} />}
-              </div>
-            )
-          })}
-        </div>
-
-        {/* Repetir pedido — también disponible si está cancelado, para
-            volver a pedir lo mismo como un pedido nuevo */}
-        <div className="mt-3 flex justify-end">
-          <button
-            onClick={() => {
-              const items: RepeatOrderItem[] = order.order_items
-                .filter(it => !(it.rectified_quantity != null && Number(it.rectified_quantity) === 0))
-                .map(it => ({ product_id: it.product_id, quantity: Number(it.rectified_quantity ?? it.quantity) }))
-              setRepeatOrder(items)
-              router.push('/catalogo')
-            }}
-            className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-xl border border-[#1E2B28]/30 text-[#1E2B28] hover:bg-[#1E2B28]/10 transition-colors"
-          >
-            <Repeat className="w-3.5 h-3.5" />
-            Repetir pedido
-          </button>
-        </div>
-
-        {/* Cancelar */}
-        {canCancel && (
-          <div className="mt-3 flex justify-end">
-            {!confirm ? (
-              <button
-                onClick={() => setConfirm(true)}
-                className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-xl border border-red-200 text-red-500 hover:bg-red-50 transition-colors"
-              >
-                <Ban className="w-3.5 h-3.5" />
-                Cancelar pedido
-              </button>
-            ) : (
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-red-600 font-medium">¿Seguro que quieres cancelarlo?</span>
-                <button
-                  onClick={handleCancel}
-                  disabled={loading}
-                  className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
-                >
-                  {loading ? 'Cancelando...' : 'Sí, cancelar'}
-                </button>
-                <button
-                  onClick={() => setConfirm(false)}
-                  className="text-xs font-medium px-3 py-1.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
-                >
-                  Volver
-                </button>
-              </div>
-            )}
+              )
+            })}
           </div>
-        )}
 
-        <div className="mt-3 pt-3 border-t border-gray-100">
-          <p className="text-xs font-semibold text-gray-600 mb-1.5 flex items-center gap-1.5">
-            <MessageCircle className="w-3.5 h-3.5" /> Chat con la nave
-          </p>
-          <OrderChat orderId={order.id} currentUserId={currentUserId} />
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={handleRepeat}
+              className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-xl border border-[#1E2B28]/30 text-[#1E2B28] hover:bg-[#1E2B28]/10 transition-colors"
+            >
+              <Repeat className="w-3.5 h-3.5" /> Repetir pedido
+            </button>
+            {canReturn && (
+              <button
+                onClick={() => onReturn(order.id, '')}
+                className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <Undo2 className="w-3.5 h-3.5" /> Devolver algo de este pedido
+              </button>
+            )}
+            {canCancel && (
+              !confirmCancel ? (
+                <button
+                  onClick={() => setConfirmCancel(true)}
+                  className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-xl border border-red-200 text-red-500 hover:bg-red-50 transition-colors"
+                >
+                  <Ban className="w-3.5 h-3.5" /> Cancelar pedido
+                </button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-red-600 font-medium">¿Seguro?</span>
+                  <button
+                    onClick={handleCancel}
+                    disabled={loading}
+                    className="text-xs font-semibold px-3 py-2 rounded-xl bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+                  >
+                    {loading ? 'Cancelando…' : 'Sí, cancelar'}
+                  </button>
+                  <button
+                    onClick={() => setConfirmCancel(false)}
+                    className="text-xs font-medium px-3 py-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50"
+                  >
+                    No
+                  </button>
+                </div>
+              )
+            )}
+            <ChatToggle orderId={order.id} currentUserId={currentUserId} />
+          </div>
         </div>
-      </CardContent>
-    </Card>
+      )}
+    </div>
   )
 }
 
@@ -299,6 +257,9 @@ export function PedidosRestauranteClient({ orders: initialOrders, deletedOrders 
   const [dateFilter, setDateFilter] = useState('')
   const [toggled, setToggled] = useState<Record<string, boolean>>({})
   const [showDeleted, setShowDeleted] = useState(false)
+  const [returnOpen, setReturnOpen] = useState(false)
+  const [returnPreset, setReturnPreset] = useState<{ orderId: string; productId: string } | null>(null)
+  const [returnOrderFilter, setReturnOrderFilter] = useState<string | null>(null)
 
   function handleCanceled(id: string) {
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status: 'cancelado' } : o))
@@ -320,6 +281,33 @@ export function PedidosRestauranteClient({ orders: initialOrders, deletedOrders 
       }
     }))
   }
+
+  // Todas las líneas entregadas que todavía se pueden devolver, de más
+  // reciente a más antigua (orders ya viene ordenado así del servidor).
+  const returnLines: ReturnLine[] = useMemo(() => {
+    const lines: ReturnLine[] = []
+    for (const o of orders) {
+      for (const item of o.order_items ?? []) {
+        const remaining = remainingToReturn(o, item)
+        if (remaining <= 0) continue
+        lines.push({
+          orderId: o.id, orderNumber: o.order_number, createdAt: o.created_at,
+          productId: item.product_id, productName: item.products?.name ?? 'Producto',
+          unit: item.unit, unitPrice: Number(item.unit_price), lotNumber: item.lot_number ?? null,
+          remaining,
+        })
+      }
+    }
+    return lines
+  }, [orders])
+
+  function openReturn(orderId?: string, productId?: string) {
+    setReturnPreset(orderId && productId ? { orderId, productId } : null)
+    // Desde "Devolver algo de este pedido" se filtra la lista a ese pedido.
+    setReturnOrderFilter(orderId && !productId ? orderId : null)
+    setReturnOpen(true)
+  }
+  const sheetLines = returnOrderFilter ? returnLines.filter(l => l.orderId === returnOrderFilter) : returnLines
 
   const filtered = useMemo(() => {
     return orders.filter(o => {
@@ -370,7 +358,15 @@ export function PedidosRestauranteClient({ orders: initialOrders, deletedOrders 
 
   return (
     <div className="space-y-4">
-      {/* Filtros */}
+      {/* Acción principal + búsqueda */}
+      <button
+        onClick={() => openReturn()}
+        className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-[#1E2B28] text-white font-semibold shadow-sm hover:bg-[#141F1C] active:scale-[0.99] transition-all"
+      >
+        <Undo2 className="w-5 h-5" />
+        Devolver un producto
+      </button>
+
       <div className="flex flex-col sm:flex-row gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600 pointer-events-none" />
@@ -410,23 +406,29 @@ export function PedidosRestauranteClient({ orders: initialOrders, deletedOrders 
           {groups.map(([key, group], idx) => {
             const open = isOpen(key, idx)
             return (
-              <div key={key} className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+              <div key={key}>
                 <button
                   onClick={() => toggle(key, idx)}
-                  className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-gray-50/80 transition-colors"
+                  className="w-full flex items-center justify-between px-1 py-2 text-left"
                 >
                   <div className="flex items-center gap-2.5">
-                    <span className="font-semibold text-black capitalize">{dayLabel(group[0].created_at)}</span>
+                    <span className="font-bold text-black capitalize">{dayLabel(group[0].created_at)}</span>
                     <span className="text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full font-medium">
                       {group.length} {group.length === 1 ? 'pedido' : 'pedidos'}
                     </span>
                   </div>
-                  <ChevronDown className={cn('h-4 w-4 text-gray-600 transition-transform shrink-0', open && 'rotate-180')} />
+                  <ChevronDown className={cn('h-4 w-4 text-gray-500 transition-transform shrink-0', open && 'rotate-180')} />
                 </button>
                 {open && (
-                  <div className="px-4 pb-4 pt-1 space-y-3 border-t border-gray-100">
+                  <div className="space-y-2">
                     {group.map(order => (
-                      <OrderRow key={order.id} order={order} onCanceled={handleCanceled} onReturned={handleReturned} currentUserId={currentUserId} />
+                      <OrderRow
+                        key={order.id}
+                        order={order}
+                        onCanceled={handleCanceled}
+                        onReturn={(orderId, productId) => openReturn(orderId, productId || undefined)}
+                        currentUserId={currentUserId}
+                      />
                     ))}
                   </div>
                 )}
@@ -437,6 +439,15 @@ export function PedidosRestauranteClient({ orders: initialOrders, deletedOrders 
       )}
 
       <DeletedOrdersSection orders={deletedOrders} show={showDeleted} onToggle={() => setShowDeleted(v => !v)} />
+
+      {returnOpen && (
+        <ReturnSheet
+          lines={sheetLines}
+          preset={returnPreset}
+          onClose={() => setReturnOpen(false)}
+          onReturned={handleReturned}
+        />
+      )}
     </div>
   )
 }
@@ -447,14 +458,14 @@ export function PedidosRestauranteClient({ orders: initialOrders, deletedOrders 
 function DeletedOrdersSection({ orders, show, onToggle }: { orders: DeletedOrder[]; show: boolean; onToggle: () => void }) {
   if (orders.length === 0) return null
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
       <button
         onClick={onToggle}
         className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-gray-50/80 transition-colors"
       >
         <div className="flex items-center gap-2.5">
           <Trash2 className="h-4 w-4 text-gray-600" />
-          <span className="font-semibold text-black">Pedidos eliminados por la nave</span>
+          <span className="font-semibold text-black text-sm">Pedidos eliminados por la nave</span>
           <span className="text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full font-medium">{orders.length}</span>
         </div>
         <ChevronDown className={cn('h-4 w-4 text-gray-600 transition-transform shrink-0', show && 'rotate-180')} />

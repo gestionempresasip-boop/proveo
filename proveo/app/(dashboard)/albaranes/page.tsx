@@ -1,9 +1,15 @@
 import { createClient } from '@/lib/supabase/server'
 import { getAuthProfile } from '@/lib/supabase/helpers'
-import { FileText } from 'lucide-react'
+import Link from 'next/link'
 import { AlbaranesClient } from '@/components/delivery-notes/AlbaranesClient'
 
-export default async function AlbaranesPage() {
+// Por defecto solo los últimos 4 meses (antes se traían todos los albaranes
+// de la historia en cada visita); ?todo=1 trae el histórico completo.
+const RECENT_DAYS = 120
+
+export default async function AlbaranesPage({ searchParams }: { searchParams: Promise<{ todo?: string }> }) {
+  const { todo } = await searchParams
+  const showAll = todo === '1'
   const supabase = await createClient()
   const profile = await getAuthProfile()
   const isNave = profile.organizations.type === 'nave'
@@ -13,6 +19,10 @@ export default async function AlbaranesPage() {
     .from('delivery_notes')
     .select('*, orders(order_number, total_price, restaurant_id, organizations(name)), delivery_note_items(delivered_quantity, unit_price, return_reason)')
     .order('delivered_at', { ascending: false })
+
+  if (!showAll) {
+    query = query.gte('delivered_at', new Date(Date.now() - RECENT_DAYS * 86400000).toISOString())
+  }
 
   if (!isNave && profile.role !== 'admin') {
     query = query.eq('orders.restaurant_id', profile.organization_id)
@@ -40,6 +50,14 @@ export default async function AlbaranesPage() {
         </div>
       )}
       <AlbaranesClient notes={validNotes} isNave={isNave} />
+
+      <p className="text-center text-xs text-gray-600">
+        {showAll ? (
+          <Link href="/albaranes" className="underline">Ver solo los últimos 4 meses</Link>
+        ) : (
+          <>Mostrando los últimos 4 meses · <Link href="/albaranes?todo=1" className="underline font-medium text-[#1E2B28]">Ver todo el histórico</Link></>
+        )}
+      </p>
     </div>
   )
 }

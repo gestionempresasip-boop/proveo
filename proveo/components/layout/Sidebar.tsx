@@ -13,6 +13,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { ORG_LOGOS } from '@/lib/orgLogos'
+import { NotificationBell } from '@/components/notifications/NotificationProvider'
 
 interface NavItem {
   href: string
@@ -106,6 +107,7 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
             <p className="text-white text-sm font-medium truncate leading-tight">{profile.full_name ?? 'Usuario'}</p>
             <p className="text-gray-700 text-xs mt-0.5 capitalize">{profile.role.replace('_', ' ')}</p>
           </div>
+          <NotificationBell className="shrink-0 w-8 h-8 bg-white/15 text-white hover:bg-white/25" />
           <button
             onClick={handleRefresh}
             disabled={refreshing}

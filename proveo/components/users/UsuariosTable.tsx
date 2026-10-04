@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Users, Building2, Pencil, Check, X, KeyRound, Eye, EyeOff } from 'lucide-react'
+import { Users, Building2, Pencil, Check, X, KeyRound, Eye, EyeOff, Phone } from 'lucide-react'
 import { updateUserPin, updateUserProfile } from '@/app/actions/users'
 
 const ROLE_LABELS: Record<string, string> = {
@@ -24,7 +24,9 @@ type UserRow = {
   organizations: { name: string; type: string } | null
 }
 
-function PinCell({ user, onUpdated }: { user: UserRow; onUpdated: (id: string, patch: Partial<UserRow>) => void }) {
+const btn = 'flex items-center justify-center gap-1.5 text-sm font-medium px-3.5 py-2.5 rounded-xl border transition-colors'
+
+function PinBlock({ user, onUpdated }: { user: UserRow; onUpdated: (id: string, patch: Partial<UserRow>) => void }) {
   const [editing, setEditing] = useState(false)
   const [visible, setVisible] = useState(false)
   const [value, setValue] = useState('')
@@ -33,7 +35,7 @@ function PinCell({ user, onUpdated }: { user: UserRow; onUpdated: (id: string, p
 
   function save() {
     setError(null)
-    if (!/^\d{4}$/.test(value)) { setError('4 dígitos'); return }
+    if (!/^\d{4}$/.test(value)) { setError('El PIN tiene que ser de 4 dígitos'); return }
     const newPin = value
     const prevPin = user.pin
     startTransition(async () => {
@@ -51,45 +53,52 @@ function PinCell({ user, onUpdated }: { user: UserRow; onUpdated: (id: string, p
     })
   }
 
-  if (editing) {
-    return (
-      <div className="flex items-center gap-1.5">
-        <input
-          type="text" inputMode="numeric" maxLength={4} autoFocus
-          placeholder="••••"
-          value={value}
-          onChange={e => setValue(e.target.value.replace(/\D/g, '').slice(0, 4))}
-          onKeyDown={e => { if (e.key === 'Enter') save() }}
-          className="w-16 border border-gray-200 rounded-lg px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
-        />
-        <button onClick={save} disabled={pending} className="p-1 rounded text-green-600 hover:bg-green-50"><Check className="w-4 h-4" /></button>
-        <button onClick={() => { setEditing(false); setError(null) }} className="p-1 rounded text-gray-600 hover:bg-gray-100"><X className="w-4 h-4" /></button>
-        {error && <span className="text-xs text-red-500">{error}</span>}
-      </div>
-    )
-  }
-
   return (
-    <div className="flex items-center gap-1.5">
-      <span className="font-mono text-sm text-black tabular-nums">
-        {user.pin ? (visible ? user.pin : '••••') : <span className="text-gray-700">Sin PIN</span>}
-      </span>
-      {user.pin && (
-        <button onClick={() => setVisible(v => !v)} className="p-1 rounded text-gray-600 hover:text-[#1E2B28] hover:bg-gray-100">
-          {visible ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-        </button>
+    <div>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-600 mb-1.5">PIN de acceso</p>
+      {editing ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="text" inputMode="numeric" maxLength={4} autoFocus
+            placeholder="Nuevo PIN"
+            value={value}
+            onChange={e => setValue(e.target.value.replace(/\D/g, '').slice(0, 4))}
+            onKeyDown={e => { if (e.key === 'Enter') save() }}
+            className="w-28 border border-gray-300 rounded-xl px-3 py-2.5 text-center text-lg font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
+          />
+          <button onClick={save} disabled={pending} className={`${btn} bg-[#1E2B28] border-[#1E2B28] text-white hover:bg-[#141F1C] disabled:opacity-50`}>
+            <Check className="w-4 h-4" /> Guardar
+          </button>
+          <button onClick={() => { setEditing(false); setError(null) }} className={`${btn} border-gray-200 text-gray-700 hover:bg-gray-50`}>
+            <X className="w-4 h-4" /> Cancelar
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-mono text-xl tracking-widest text-black tabular-nums min-w-[72px]">
+            {user.pin ? (visible ? user.pin : '••••') : <span className="text-sm tracking-normal font-sans text-gray-600">Sin PIN</span>}
+          </span>
+          {user.pin && (
+            <button onClick={() => setVisible(v => !v)} className={`${btn} border-gray-200 text-gray-700 hover:bg-gray-50`}>
+              {visible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              {visible ? 'Ocultar' : 'Ver PIN'}
+            </button>
+          )}
+          <button onClick={() => setEditing(true)} className={`${btn} border-[#A8793A] text-[#A8793A] hover:bg-amber-50`}>
+            <KeyRound className="w-4 h-4" /> Cambiar PIN
+          </button>
+        </div>
       )}
-      <button onClick={() => setEditing(true)} title="Cambiar PIN" className="p-1 rounded text-gray-600 hover:text-[#1E2B28] hover:bg-gray-100">
-        <KeyRound className="w-3.5 h-3.5" />
-      </button>
+      {error && <p className="text-xs text-red-600 mt-1.5">{error}</p>}
     </div>
   )
 }
 
-function NameCell({ user, onUpdated }: { user: UserRow; onUpdated: (id: string, patch: Partial<UserRow>) => void }) {
+function UserCard({ user, onUpdated }: { user: UserRow; onUpdated: (id: string, patch: Partial<UserRow>) => void }) {
   const [editing, setEditing] = useState(false)
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const initial = (user.full_name || user.organizations?.name || '?').trim()[0]?.toUpperCase() ?? '?'
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -112,29 +121,62 @@ function NameCell({ user, onUpdated }: { user: UserRow; onUpdated: (id: string, 
     })
   }
 
-  if (editing) {
-    return (
-      <form onSubmit={handleSubmit} className="flex items-center gap-1.5">
-        <input name="full_name" defaultValue={user.full_name ?? ''} autoFocus placeholder="Nombre"
-          className="w-32 border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
-        <input name="phone" defaultValue={user.phone ?? ''} placeholder="Teléfono"
-          className="w-28 border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
-        <button type="submit" disabled={pending} className="p-1 rounded text-green-600 hover:bg-green-50"><Check className="w-4 h-4" /></button>
-        <button type="button" onClick={() => setEditing(false)} className="p-1 rounded text-gray-600 hover:bg-gray-100"><X className="w-4 h-4" /></button>
-      </form>
-    )
-  }
-
   return (
-    <div className="flex items-center gap-2">
-      <div className="w-7 h-7 rounded-full bg-[#1E2B28] text-white flex items-center justify-center text-xs font-bold shrink-0">
-        {user.full_name?.[0] ?? '?'}
+    <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-4">
+      <div className="flex items-start gap-3">
+        <div className="w-11 h-11 rounded-full bg-[#1E2B28] text-white flex items-center justify-center text-lg font-bold shrink-0">
+          {initial}
+        </div>
+        <div className="flex-1 min-w-0">
+          {editing ? (
+            <form onSubmit={handleSubmit} className="space-y-2">
+              <div>
+                <label className="text-[11px] font-semibold uppercase tracking-wide text-gray-600">Nombre</label>
+                <input name="full_name" defaultValue={user.full_name ?? ''} autoFocus placeholder="Nombre"
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
+              </div>
+              <div>
+                <label className="text-[11px] font-semibold uppercase tracking-wide text-gray-600">Teléfono</label>
+                <input name="phone" defaultValue={user.phone ?? ''} placeholder="Teléfono"
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button type="submit" disabled={pending} className={`${btn} bg-[#1E2B28] border-[#1E2B28] text-white hover:bg-[#141F1C] disabled:opacity-50`}>
+                  <Check className="w-4 h-4" /> Guardar
+                </button>
+                <button type="button" onClick={() => setEditing(false)} className={`${btn} border-gray-200 text-gray-700 hover:bg-gray-50`}>
+                  <X className="w-4 h-4" /> Cancelar
+                </button>
+              </div>
+            </form>
+          ) : (
+            <>
+              <div className="flex items-start justify-between gap-2">
+                <p className="font-bold text-black text-base leading-tight">{user.full_name ?? 'Sin nombre'}</p>
+                <span className={`px-2.5 py-1 rounded-full text-xs font-semibold shrink-0 ${ROLE_COLORS[user.role] ?? 'bg-gray-100 text-gray-600'}`}>
+                  {ROLE_LABELS[user.role] ?? user.role}
+                </span>
+              </div>
+              <p className="flex items-center gap-1.5 text-sm text-gray-700 mt-1.5">
+                <Building2 className="w-4 h-4 text-gray-500 shrink-0" />
+                {user.organizations?.name ?? '—'}
+              </p>
+              <p className="flex items-center gap-1.5 text-sm text-gray-700 mt-1">
+                <Phone className="w-4 h-4 text-gray-500 shrink-0" />
+                {user.phone ?? '—'}
+              </p>
+              <button onClick={() => setEditing(true)} className={`${btn} border-gray-200 text-gray-700 hover:bg-gray-50 mt-3`}>
+                <Pencil className="w-4 h-4" /> Editar nombre y teléfono
+              </button>
+            </>
+          )}
+          {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
+        </div>
       </div>
-      <span className="font-medium text-black">{user.full_name ?? 'Sin nombre'}</span>
-      <button onClick={() => setEditing(true)} title="Editar" className="p-1 rounded text-gray-700 hover:text-[#1E2B28] hover:bg-gray-100">
-        <Pencil className="w-3.5 h-3.5" />
-      </button>
-      {error && <span className="text-xs text-red-500">{error}</span>}
+
+      <div className="pt-4 border-t border-gray-100">
+        <PinBlock user={user} onUpdated={onUpdated} />
+      </div>
     </div>
   )
 }
@@ -146,47 +188,20 @@ export function UsuariosTable({ users: initialUsers }: { users: UserRow[] }) {
     setUsers(prev => prev.map(u => u.id === id ? { ...u, ...patch } : u))
   }
 
-  return (
-    <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm min-w-[640px]">
-          <thead className="bg-gray-50 border-b border-gray-100">
-            <tr>
-              <th className="text-left px-4 py-3 text-gray-700 font-medium">Nombre</th>
-              <th className="text-left px-4 py-3 text-gray-700 font-medium">Organización</th>
-              <th className="text-left px-4 py-3 text-gray-700 font-medium">Rol</th>
-              <th className="text-left px-4 py-3 text-gray-700 font-medium">Teléfono</th>
-              <th className="text-left px-4 py-3 text-gray-700 font-medium">PIN de acceso</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {users.map(u => (
-              <tr key={u.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3"><NameCell user={u} onUpdated={handleUpdated} /></td>
-                <td className="px-4 py-3 text-gray-700">
-                  <div className="flex items-center gap-1.5">
-                    <Building2 className="w-3.5 h-3.5 text-gray-600" />
-                    {u.organizations?.name ?? '—'}
-                  </div>
-                </td>
-                <td className="px-4 py-3">
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${ROLE_COLORS[u.role] ?? 'bg-gray-100 text-gray-600'}`}>
-                    {ROLE_LABELS[u.role] ?? u.role}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-gray-700">{u.phone ?? '—'}</td>
-                <td className="px-4 py-3"><PinCell user={u} onUpdated={handleUpdated} /></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+  if (users.length === 0) {
+    return (
+      <div className="text-center py-12 text-gray-600">
+        <Users className="w-10 h-10 mx-auto mb-2 opacity-30" />
+        No hay usuarios
       </div>
-      {users.length === 0 && (
-        <div className="text-center py-12 text-gray-600">
-          <Users className="w-10 h-10 mx-auto mb-2 opacity-30" />
-          No hay usuarios
-        </div>
-      )}
+    )
+  }
+
+  return (
+    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+      {users.map(u => (
+        <UserCard key={u.id} user={u} onUpdated={handleUpdated} />
+      ))}
     </div>
   )
 }
