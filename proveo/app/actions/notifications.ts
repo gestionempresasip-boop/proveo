@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { notifyNewOrderCreated } from '@/lib/notifications/appNotify'
+import { inBackground } from '@/lib/notifications/background'
 
 export type AppNotification = {
   id: string
@@ -16,7 +17,10 @@ export type AppNotification = {
 
 async function myOrg(): Promise<{ orgId: string; orgType: 'nave' | 'restaurante' } | null> {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  // getSession (sin llamada de red): el middleware ya validó la sesión en esta petición. Esta función
+  // se llama cada 15 s desde cada dispositivo para la campana.
+  const { data: { session } } = await supabase.auth.getSession()
+  const user = session?.user
   if (!user) return null
   const { data: profile } = await (supabase as any)
     .from('profiles').select('organization_id, organizations(type)').eq('id', user.id).single()
@@ -55,7 +59,7 @@ export async function notifyNewOrder(orderId: string) {
   try {
     const me = await myOrg()
     if (!me || me.orgType !== 'restaurante') return
-    await notifyNewOrderCreated(orderId, me.orgId)
+    inBackground(() => notifyNewOrderCreated(orderId, me.orgId))
   } catch {
     // ignorado a propósito: un aviso nunca debe afectar al pedido
   }

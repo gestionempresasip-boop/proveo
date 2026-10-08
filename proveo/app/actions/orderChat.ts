@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { notifyChatMessage } from '@/lib/notifications/appNotify'
+import { inBackground } from '@/lib/notifications/background'
 
 export type OrderMessage = {
   id: string
@@ -41,7 +42,8 @@ export async function sendOrderMessage(orderId: string, body: string) {
 
   try {
     const { data: me } = await (supabase as any).from('profiles').select('organizations(type)').eq('id', user.id).single()
-    await notifyChatMessage(orderId, me?.organizations?.type === 'nave' ? 'nave' : 'restaurante', body.trim())
+    const senderType = me?.organizations?.type === 'nave' ? 'nave' : 'restaurante'
+    inBackground(() => notifyChatMessage(orderId, senderType, body.trim()))
   } catch {
     // el aviso es un extra: nunca debe impedir enviar el mensaje
   }

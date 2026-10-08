@@ -4,12 +4,15 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { checkAndNotifyLowStock } from '@/lib/notifications/lowStock'
 import { notifyOrderStatus, notifyReturnReceived } from '@/lib/notifications/appNotify'
+import { inBackground } from '@/lib/notifications/background'
 
 // Tipo de organización de quien ejecuta la acción (para saber a quién avisar).
 async function actorOrgType(): Promise<'nave' | 'restaurante' | null> {
   try {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    // getSession (sin llamada de red): el middleware ya validó la sesión en esta petición
+    const { data: { session } } = await supabase.auth.getSession()
+    const user = session?.user
     if (!user) return null
     const { data } = await (supabase as any).from('profiles').select('organizations(type)').eq('id', user.id).single()
     return data?.organizations?.type === 'nave' ? 'nave' : 'restaurante'
@@ -61,7 +64,9 @@ export async function updateOrderStatus(orderId: string, newStatus: OrderStatus)
   }
 
   if (newStatus === 'hecho' || newStatus === 'enviado' || (newStatus === 'cancelado' && !wasAlreadyCancelled)) {
-    await notifyOrderStatus(orderId, newStatus, await actorOrgType())
+    // Los avisos se hacen después de contestar: no hacen esperar a quien cambia el estado
+    const actor = await actorOrgType()
+    inBackground(() => notifyOrderStatus(orderId, newStatus, actor))
   }
 
   revalidatePath('/pedidos')
@@ -292,7 +297,7 @@ export async function createReturn(orderId: string, items: ReturnItemInput[]) {
   const sb = supabase as any
   const { data, error } = await sb.rpc('create_return', { p_order_id: orderId, p_items: items })
   if (error) throw new Error(error.message)
-  await notifyReturnReceived(orderId, items.length)
+  inBackground(() => notifyReturnReceived(orderId, items.length))
   revalidatePath('/pedidos')
   revalidatePath('/albaranes')
   return data as string
@@ -326,7 +331,7 @@ export async function deleteOrder(orderId: string) {
   const { error } = await sb.from('orders').update({ deleted_at: new Date().toISOString(), deleted_by: user?.id ?? null }).eq('id', orderId)
   if (error) throw new Error(error.message)
 
-  await notifyOrderStatus(orderId, 'eliminado', 'nave')
+  inBackground(() => notifyOrderStatus(orderId, 'eliminado', 'nave'))
 
   revalidatePath('/pedidos')
   revalidatePath('/albaranes')
@@ -357,7 +362,7 @@ export async function restoreOrder(orderId: string) {
   const { error } = await sb.from('orders').update({ deleted_at: null, deleted_by: null }).eq('id', orderId)
   if (error) throw new Error(error.message)
 
-  await notifyOrderStatus(orderId, 'restaurado', 'nave')
+  inBackground(() => notifyOrderStatus(orderId, 'restaurado', 'nave'))
 
   revalidatePath('/pedidos')
   revalidatePath('/albaranes')
