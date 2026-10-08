@@ -4,10 +4,8 @@ import { getProductionState } from '@/app/actions/production'
 import { isProduccionCodeConfigured, isProduccionUnlocked } from '@/app/actions/produccionGate'
 import { ProduccionClient } from '@/components/production/ProduccionClient'
 import { ProduccionGate } from '@/components/production/ProduccionGate'
-import { requireArea } from '@/lib/areaGuard'
 
 export default async function ProduccionPage() {
-  await requireArea('produccion')
   const profile = await getAuthProfile()
   if (!(profile.role === 'admin' || profile.organizations.type === 'nave')) redirect('/dashboard')
 

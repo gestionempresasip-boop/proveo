@@ -2,13 +2,11 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { assertArea } from '@/lib/areaGuard'
 
 export async function createProductAndPromote(
   product: { name: string; unit: string; cost_price: number; iva_rate: number; margin: number },
   promo: { label: string; notes: string | null; expiresAt: string | null },
 ): Promise<{ id: string; name: string; unit: string }> {
-  await assertArea('promociones')
   const supabase = await createClient()
   const sb = supabase as any
   const { data: { session } } = await supabase.auth.getSession()
@@ -56,7 +54,6 @@ export async function upsertPromotion(
   notes: string | null,
   expiresAt: string | null,
 ) {
-  await assertArea('promociones')
   const supabase = await createClient()
   const sb = supabase as any
   const { data: { session } } = await supabase.auth.getSession()
@@ -80,7 +77,6 @@ export async function upsertPromotion(
 }
 
 export async function removePromotion(id: string) {
-  await assertArea('promociones')
   const supabase = await createClient()
   const sb = supabase as any
   const { error } = await sb.from('promotions').delete().eq('id', id)

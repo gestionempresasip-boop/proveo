@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { assertArea } from '@/lib/areaGuard'
+import { assertUnlocked } from '@/lib/gateGuard'
 
 export type FixedCostCategory = 'personal' | 'suministros' | 'alquiler' | 'prestamos' | 'seguros' | 'otros'
 
@@ -25,7 +25,7 @@ async function assertIsNaveOrAdmin() {
 }
 
 export async function createFixedCost(input: { category: FixedCostCategory; name: string; monthly_amount: number }) {
-  await assertArea('informes')
+  await assertUnlocked('informes')
   await assertIsNaveOrAdmin()
   if (!input.name.trim()) throw new Error('Falta el nombre')
   if (!(input.monthly_amount >= 0)) throw new Error('Importe inválido')
@@ -42,7 +42,7 @@ export async function createFixedCost(input: { category: FixedCostCategory; name
 }
 
 export async function updateFixedCost(id: string, input: { category: FixedCostCategory; name: string; monthly_amount: number }) {
-  await assertArea('informes')
+  await assertUnlocked('informes')
   await assertIsNaveOrAdmin()
   if (!input.name.trim()) throw new Error('Falta el nombre')
   if (!(input.monthly_amount >= 0)) throw new Error('Importe inválido')
@@ -57,7 +57,7 @@ export async function updateFixedCost(id: string, input: { category: FixedCostCa
 }
 
 export async function toggleFixedCostActive(id: string, active: boolean) {
-  await assertArea('informes')
+  await assertUnlocked('informes')
   await assertIsNaveOrAdmin()
   const supabase = await createClient()
   const { error } = await (supabase as any)
@@ -69,7 +69,7 @@ export async function toggleFixedCostActive(id: string, active: boolean) {
 }
 
 export async function deleteFixedCost(id: string) {
-  await assertArea('informes')
+  await assertUnlocked('informes')
   await assertIsNaveOrAdmin()
   const supabase = await createClient()
   const { error } = await (supabase as any).from('nave_fixed_costs').delete().eq('id', id)

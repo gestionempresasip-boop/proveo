@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { PrintButton } from '../[id]/PrintButton'
 import { AlbaranDocument } from '@/components/delivery-notes/AlbaranDocument'
-import { requireArea } from '@/lib/areaGuard'
 
 type SP = { desde?: string; hasta?: string; restaurante?: string; tipo?: string; resumen?: string }
 
@@ -14,7 +13,6 @@ const fmtDay = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString('es-E
 const eur = (n: number) => `${n < 0 ? '− ' : ''}${Math.abs(n).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
 
 export default async function ImprimirAlbaranesPage({ searchParams }: { searchParams: Promise<SP> }) {
-  await requireArea('albaranes')
   const sp = await searchParams
   const profile = await getAuthProfile()
   const isNave = profile.organizations.type === 'nave'

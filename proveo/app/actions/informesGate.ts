@@ -1,6 +1,5 @@
 'use server'
 
-import { assertArea } from '@/lib/areaGuard'
 import { codesMatch } from '@/lib/accessCode'
 import { clearGateCookie, gateToken, hasGateCookie, rejectWrongCode, setGateCookie } from '@/lib/accessGate'
 
@@ -14,14 +13,13 @@ const MAX_AGE_SECONDS = 60 * 60 * 24 * 30 // 30 días
 const configured = () => process.env.INFORMES_ACCESS_CODE
 
 export async function unlockInformes(code: string): Promise<{ ok: boolean; error?: string }> {
-  await assertArea('informes')
   const real = configured()
   if (!real) {
     return { ok: false, error: 'No hay ningún código configurado todavía (falta INFORMES_ACCESS_CODE)' }
   }
   if (!codesMatch(code, real)) {
-    await rejectWrongCode('informes', { INFORMES_ACCESS_CODE: real })
-    return { ok: false, error: 'Código incorrecto' }
+    const hint = await rejectWrongCode('informes', { INFORMES_ACCESS_CODE: real }, code)
+    return { ok: false, error: 'Código incorrecto' + hint }
   }
 
   const token = gateToken('informes', real)

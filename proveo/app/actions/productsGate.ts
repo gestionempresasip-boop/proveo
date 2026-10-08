@@ -4,7 +4,6 @@ import { revalidatePath } from 'next/cache'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { getAuthProfile } from '@/lib/supabase/helpers'
-import { canAccess } from '@/lib/areas'
 import { codesMatch } from '@/lib/accessCode'
 import { clearGateCookie, gateToken, hasGateCookie, rejectWrongCode, setGateCookie } from '@/lib/accessGate'
 
@@ -22,7 +21,7 @@ const configured = () => process.env.PRODUCTOS_ACCESS_CODE
 async function assertNaveManager() {
   const profile = await getAuthProfile()
   const ok = profile.role === 'admin' || (profile.role === 'nave_manager' && profile.organizations.type === 'nave')
-  if (!ok || !canAccess(profile, 'productos')) throw new Error('Sin permisos')
+  if (!ok) throw new Error('Sin permisos')
 }
 
 export async function isProductsCodeConfigured(): Promise<boolean> {
@@ -38,8 +37,8 @@ export async function unlockProducts(code: string): Promise<{ ok: boolean; error
   const real = configured()
   if (!real) return { ok: false, error: 'Todavía no hay ningún código configurado (falta PRODUCTOS_ACCESS_CODE)' }
   if (!codesMatch(code, real)) {
-    await rejectWrongCode('productos', { PRODUCTOS_ACCESS_CODE: real })
-    return { ok: false, error: 'Código incorrecto' }
+    const hint = await rejectWrongCode('productos', { PRODUCTOS_ACCESS_CODE: real }, code)
+    return { ok: false, error: 'Código incorrecto' + hint }
   }
   const token = gateToken('productos', real)
   if (!token) return { ok: false, error: 'No se pudo generar el acceso' }

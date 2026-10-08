@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation'
 import { getAuthProfile } from '@/lib/supabase/helpers'
 import { adminDb, rowsOf } from '@/lib/serverAccess'
-import { canAccess } from '@/lib/areas'
 import { costesCodeStatus, isCostesUnlocked } from '@/app/actions/costesGate'
 import { getMeasuredProducts, getRunHistory } from '@/app/actions/production'
 import { loadCostContext, loadSoldPerMonth } from '@/lib/costContext'
@@ -16,7 +15,7 @@ type ProductRow = {
 
 export default async function CostesPage() {
   const profile = await getAuthProfile()
-  const allowed = (profile.role === 'admin' || (profile.role === 'nave_manager' && profile.organizations.type === 'nave')) && canAccess(profile, 'costes')
+  const allowed = (profile.role === 'admin' || (profile.role === 'nave_manager' && profile.organizations.type === 'nave'))
   if (!allowed) redirect('/dashboard')
 
   const [status, unlocked] = await Promise.all([costesCodeStatus(), isCostesUnlocked()])

@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { assertArea } from '@/lib/areaGuard'
+import { assertUnlocked } from '@/lib/gateGuard'
 
 // Cuánto se consume de media al día por producto (últimos 30 días de
 // pedidos reales, sin contar cancelados) frente a lo que queda en stock,
@@ -22,7 +22,7 @@ export type PurchaseSuggestion = {
 }
 
 export async function getPurchaseSuggestions(): Promise<PurchaseSuggestion[]> {
-  await assertArea('stock')
+  await assertUnlocked('stock')
   const supabase = await createClient()
   const sb = supabase as any
 

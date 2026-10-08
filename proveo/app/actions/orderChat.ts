@@ -3,7 +3,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { notifyChatMessage } from '@/lib/notifications/appNotify'
-import { assertArea } from '@/lib/areaGuard'
 
 export type OrderMessage = {
   id: string
@@ -15,7 +14,6 @@ export type OrderMessage = {
 }
 
 export async function listOrderMessages(orderId: string): Promise<OrderMessage[]> {
-  await assertArea('pedidos')
   const supabase = await createClient()
   const { data, error } = await (supabase as any)
     .from('order_messages')
@@ -31,7 +29,6 @@ export async function listOrderMessages(orderId: string): Promise<OrderMessage[]
 }
 
 export async function sendOrderMessage(orderId: string, body: string) {
-  await assertArea('pedidos')
   if (!body.trim()) return
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

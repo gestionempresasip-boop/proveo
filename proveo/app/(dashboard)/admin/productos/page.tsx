@@ -3,17 +3,20 @@ import { createClient } from '@/lib/supabase/server'
 import { rowsOf } from '@/lib/serverAccess'
 import { splitByProtection, type CategoryLink, type CategoryRow } from '@/lib/protectedCategories'
 import { ProductosManager, type Product } from '@/components/products/ProductosManager'
+import { ProductosGate } from '@/components/products/ProductosGate'
 import { isProductsCodeConfigured, isProductsUnlocked } from '@/app/actions/productsGate'
-import { requireArea } from '@/lib/areaGuard'
 
 export default async function AdminProductosPage() {
-  await requireArea('productos')
   const profile = await getAuthProfile()
   const canEdit = profile.role === 'admin' || profile.role === 'nave_manager'
 
   if (!canEdit) {
     return <div className="p-6"><p className="text-red-600">Sin permisos.</p></div>
   }
+
+  // Toda la pestaña pide su clave: sin ella no se piden precios, costes ni márgenes.
+  const [codeConfigured, unlocked] = await Promise.all([isProductsCodeConfigured(), isProductsUnlocked()])
+  if (!unlocked) return <ProductosGate configured={codeConfigured} />
 
   const sb = await createClient()
 
@@ -36,7 +39,6 @@ export default async function AdminProductosPage() {
   }
   if (products.error) console.error('Error cargando productos:', products.error)
 
-  const [codeConfigured, unlocked] = await Promise.all([isProductsCodeConfigured(), isProductsUnlocked()])
   const categoryRows = rowsOf<CategoryRow>(categories)
   const { visible, locked } = splitByProtection(rowsOf<Product>(products), categoryRows, rowsOf<CategoryLink>(links), unlocked)
 

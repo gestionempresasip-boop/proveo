@@ -3,11 +3,8 @@ import { getAuthProfile } from '@/lib/supabase/helpers'
 import { Package } from 'lucide-react'
 import { PedidosNaveClient } from '@/components/orders/PedidosNaveClient'
 import { PedidosRestauranteClient } from '@/components/orders/PedidosRestauranteClient'
-import { requireArea } from '@/lib/areaGuard'
-import { canSeePrices } from '@/lib/areas'
 
 export default async function PedidosPage() {
-  await requireArea('pedidos')
   const supabase = await createClient()
   const profile = await getAuthProfile()
   const isNave = profile.organizations.type === 'nave'
@@ -39,20 +36,10 @@ export default async function PedidosPage() {
         .order('name'),
     ])
 
-    // Sin permiso de precios (Reparto) los importes NO salen del servidor, no solo se esconden.
-    const showPrices = canSeePrices(profile)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const strip = (list: any[]) => showPrices ? list : list.map(o => ({
-      ...o, total_price: 0,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      order_items: (o.order_items ?? []).map((i: any) => ({ ...i, unit_price: 0, total_price: 0 })),
-    }))
-
     return (
       <PedidosNaveClient
-        showPrices={showPrices}
-        orders={strip(orders ?? [])}
-        deletedOrders={strip(deletedOrders ?? [])}
+        orders={orders ?? []}
+        deletedOrders={deletedOrders ?? []}
         restaurants={restaurants ?? []}
         currentUserId={profile.id}
       />

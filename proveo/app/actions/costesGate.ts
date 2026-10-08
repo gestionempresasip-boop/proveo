@@ -1,7 +1,6 @@
 'use server'
 
 import { getAuthProfile } from '@/lib/supabase/helpers'
-import { canAccess } from '@/lib/areas'
 import { alphanumericProblem, codesMatch } from '@/lib/accessCode'
 import { clearGateCookie, gateToken, hasGateCookie, rejectWrongCode, setGateCookie } from '@/lib/accessGate'
 
@@ -16,7 +15,7 @@ const configured = () => process.env.COSTES_ACCESS_CODE
 async function assertCostesUser() {
   const profile = await getAuthProfile()
   const ok = profile.role === 'admin' || (profile.role === 'nave_manager' && profile.organizations.type === 'nave')
-  if (!ok || !canAccess(profile, 'costes')) throw new Error('Sin permisos')
+  if (!ok) throw new Error('Sin permisos')
 }
 
 /** Estado de la clave: si existe y, si no vale, por qué. */
@@ -38,8 +37,8 @@ export async function unlockCostes(code: string): Promise<{ ok: boolean; error?:
   const problem = alphanumericProblem(real)
   if (problem) return { ok: false, error: `La clave configurada en el servidor ${problem}. Cámbiala en Render (COSTES_ACCESS_CODE).` }
   if (!codesMatch(code, real)) {
-    await rejectWrongCode('costes', { COSTES_ACCESS_CODE: real })
-    return { ok: false, error: 'Clave incorrecta' }
+    const hint = await rejectWrongCode('costes', { COSTES_ACCESS_CODE: real }, code)
+    return { ok: false, error: 'Clave incorrecta' + hint }
   }
   const token = gateToken('costes', real)
   if (!token) return { ok: false, error: 'No se pudo generar el acceso' }

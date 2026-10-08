@@ -34,7 +34,11 @@ export async function clearGateCookie(name: string) {
 }
 
 /** Frena los intentos a lo loco tras un código incorrecto, y deja en los registros del servidor si la variable está configurada. */
-export async function rejectWrongCode(gate: string, vars: Record<string, string | null | undefined>) {
+export async function rejectWrongCode(gate: string, vars: Record<string, string | null | undefined>, typed?: string): Promise<string> {
   console.warn(`[acceso:${gate}] código incorrecto. ` + Object.entries(vars).map(([k, v]) => `${k}: ${describeConfigured(v)}`).join(' · '))
   await new Promise(r => setTimeout(r, 800))
+  // Ayuda para descubrir por qué no entra una clave que «parece» bien: solo longitudes, nunca el valor.
+  const real = Object.values(vars)[0]
+  if (typed === undefined || !real) return ''
+  return ` (has escrito ${normalizeCode(typed).length} caracteres y la clave del servidor tiene ${normalizeCode(real).length})`
 }

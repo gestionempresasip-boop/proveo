@@ -2,19 +2,18 @@ import { createClient } from '@/lib/supabase/server'
 import { getAuthProfile } from '@/lib/supabase/helpers'
 import { InventarioTable } from '@/components/inventory/InventarioTable'
 import { Package } from 'lucide-react'
-import { requireArea } from '@/lib/areaGuard'
-import { isStockUnlocked, stockNeedsCode } from '@/app/actions/stockGate'
+import { isStockCodeConfigured, isStockUnlocked } from '@/app/actions/stockGate'
 import { StockGate } from '@/components/inventory/StockGate'
 
 export default async function InventarioPage() {
-  await requireArea('stock')
-  // Stock de la nave: pide su clave (si está configurada). Sin ella no se piden los datos.
-  if ((await stockNeedsCode()) && !(await isStockUnlocked())) return <StockGate />
   const supabase = await createClient()
   const profile = await getAuthProfile()
   const sb = supabase as any
 
   const isNave = profile.organizations.type === 'nave'
+
+  // Stock de la nave: pide su clave. Sin ella no se piden los datos. (Los restaurantes ven su inventario sin clave.)
+  if (isNave && !(await isStockUnlocked())) return <StockGate configured={await isStockCodeConfigured()} />
 
   // Cargar productos + categorías + inventario en paralelo (son independientes)
   const [{ data: products }, { data: categories }, { data: inventoryRows }] = await Promise.all([

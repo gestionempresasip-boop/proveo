@@ -3,10 +3,8 @@ import { getAuthProfile } from '@/lib/supabase/helpers'
 import { Card, CardContent } from '@/components/ui/card'
 import { BookOpen, TrendingUp } from 'lucide-react'
 import { NuevaRecetaModal } from '@/components/escandallos/NuevaRecetaModal'
-import { requireArea } from '@/lib/areaGuard'
 
 export default async function EscandалlosPage() {
-  await requireArea('productos')
   const supabase = await createClient()
   const profile = await getAuthProfile()
   const sb = supabase as any

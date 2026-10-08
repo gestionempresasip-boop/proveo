@@ -3,8 +3,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { notifyNewOrderCreated } from '@/lib/notifications/appNotify'
-import { getAuthProfile } from '@/lib/supabase/helpers'
-import { areaOfNotification, canAccess, canSeePrices, stripAmounts } from '@/lib/areas'
 
 export type AppNotification = {
   id: string
@@ -33,7 +31,6 @@ export async function listMyNotifications(): Promise<AppNotification[]> {
   try {
     const me = await myOrg()
     if (!me) return []
-    const profile = await getAuthProfile()
     const admin = createAdminClient() as any
     const since = new Date(Date.now() - 14 * 86400000).toISOString()
     const { data, error } = await admin
@@ -44,14 +41,10 @@ export async function listMyNotifications(): Promise<AppNotification[]> {
       .order('created_at', { ascending: false })
       .limit(40)
     if (error) return []
-    // Cada acceso de la nave solo recibe los avisos de sus áreas, y sin importes si no ve precios.
-    const prices = canSeePrices(profile)
-    return (data ?? [])
-      .filter((n: any) => { const a = areaOfNotification(n.kind); return !a || canAccess(profile, a) })
-      .map((n: any) => ({
-        id: n.id, kind: n.kind, severity: n.severity, title: n.title,
-        body: prices ? n.body : stripAmounts(n.body), link: n.link, createdAt: n.created_at,
-      }))
+    return (data ?? []).map((n: any) => ({
+      id: n.id, kind: n.kind, severity: n.severity, title: n.title,
+      body: n.body, link: n.link, createdAt: n.created_at,
+    }))
   } catch {
     return []
   }

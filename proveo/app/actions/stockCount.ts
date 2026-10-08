@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { checkAndNotifyLowStock } from '@/lib/notifications/lowStock'
-import { assertArea } from '@/lib/areaGuard'
+import { assertUnlocked } from '@/lib/gateGuard'
 
 // Aplica un recuento físico: para cada producto contado, ajusta el stock a
 // la cantidad real contada (vía adjust_nave_stock, para que quede en el
@@ -13,7 +13,7 @@ import { assertArea } from '@/lib/areaGuard'
 // por ejemplo), el delta se calcula sobre el valor real más reciente, no
 // sobre uno ya desfasado.
 export async function applyStockCount(entries: { productId: string; countedQty: number }[]) {
-  await assertArea('stock')
+  await assertUnlocked('stock')
   if (entries.length === 0) return { applied: 0 }
   const supabase = await createClient()
   const sb = supabase as any

@@ -4,7 +4,6 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { checkAndNotifyLowStock } from '@/lib/notifications/lowStock'
 import { notifyOrderStatus, notifyReturnReceived } from '@/lib/notifications/appNotify'
-import { assertArea } from '@/lib/areaGuard'
 
 // Tipo de organización de quien ejecuta la acción (para saber a quién avisar).
 async function actorOrgType(): Promise<'nave' | 'restaurante' | null> {
@@ -24,7 +23,6 @@ async function actorOrgType(): Promise<'nave' | 'restaurante' | null> {
 export type OrderStatus = 'pendiente' | 'hecho' | 'enviado' | 'cancelado'
 
 export async function updateOrderStatus(orderId: string, newStatus: OrderStatus) {
-  await assertArea('pedidos')
   const supabase = await createClient()
   const sb = supabase as any
 
@@ -74,7 +72,6 @@ export async function updateOrderStatus(orderId: string, newStatus: OrderStatus)
 // número de pedido, sin crear uno nuevo) y descuenta de nuevo el stock de
 // la nave — el inverso exacto de lo que hace la cancelación al devolverlo.
 export async function reopenOrder(orderId: string) {
-  await assertArea('pedidos')
   const supabase = await createClient()
   const sb = supabase as any
 
@@ -101,7 +98,6 @@ export async function reopenOrder(orderId: string) {
 }
 
 export async function generateDeliveryNote(orderId: string) {
-  await assertArea('pedidos')
   const supabase = await createClient()
   const sb = supabase as any
 
@@ -152,7 +148,6 @@ export async function generateDeliveryNote(orderId: string) {
 // para que tanto la nave como el restaurante vean ambas. Si ya existe un
 // albarán generado para el pedido, se mantiene sincronizado.
 export async function rectifyOrderItem(orderItemId: string, newQuantity: number, note?: string) {
-  await assertArea('pedidos')
   const supabase = await createClient()
   const sb = supabase as any
 
@@ -201,7 +196,6 @@ export async function rectifyOrderItem(orderItemId: string, newQuantity: number,
 
 // Checklist de preparación: marcar un artículo como listo/cargado.
 export async function setItemPrepared(orderItemId: string, prepared: boolean) {
-  await assertArea('pedidos')
   const supabase = await createClient()
   const sb = supabase as any
   const { error } = await sb.from('order_items').update({ prepared }).eq('id', orderItemId)
@@ -211,7 +205,6 @@ export async function setItemPrepared(orderItemId: string, prepared: boolean) {
 
 // Número de lote del producto servido en esa línea de pedido.
 export async function setItemLot(orderItemId: string, lotNumber: string) {
-  await assertArea('pedidos')
   const supabase = await createClient()
   const sb = supabase as any
 
@@ -245,7 +238,6 @@ export async function setItemLot(orderItemId: string, lotNumber: string) {
 // La nave anota el peso real al preparar el pedido; se ve junto a la
 // cantidad en pedidos y en el albarán, tanto de la nave como del restaurante.
 export async function setItemWeight(orderItemId: string, weight: number | null) {
-  await assertArea('pedidos')
   const supabase = await createClient()
   const sb = supabase as any
 
@@ -276,7 +268,6 @@ export async function setItemWeight(orderItemId: string, weight: number | null) 
 // mal estado, etc.). El restaurante verá claramente que ese artículo no
 // llegará, junto con el motivo si se indica.
 export async function cancelOrderItem(orderItemId: string, reason?: string) {
-  await assertArea('pedidos')
   await rectifyOrderItem(orderItemId, 0, reason || 'Cancelado por la nave')
 }
 
@@ -297,7 +288,6 @@ export type ReturnItemInput = {
 // rotura...) no se repone. Todo se hace en una función SQL atómica porque
 // el restaurante no tiene permiso de escritura directa sobre delivery_notes.
 export async function createReturn(orderId: string, items: ReturnItemInput[]) {
-  await assertArea('pedidos')
   const supabase = await createClient()
   const sb = supabase as any
   const { data, error } = await sb.rpc('create_return', { p_order_id: orderId, p_items: items })
@@ -315,7 +305,6 @@ export async function createReturn(orderId: string, items: ReturnItemInput[]) {
 // a la nave — hay que devolverlo aquí, igual que hace una cancelación, o si
 // no el stock queda descuadrado (de menos) porque el pedido nunca salió.
 export async function deleteOrder(orderId: string) {
-  await assertArea('pedidos')
   const supabase = await createClient()
   const sb = supabase as any
 
@@ -348,7 +337,6 @@ export async function deleteOrder(orderId: string) {
 // estaba cancelado, vuelve a descontar el stock que se le devolvió al
 // eliminarlo.
 export async function restoreOrder(orderId: string) {
-  await assertArea('pedidos')
   const supabase = await createClient()
   const sb = supabase as any
 
@@ -381,7 +369,6 @@ export async function restoreOrder(orderId: string) {
 // ya se dedujo al hacer el pedido. Si ya había un valor exacto previo, la
 // corrección se calcula desde ese valor, no desde el aproximado.
 export async function setItemBoxExactUnits(orderItemId: string, exactUnitsPerBox: number) {
-  await assertArea('pedidos')
   const supabase = await createClient()
   const sb = supabase as any
 
@@ -429,7 +416,6 @@ export async function setItemBoxExactUnits(orderItemId: string, exactUnitsPerBox
 }
 
 export async function deleteDeliveryNote(noteId: string) {
-  await assertArea('albaranes')
   const supabase = await createClient()
   const sb = supabase as any
   await sb.from('delivery_note_items').delete().eq('delivery_note_id', noteId)

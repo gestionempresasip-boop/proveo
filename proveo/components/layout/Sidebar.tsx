@@ -14,7 +14,6 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { ORG_LOGOS } from '@/lib/orgLogos'
 import { NotificationBell } from '@/components/notifications/NotificationProvider'
-import { canAccess, type Area } from '@/lib/areas'
 
 interface NavItem {
   href: string
@@ -23,21 +22,20 @@ interface NavItem {
   roles?: string[]
   orgTypes?: string[]
   desktopOnly?: boolean
-  area?: Area // área de la nave que da acceso (los restaurantes no usan áreas)
 }
 
 const navItems: NavItem[] = [
   { href: '/catalogo',        label: 'Pedido',      icon: ShoppingCart,  orgTypes: ['restaurante'] },
   { href: '/pedidos',         label: 'Mis pedidos', icon: ClipboardList, orgTypes: ['restaurante'] },
-  { href: '/pedidos',         label: 'Pedidos',     icon: ClipboardList, orgTypes: ['nave'], area: 'pedidos' },
-  { href: '/promociones',     label: 'Promociones', icon: Tag,           orgTypes: ['nave'], area: 'promociones' },
-  { href: '/inventario',      label: 'Stock',       icon: Boxes,         orgTypes: ['nave'], area: 'stock' },
-  { href: '/albaranes',       label: 'Albaranes',   icon: FileText, area: 'albaranes' },
-  { href: '/produccion',      label: 'Producción',  icon: Timer,         orgTypes: ['nave'], area: 'produccion' },
-  { href: '/costes',          label: 'Costes',      icon: Calculator,    roles: ['admin', 'nave_manager'], orgTypes: ['nave'], desktopOnly: true, area: 'costes' },
-  { href: '/estadisticas',    label: 'Informes',    icon: BarChart3,     orgTypes: ['nave'], area: 'informes' },
-  { href: '/admin/productos', label: 'Productos',   icon: Package,       roles: ['admin', 'nave_manager'], area: 'productos' },
-  { href: '/admin/usuarios',  label: 'Usuarios',    icon: Settings,      roles: ['admin', 'nave_manager'], area: 'usuarios' },
+  { href: '/pedidos',         label: 'Pedidos',     icon: ClipboardList, orgTypes: ['nave'] },
+  { href: '/promociones',     label: 'Promociones', icon: Tag,           orgTypes: ['nave'] },
+  { href: '/inventario',      label: 'Stock',       icon: Boxes,         orgTypes: ['nave'] },
+  { href: '/albaranes',       label: 'Albaranes',   icon: FileText },
+  { href: '/produccion',      label: 'Producción',  icon: Timer,         orgTypes: ['nave'] },
+  { href: '/costes',          label: 'Costes',      icon: Calculator,    roles: ['admin', 'nave_manager'], orgTypes: ['nave'], desktopOnly: true },
+  { href: '/estadisticas',    label: 'Informes',    icon: BarChart3,     orgTypes: ['nave'] },
+  { href: '/admin/productos', label: 'Productos',   icon: Package,       roles: ['admin', 'nave_manager'] },
+  { href: '/admin/usuarios',  label: 'Usuarios',    icon: Settings,      roles: ['admin', 'nave_manager'] },
 ]
 
 export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
@@ -51,7 +49,6 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
   const visible = navItems.filter(item => {
     if (item.roles && !item.roles.includes(profile.role)) return false
     if (item.orgTypes && !item.orgTypes.includes(profile.organizations.type)) return false
-    if (item.area && !canAccess(profile, item.area)) return false
     return true
   })
 

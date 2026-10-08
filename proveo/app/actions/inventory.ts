@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { assertArea } from '@/lib/areaGuard'
+import { assertUnlocked } from '@/lib/gateGuard'
 
 export async function upsertInventory(
   productId: string,
@@ -11,7 +11,7 @@ export async function upsertInventory(
   isNave: boolean,
   organizationId: string,
 ) {
-  await assertArea('stock')
+  await assertUnlocked('stock')
   const supabase = await createClient()
   const sb = supabase as any
 
@@ -88,7 +88,7 @@ export async function bulkUpsertInventory(
   isNave: boolean,
   organizationId: string,
 ) {
-  await assertArea('stock')
+  await assertUnlocked('stock')
   if (entries.length === 0) return { saved: 0 }
   const supabase = await createClient()
   const sb = supabase as any
@@ -173,7 +173,7 @@ export async function bulkSetMinStock(
   isNave: boolean,
   organizationId: string,
 ) {
-  await assertArea('stock')
+  await assertUnlocked('stock')
   if (productIds.length === 0) return { updated: 0 }
   const supabase = await createClient()
   const sb = supabase as any
@@ -214,7 +214,7 @@ export async function getInventoryHistory(
   dateFrom?: string,
   dateTo?: string,
 ) {
-  await assertArea('stock')
+  await assertUnlocked('stock')
   const supabase = await createClient()
   const sb = supabase as any
 
