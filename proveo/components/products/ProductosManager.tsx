@@ -1047,7 +1047,7 @@ function FavoritosManager({
   )
 }
 
-function CategoriasManager({ categories, productCountByCat }: { categories: Category[]; productCountByCat: Record<string, number> }) {
+function CategoriasManager({ categories, productCountByCat, lockedIds, onUnlock }: { categories: Category[]; productCountByCat: Record<string, number>; lockedIds: Set<string>; onUnlock: () => void }) {
   const [showNew, setShowNew]         = useState(false)
   const [editingCat, setEditingCat]   = useState<Category | null>(null)
   const [deletingId, setDeletingId]   = useState<string | null>(null)
@@ -1064,7 +1064,7 @@ function CategoriasManager({ categories, productCountByCat }: { categories: Cate
 
   return (
     <div className="space-y-4">
-      {categories.length > 1 && <MergeCategoriesPanel categories={categories} />}
+      {categories.length > 1 && <MergeCategoriesPanel categories={categories.filter(c => !lockedIds.has(c.id))} />}
       <div className="flex items-center justify-between">
         <p className="text-sm text-gray-700">{categories.length} categorías configuradas</p>
         <div className="flex gap-2">
@@ -1093,9 +1093,17 @@ function CategoriasManager({ categories, productCountByCat }: { categories: Cate
             <div className="w-4 h-4 rounded-full shrink-0" style={{ background: catColor(cat.color) }} />
             {editingCat?.id === cat.id ? (
               <EditCatInline cat={cat} onClose={() => setEditingCat(null)} />
-            ) : (
+            ) : lockedIds.has(cat.id) ? (
               <>
                 <span className="font-medium text-black flex-1 text-sm">{cat.name}</span>
+                <button onClick={onUnlock}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg hover:bg-amber-100">
+                  <Lock className="w-3.5 h-3.5" /> Protegida · introducir código
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="font-medium text-black flex-1 text-sm">{cat.name}{cat.is_protected && <Lock className="inline w-3.5 h-3.5 ml-2 text-amber-600 -mt-0.5" aria-label="Protegida con código" />}</span>
                 <span className="text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">
                   {productCountByCat[cat.id] ?? 0} productos
                 </span>
@@ -1815,7 +1823,7 @@ export function ProductosManager({
 
         {/* ── Categorías tab ─────────────────────────────────────────────── */}
         {tab === 'categorias' && (
-          <CategoriasManager categories={categories} productCountByCat={productCountByCat} />
+          <CategoriasManager categories={categories} productCountByCat={productCountByCat} lockedIds={new Set((gate && !gate.unlocked ? gate.locked : []).map(c => c.id))} onUnlock={() => setShowCode(true)} />
         )}
 
         {tab === 'favoritos' && (
