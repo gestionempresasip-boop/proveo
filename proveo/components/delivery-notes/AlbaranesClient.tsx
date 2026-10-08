@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { FileText, Trash2, Undo2, Search, X, ChevronRight } from 'lucide-react'
+import { FileText, Trash2, Undo2, Search, X, ChevronRight, Printer } from 'lucide-react'
 import { deleteDeliveryNote } from '@/app/actions/orders'
 import { cn } from '@/lib/utils'
 
@@ -111,6 +111,132 @@ function NoteRow({ note, isNave, onDeleted }: { note: Note; isNave: boolean; onD
   )
 }
 
+const dayStr = (d: Date) => d.toLocaleDateString('sv-SE')
+const madridDay = (iso: string) => new Date(iso).toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' })
+
+function PrintRange({ notes, restaurants, isNave }: { notes: Note[]; restaurants: string[]; isNave: boolean }) {
+  const [open, setOpen] = useState(false)
+  const today = dayStr(new Date())
+  const [desde, setDesde] = useState(today)
+  const [hasta, setHasta] = useState(today)
+  const [rest, setRest] = useState('todos')
+  const [tipo, setTipo] = useState<TypeFilter>('todos')
+  const [resumen, setResumen] = useState(true)
+
+  function preset(kind: 'hoy' | 'semana' | 'mes' | 'mespasado') {
+    const now = new Date()
+    if (kind === 'hoy') { setDesde(dayStr(now)); setHasta(dayStr(now)) }
+    if (kind === 'semana') {
+      const monday = new Date(now); monday.setDate(now.getDate() - ((now.getDay() + 6) % 7))
+      setDesde(dayStr(monday)); setHasta(dayStr(now))
+    }
+    if (kind === 'mes') { setDesde(dayStr(new Date(now.getFullYear(), now.getMonth(), 1))); setHasta(dayStr(now)) }
+    if (kind === 'mespasado') {
+      setDesde(dayStr(new Date(now.getFullYear(), now.getMonth() - 1, 1)))
+      setHasta(dayStr(new Date(now.getFullYear(), now.getMonth(), 0)))
+    }
+  }
+
+  const valid = desde !== '' && hasta !== '' && desde <= hasta
+  const count = useMemo(() => {
+    if (!valid) return 0
+    return notes.filter(n => {
+      const d = madridDay(n.delivered_at)
+      if (d < desde || d > hasta) return false
+      const isReturn = n.type === 'devolucion'
+      if (tipo === 'entrega' && isReturn) return false
+      if (tipo === 'devolucion' && !isReturn) return false
+      if (isNave && rest !== 'todos' && n.orders?.organizations?.name !== rest) return false
+      return true
+    }).length
+  }, [notes, desde, hasta, tipo, rest, valid, isNave])
+
+  const params = new URLSearchParams({ desde, hasta })
+  if (isNave && rest !== 'todos') params.set('restaurante', rest)
+  if (tipo !== 'todos') params.set('tipo', tipo)
+  if (!resumen) params.set('resumen', '0')
+
+  const chip = (active: boolean) => cn(
+    'px-3 py-1.5 rounded-full text-sm font-medium border transition-colors',
+    active ? 'bg-[#1E2B28] text-white border-[#1E2B28]' : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300'
+  )
+  const field = 'w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]'
+
+  return (
+    <div>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-xl bg-[#1E2B28] text-white text-sm font-semibold px-4 py-3 hover:bg-[#141F1C] transition-colors"
+      >
+        <Printer className="w-4 h-4" /> Imprimir por fechas
+      </button>
+
+      {open && (
+        <div className="mt-3 bg-white rounded-2xl border border-gray-200 p-4 space-y-4">
+          <div className="flex flex-wrap gap-2">
+            <button onClick={() => preset('hoy')} className={chip(false)}>Hoy</button>
+            <button onClick={() => preset('semana')} className={chip(false)}>Esta semana</button>
+            <button onClick={() => preset('mes')} className={chip(false)}>Este mes</button>
+            <button onClick={() => preset('mespasado')} className={chip(false)}>Mes pasado</button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Desde</span>
+              <input type="date" value={desde} max={hasta || undefined} onChange={e => setDesde(e.target.value)} className={cn(field, 'mt-1')} />
+            </label>
+            <label className="block">
+              <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Hasta</span>
+              <input type="date" value={hasta} min={desde || undefined} onChange={e => setHasta(e.target.value)} className={cn(field, 'mt-1')} />
+            </label>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {isNave && restaurants.length > 1 && (
+              <label className="block">
+                <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Restaurante</span>
+                <select value={rest} onChange={e => setRest(e.target.value)} className={cn(field, 'mt-1')}>
+                  <option value="todos">Todos los restaurantes</option>
+                  {restaurants.map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+              </label>
+            )}
+            <label className="block">
+              <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Tipo</span>
+              <select value={tipo} onChange={e => setTipo(e.target.value as TypeFilter)} className={cn(field, 'mt-1')}>
+                <option value="todos">Entregas y devoluciones</option>
+                <option value="entrega">Solo entregas</option>
+                <option value="devolucion">Solo devoluciones</option>
+              </select>
+            </label>
+          </div>
+
+          <label className="flex items-center gap-2 text-sm text-gray-800">
+            <input type="checkbox" checked={resumen} onChange={e => setResumen(e.target.checked)} className="w-4 h-4 accent-[#1E2B28]" />
+            Añadir una hoja resumen con el total al principio
+          </label>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+            <p className="text-sm text-gray-700">
+              {!valid ? 'Elige un rango de fechas válido.' : count > 0 ? <><strong>{count}</strong> {count !== 1 ? 'albaranes' : 'albarán'} en ese rango</> : 'No hay albaranes cargados en ese rango.'}
+            </p>
+            {valid ? (
+              <Link
+                href={`/albaranes/imprimir?${params.toString()}`}
+                className="flex items-center gap-2 rounded-xl bg-[#A8793A] text-white text-sm font-semibold px-5 py-3 hover:bg-[#8F6630] transition-colors"
+              >
+                <Printer className="w-4 h-4" /> Ver e imprimir
+              </Link>
+            ) : (
+              <span className="rounded-xl bg-gray-200 text-gray-500 text-sm font-semibold px-5 py-3">Ver e imprimir</span>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function AlbaranesClient({ notes: initialNotes, isNave }: { notes: Note[]; isNave: boolean }) {
   const [notes, setNotes] = useState<Note[]>(initialNotes)
   const [search, setSearch] = useState('')
@@ -170,6 +296,8 @@ export function AlbaranesClient({ notes: initialNotes, isNave }: { notes: Note[]
 
   return (
     <div className="space-y-4">
+      <PrintRange notes={notes} restaurants={restaurants} isNave={isNave} />
+
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600 pointer-events-none" />
         <input
@@ -227,7 +355,7 @@ export function AlbaranesClient({ notes: initialNotes, isNave }: { notes: Note[]
               <div className="flex items-baseline justify-between px-1 pb-2">
                 <h2 className="font-bold text-black capitalize">{m.label}</h2>
                 <p className="text-xs text-gray-600">
-                  {m.notes.length} albarán{m.notes.length !== 1 ? 'es' : ''}
+                  {m.notes.length} {m.notes.length !== 1 ? 'albaranes' : 'albarán'}
                   {isNave && ` · ${eur(m.notes.reduce((s, n) => s + noteAmount(n), 0))}`}
                 </p>
               </div>
