@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition, useMemo, useEffect, useCallback } from 'react'
-import { Package, Pencil, Trash2, Eye, EyeOff, Plus, X, Check, ChevronDown, ChevronRight, Sparkles, Tag, Euro, Search, Calculator, Star, ShieldCheck, ArrowUp } from 'lucide-react'
+import { Package, Pencil, Trash2, Eye, EyeOff, Plus, X, Check, ChevronDown, ChevronRight, Sparkles, Tag, Euro, Search, Calculator, Star, ShieldCheck, ArrowUp, Lock, LockOpen } from 'lucide-react'
 import {
   toggleProductActive, softDeleteProduct, updateProduct, createProduct,
   createCategory, deleteCategory, updateCategory, seedDefaultCategories,
@@ -10,11 +10,13 @@ import {
 } from '@/app/actions/products'
 import type { BulkPricingField, BulkPricingMode } from '@/app/actions/products'
 import { setFavoriteProduct, setFavoriteProductsBatch } from '@/app/actions/favorites'
+import { unlockProducts, lockProducts, setCategoryProtected } from '@/app/actions/productsGate'
 import { UNIT_OPTIONS, unitLabel } from '@/lib/units'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-type Category = { id: string; name: string; color: string | null; order_index: number | null }
+type Category = { id: string; name: string; color: string | null; order_index: number | null; is_protected?: boolean }
+type Gate = { codeConfigured: boolean; unlocked: boolean; locked: { id: string; name: string; color: string | null; count: number }[] }
 type Restaurant = { id: string; name: string }
 type Favorite = { organization_id: string; product_id: string }
 type Product = {
@@ -690,12 +692,23 @@ function ProductRow({
 // ── Category section (collapsible) ───────────────────────────────────────────
 
 function CategorySection({
-  categoryId, name, color, products, categories, isNave, onEdit, onAddProduct,
+  categoryId, name, color, products, categories, isNave, onEdit, onAddProduct, canProtect, isProtected,
 }: {
   categoryId: string; name: string; color: string | null
   products: Product[]; categories: Category[]; isNave?: boolean
   onEdit: (p: Product) => void; onAddProduct: (catId: string) => void
+  canProtect?: boolean; isProtected?: boolean
 }) {
+  const [prot, setProt] = useState(!!isProtected)
+  const [protBusy, setProtBusy] = useState(false)
+  useEffect(() => { setProt(!!isProtected) }, [isProtected])
+  async function toggleProtect() {
+    setProtBusy(true)
+    const res = await setCategoryProtected(categoryId, !prot)
+    if (res.ok) setProt(!prot)
+    else alert(res.error ?? 'No se pudo cambiar')
+    setProtBusy(false)
+  }
   const [open, setOpen] = useState(true)
   const [moving, setMoving] = useState(false)
   const [moveError, setMoveError] = useState<string | null>(null)
@@ -728,7 +741,7 @@ function CategorySection({
         className="w-full flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3.5 hover:bg-gray-50 transition-colors text-left cursor-pointer"
       >
         <ColorDot color={color} />
-        <span className="font-semibold text-black flex-1">{name}</span>
+        <span className="font-semibold text-black flex-1">{name}{prot && <Lock className="inline w-3.5 h-3.5 ml-2 text-amber-600 -mt-0.5" aria-label="Protegida con código" />}</span>
         <div className="flex items-center gap-2 text-xs text-gray-600">
           <span className="bg-gray-100 px-2 py-0.5 rounded-full">{products.length} productos</span>
           {visibleCount > 0 && <span className="bg-green-50 text-green-600 px-2 py-0.5 rounded-full">{visibleCount} visibles</span>}
@@ -758,6 +771,17 @@ function CategorySection({
           )
         )}
         {moveError && <span className="text-xs text-red-600">{moveError}</span>}
+        {canProtect && categoryId !== '__none__' && (
+          <button
+            onClick={e => { e.stopPropagation(); toggleProtect() }}
+            disabled={protBusy}
+            className={`flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border font-semibold transition-colors disabled:opacity-50 ${prot ? 'bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}
+            title={prot ? 'Quitar la protección con código' : 'Pedir el código para ver esta categoría'}
+          >
+            {prot ? <Lock className="w-3.5 h-3.5" /> : <LockOpen className="w-3.5 h-3.5" />}
+            {prot ? 'Protegida' : 'Proteger'}
+          </button>
+        )}
         <button
           onClick={e => { e.stopPropagation(); onAddProduct(categoryId) }}
           className="flex items-center gap-1 text-xs text-[#1E2B28] border border-[#1E2B28]/30 hover:bg-green-50 px-3 py-1.5 rounded-lg transition-colors font-semibold"
@@ -1323,15 +1347,103 @@ function BulkPricingModal({
 
 // ── Main component ────────────────────────────────────────────────────────────
 
+function CodeModal({ onClose }: { onClose: () => void }) {
+  const [code, setCode] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!code.trim()) return
+    setBusy(true)
+    setError(null)
+    const res = await unlockProducts(code)
+    setBusy(false)
+    if (res.ok) onClose()
+    else { setError(res.error ?? 'Código incorrecto'); setCode('') }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
+      <form onSubmit={submit} onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-xl bg-amber-50 flex items-center justify-center shrink-0"><Lock className="w-5 h-5 text-amber-700" /></div>
+          <div>
+            <h2 className="font-bold text-black text-lg leading-tight">Código de acceso</h2>
+            <p className="text-sm text-gray-600">Para ver los productos y precios protegidos.</p>
+          </div>
+        </div>
+        <input
+          type="password"
+          autoFocus
+          autoComplete="off"
+          value={code}
+          onChange={e => setCode(e.target.value)}
+          placeholder="Introduce el código"
+          className="w-full border border-gray-300 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
+        />
+        {error && <p className="text-sm text-red-600 font-medium">{error}</p>}
+        <div className="flex gap-2">
+          <button type="button" onClick={onClose} className="flex-1 rounded-xl border border-gray-200 text-gray-700 font-medium py-3 hover:bg-gray-50">Cancelar</button>
+          <button type="submit" disabled={busy || !code.trim()} className="flex-1 rounded-xl bg-[#1E2B28] text-white font-semibold py-3 hover:bg-[#141F1C] disabled:opacity-50">
+            {busy ? 'Comprobando…' : 'Desbloquear'}
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
+function GateBar({ gate, onUnlock }: { gate: Gate; onUnlock: () => void }) {
+  const [busy, setBusy] = useState(false)
+  if (!gate.codeConfigured) {
+    return (
+      <p className="text-xs text-gray-600 flex items-center gap-1.5">
+        <Lock className="w-3.5 h-3.5" /> Para proteger categorías con un código, configura <code className="bg-gray-100 px-1 rounded">PRODUCTOS_ACCESS_CODE</code> en el servidor.
+      </p>
+    )
+  }
+  if (gate.unlocked) {
+    return (
+      <div className="flex flex-wrap items-center gap-3 rounded-xl bg-green-50 border border-green-200 px-4 py-3">
+        <LockOpen className="w-5 h-5 text-green-700 shrink-0" />
+        <p className="flex-1 text-sm text-green-900 min-w-[200px]">Acceso desbloqueado. Usa <strong>Proteger</strong> en una categoría para que pida el código.</p>
+        <button
+          disabled={busy}
+          onClick={async () => { setBusy(true); await lockProducts(); setBusy(false) }}
+          className="text-sm font-semibold px-4 py-2 rounded-lg bg-white border border-green-300 text-green-800 hover:bg-green-100 disabled:opacity-50"
+        >
+          Bloquear de nuevo
+        </button>
+      </div>
+    )
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3">
+      <Lock className="w-5 h-5 text-amber-700 shrink-0" />
+      <p className="flex-1 text-sm text-amber-900 min-w-[200px]">
+        {gate.locked.length > 0
+          ? <>Hay <strong>{gate.locked.length} categoría{gate.locked.length !== 1 ? 's' : ''} protegida{gate.locked.length !== 1 ? 's' : ''}</strong> con código.</>
+          : 'Puedes proteger categorías con un código para que no se vean precios.'}
+      </p>
+      <button onClick={onUnlock} className="text-sm font-semibold px-4 py-2 rounded-lg bg-[#1E2B28] text-white hover:bg-[#141F1C]">
+        Introducir código
+      </button>
+    </div>
+  )
+}
+
 export function ProductosManager({
-  products, categories, restaurants = [], favorites = [], isNave,
+  products, categories, restaurants = [], favorites = [], isNave, gate,
 }: {
   products: Product[]
   categories: Category[]
   restaurants?: Restaurant[]
   favorites?: Favorite[]
   isNave?: boolean
+  gate?: Gate
 }) {
+  const [showCode, setShowCode] = useState(false)
   const [tab, setTab]                 = useState<'productos' | 'buscar' | 'categorias' | 'favoritos'>('productos')
   const [editProduct, setEditProduct] = useState<Product | null>(null)
   const [nuevoDefaultCat, setNuevoDefaultCat] = useState<string | undefined>()
@@ -1427,6 +1539,7 @@ export function ProductosManager({
 
   return (
     <>
+      {showCode && <CodeModal onClose={() => setShowCode(false)} />}
       {editProduct && (
         <EditModal
           product={editProduct}
@@ -1566,6 +1679,8 @@ export function ProductosManager({
               </div>
             )}
 
+            {gate && <GateBar gate={gate} onUnlock={() => setShowCode(true)} />}
+
             <div className="space-y-3">
               {grouped.map(g => (
                 <CategorySection
@@ -1578,7 +1693,21 @@ export function ProductosManager({
                   isNave={isNave}
                   onEdit={setEditProduct}
                   onAddProduct={handleAddProduct}
+                  canProtect={!!gate?.unlocked}
+                  isProtected={!!categoriesById[g.id]?.is_protected}
                 />
+              ))}
+              {gate && !gate.unlocked && !search && !selectedCategory && gate.locked.map(c => (
+                <button
+                  key={c.id}
+                  onClick={() => setShowCode(true)}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl bg-white border border-dashed border-amber-300 hover:bg-amber-50 transition-colors text-left"
+                >
+                  <ColorDot color={c.color} />
+                  <span className="font-semibold text-black flex-1">{c.name}</span>
+                  <span className="text-xs text-gray-600">{c.count} producto{c.count !== 1 ? 's' : ''}</span>
+                  <span className="flex items-center gap-1.5 text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg"><Lock className="w-3.5 h-3.5" />Protegida · introducir código</span>
+                </button>
               ))}
               {grouped.length === 0 && (
                 <div className="text-center py-16 text-gray-600 bg-white rounded-xl border border-gray-100">
