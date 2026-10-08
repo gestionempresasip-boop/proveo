@@ -2,12 +2,14 @@ import { createClient } from '@/lib/supabase/server'
 import { getAuthProfile } from '@/lib/supabase/helpers'
 import Link from 'next/link'
 import { AlbaranesClient } from '@/components/delivery-notes/AlbaranesClient'
+import { requireArea } from '@/lib/areaGuard'
 
 // Por defecto solo los últimos 4 meses (antes se traían todos los albaranes
 // de la historia en cada visita); ?todo=1 trae el histórico completo.
 const RECENT_DAYS = 120
 
 export default async function AlbaranesPage({ searchParams }: { searchParams: Promise<{ todo?: string }> }) {
+  await requireArea('albaranes')
   const { todo } = await searchParams
   const showAll = todo === '1'
   const supabase = await createClient()

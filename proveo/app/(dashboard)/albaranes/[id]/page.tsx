@@ -5,8 +5,10 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { PrintButton } from './PrintButton'
 import { AlbaranDocument } from '@/components/delivery-notes/AlbaranDocument'
+import { requireArea } from '@/lib/areaGuard'
 
 export default async function AlbaranDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireArea('albaranes')
   await getAuthProfile()
   const { id } = await params
 

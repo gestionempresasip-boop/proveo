@@ -2,8 +2,10 @@ import { createClient } from '@/lib/supabase/server'
 import { getAuthProfile } from '@/lib/supabase/helpers'
 import { redirect } from 'next/navigation'
 import { PromocionesNaveManager } from '@/components/promotions/PromocionesNaveManager'
+import { requireArea } from '@/lib/areaGuard'
 
 export default async function PromocionesPage() {
+  await requireArea('promociones')
   const profile = await getAuthProfile()
   if (profile.organizations.type !== 'nave') redirect('/catalogo')
 

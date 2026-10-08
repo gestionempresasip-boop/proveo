@@ -2,8 +2,14 @@ import { createClient } from '@/lib/supabase/server'
 import { getAuthProfile } from '@/lib/supabase/helpers'
 import { InventarioTable } from '@/components/inventory/InventarioTable'
 import { Package } from 'lucide-react'
+import { requireArea } from '@/lib/areaGuard'
+import { isStockUnlocked, stockNeedsCode } from '@/app/actions/stockGate'
+import { StockGate } from '@/components/inventory/StockGate'
 
 export default async function InventarioPage() {
+  await requireArea('stock')
+  // Stock de la nave: pide su clave (si está configurada). Sin ella no se piden los datos.
+  if ((await stockNeedsCode()) && !(await isStockUnlocked())) return <StockGate />
   const supabase = await createClient()
   const profile = await getAuthProfile()
   const sb = supabase as any

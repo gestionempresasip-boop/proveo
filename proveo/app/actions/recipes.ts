@@ -2,8 +2,10 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { assertArea } from '@/lib/areaGuard'
 
 export async function createRecipe(formData: FormData) {
+  await assertArea('productos')
   const supabase = await createClient()
   const sb = supabase as any
 
@@ -62,6 +64,7 @@ export async function createRecipe(formData: FormData) {
 }
 
 export async function deleteRecipe(recipeId: string) {
+  await assertArea('productos')
   const supabase = await createClient()
   await (supabase as any).from('recipes').update({ is_active: false }).eq('id', recipeId)
   revalidatePath('/escandallos')

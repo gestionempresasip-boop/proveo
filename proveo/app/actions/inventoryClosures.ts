@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getAuthProfile } from '@/lib/supabase/helpers'
 import { revalidatePath } from 'next/cache'
+import { assertArea } from '@/lib/areaGuard'
 
 export type ClosurePeriodType = 'dia' | 'mes' | 'anual' | 'personalizado'
 
@@ -18,6 +19,7 @@ export async function createInventoryClosure(
   isNave: boolean,
   organizationId: string,
 ) {
+  await assertArea('stock')
   const supabase = await createClient()
   const sb = supabase as any
   const profile = await getAuthProfile()
@@ -78,6 +80,7 @@ export async function createInventoryClosure(
 }
 
 export async function listInventoryClosures(organizationId: string) {
+  await assertArea('stock')
   const supabase = await createClient()
   const sb = supabase as any
   const { data, error } = await sb
@@ -90,6 +93,7 @@ export async function listInventoryClosures(organizationId: string) {
 }
 
 export async function getInventoryClosureItems(closureId: string) {
+  await assertArea('stock')
   const supabase = await createClient()
   const sb = supabase as any
   const { data, error } = await sb
@@ -103,6 +107,7 @@ export async function getInventoryClosureItems(closureId: string) {
 }
 
 export async function deleteInventoryClosure(closureId: string) {
+  await assertArea('stock')
   const supabase = await createClient()
   const sb = supabase as any
   const { error } = await sb.from('inventory_closures').delete().eq('id', closureId)

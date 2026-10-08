@@ -5,6 +5,7 @@ import { InformesGate } from '@/components/stats/InformesGate'
 import { isInformesUnlocked } from '@/app/actions/informesGate'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireArea } from '@/lib/areaGuard'
 
 // Algunos productos tienen el coste registrado por caja/pieza entera en
 // products.cost_price (ej. "Jamón bellota" a 518,40€ la caja de 40 sobres),
@@ -19,6 +20,7 @@ const COST_PACKAGE_SIZE: Record<string, number> = {
 }
 
 export default async function EstadisticasPage() {
+  await requireArea('informes')
   const supabase = await createClient()
   const profile = await getAuthProfile()
   if (profile.organizations.type !== 'nave') redirect('/dashboard')

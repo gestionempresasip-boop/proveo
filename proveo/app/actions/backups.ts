@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getAuthProfile } from '@/lib/supabase/helpers'
 import { revalidatePath } from 'next/cache'
+import { assertArea } from '@/lib/areaGuard'
 
 type BackupData = {
   products: Record<string, unknown>[]
@@ -15,6 +16,7 @@ type BackupData = {
 // Guarda una foto completa de productos + categorías + stock (nave y
 // restaurantes) en una sola fila JSON, para poder restaurarla más tarde.
 export async function createBackup(label: string) {
+  await assertArea('usuarios')
   const supabase = await createClient()
   const sb = supabase as any
   const profile = await getAuthProfile()
@@ -53,6 +55,7 @@ export async function createBackup(label: string) {
 }
 
 export async function listBackups() {
+  await assertArea('usuarios')
   const supabase = await createClient()
   const sb = supabase as any
   const { data, error } = await sb
@@ -64,6 +67,7 @@ export async function listBackups() {
 }
 
 export async function deleteBackup(id: string) {
+  await assertArea('usuarios')
   const supabase = await createClient()
   const sb = supabase as any
   const { error } = await sb.from('backups').delete().eq('id', id)
@@ -75,6 +79,7 @@ export async function deleteBackup(id: string) {
 // Solo toca lo que hay dentro de la copia (upsert por id): productos creados
 // después de la copia no se ven afectados ni se borran.
 export async function restoreBackup(id: string) {
+  await assertArea('usuarios')
   const supabase = await createClient()
   const sb = supabase as any
 

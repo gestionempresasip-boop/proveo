@@ -48,7 +48,7 @@ export async function createAppNotification(input: AppNotificationInput): Promis
     })
 
     // Aviso al móvil/ordenador aunque la app esté cerrada (si hay dispositivos suscritos).
-    await sendPushToOrg(input.targetOrgId, { title: input.title, body: input.body, link: input.link, tag: input.dedupeKey ?? input.kind })
+    await sendPushToOrg(input.targetOrgId, { title: input.title, body: input.body, link: input.link, tag: input.dedupeKey ?? input.kind, kind: input.kind })
 
     // Limpieza ocasional: nada de más de 30 días.
     if (Math.random() < 0.02) {

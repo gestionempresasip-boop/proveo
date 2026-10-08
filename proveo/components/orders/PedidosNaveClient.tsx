@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useMemo } from 'react'
+import { createContext, useContext, useState, useTransition, useMemo } from 'react'
 import Link from 'next/link'
 import { updateOrderStatus, generateDeliveryNote, deleteOrder, restoreOrder, rectifyOrderItem, cancelOrderItem, setItemPrepared, setItemLot, setItemWeight, setItemBoxExactUnits, reopenOrder } from '@/app/actions/orders'
 import type { OrderStatus } from '@/app/actions/orders'
@@ -339,6 +339,9 @@ function ItemRow({
 
 // ── Action buttons per order ─────────────────────────────────────────────────
 
+// Accesos sin permiso de precios (Reparto): el servidor ya manda los importes a 0 y aquí no se muestran.
+const ShowPricesCtx = createContext(true)
+
 function OrderActions({ order, onDeleted, onStatusChange }: { order: Order; onDeleted: (order: Order) => void; onStatusChange: (id: string, status: OrderStatus) => void }) {
   const [loading, setLoading] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -398,20 +401,23 @@ function OrderActions({ order, onDeleted, onStatusChange }: { order: Order; onDe
     })
   }
 
+  const showPrices = useContext(ShowPricesCtx)
+
   function shareWhatsApp() {
     const items = order.order_items.map(i => `• ${i.products?.name ?? '?'}: ${i.quantity} ${i.unit}`).join('\n')
     const text = `*Pedido #${order.order_number} — ${order.organizations?.name ?? 'Restaurante'}*\n`
       + `Estado: ${STATUS_CONFIG[status]?.label}\n\n`
-      + `Productos:\n${items}\n\n`
-      + `*Total: ${Number(order.total_price).toFixed(2)}€*`
+      + `Productos:\n${items}`
+      + (showPrices ? `\n\n*Total: ${Number(order.total_price).toFixed(2)}€*` : '')
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank')
   }
 
   function exportCSV() {
-    const header = 'Producto,Cantidad,Unidad,Precio ud.,Total'
+    const header = showPrices ? 'Producto,Cantidad,Unidad,Precio ud.,Total' : 'Producto,Cantidad,Unidad'
     const rows = order.order_items.map(i =>
-      [`"${i.products?.name ?? ''}"`, i.quantity, i.unit,
-       Number(i.unit_price).toFixed(2), Number(i.total_price).toFixed(2)].join(',')
+      (showPrices
+        ? [`"${i.products?.name ?? ''}"`, i.quantity, i.unit, Number(i.unit_price).toFixed(2), Number(i.total_price).toFixed(2)]
+        : [`"${i.products?.name ?? ''}"`, i.quantity, i.unit]).join(',')
     )
     const csv = [
       `Pedido #${order.order_number} — ${order.organizations?.name}`,
@@ -421,7 +427,7 @@ function OrderActions({ order, onDeleted, onStatusChange }: { order: Order; onDe
       header,
       ...rows,
       '',
-      `Total,,,, ${Number(order.total_price).toFixed(2)}`,
+      ...(showPrices ? [`Total,,,, ${Number(order.total_price).toFixed(2)}`] : []),
     ].join('\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
@@ -596,6 +602,7 @@ function OrderCard({
   onBoxExactUnitsChange: (orderId: string, itemId: string, exactUnits: number) => void
   currentUserId: string
 }) {
+  const showPrices = useContext(ShowPricesCtx)
   const [expanded, setExpanded] = useState(false)
   const status = normalizeStatus(order.status)
   const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.pendiente
@@ -634,7 +641,7 @@ function OrderCard({
               {' · '}
               {order.order_items.length} producto{order.order_items.length !== 1 ? 's' : ''}
             </span>
-            <span className="font-semibold text-[#1E2B28] text-sm ml-auto">{Number(order.total_price).toFixed(2)}€</span>
+            {showPrices && <span className="font-semibold text-[#1E2B28] text-sm ml-auto">{Number(order.total_price).toFixed(2)}€</span>}
           </div>
           {status === 'pendiente' && (() => {
             const live = order.order_items.filter(i => Number(i.rectified_quantity ?? -1) !== 0)
@@ -706,7 +713,7 @@ function OrderCard({
 type DateFilter = 'hoy' | 'semana' | 'mes' | 'custom'
 type StatusFilter = 'todos' | 'pendiente' | 'hecho' | 'enviado'
 
-export function PedidosNaveClient({ orders: initialOrders, deletedOrders: initialDeletedOrders, restaurants, currentUserId }: { orders: Order[]; deletedOrders: Order[]; restaurants: Restaurant[]; currentUserId: string }) {
+export function PedidosNaveClient({ orders: initialOrders, deletedOrders: initialDeletedOrders, restaurants, currentUserId, showPrices = true }: { orders: Order[]; deletedOrders: Order[]; restaurants: Restaurant[]; currentUserId: string; showPrices?: boolean }) {
   const [orders, setOrders] = useState<Order[]>(initialOrders)
   const [deletedOrders, setDeletedOrders] = useState<Order[]>(initialDeletedOrders)
   const [showTrash, setShowTrash] = useState(false)
@@ -819,6 +826,7 @@ export function PedidosNaveClient({ orders: initialOrders, deletedOrders: initia
   }, [orders])
 
   return (
+    <ShowPricesCtx.Provider value={showPrices}>
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-5">
       {/* Title */}
       <div className="flex items-start justify-between gap-3">
@@ -851,7 +859,7 @@ export function PedidosNaveClient({ orders: initialOrders, deletedOrders: initia
                 <div key={o.id} className="p-4 flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="font-medium text-black text-sm">
-                      #{o.order_number} · {o.organizations?.name ?? 'Desconocido'} · {o.total_price.toFixed(2)}€
+                      #{o.order_number} · {o.organizations?.name ?? 'Desconocido'}{showPrices ? ` · ${o.total_price.toFixed(2)}€` : ''}
                     </p>
                     <p className="text-xs text-gray-600 mt-0.5">
                       {o.order_items?.length ?? 0} producto{(o.order_items?.length ?? 0) !== 1 ? 's' : ''} · pedido el {new Date(o.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
@@ -995,5 +1003,6 @@ export function PedidosNaveClient({ orders: initialOrders, deletedOrders: initia
         )}
       </section>
     </div>
+    </ShowPricesCtx.Provider>
   )
 }

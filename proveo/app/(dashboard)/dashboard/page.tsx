@@ -2,6 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import { getAuthProfile } from '@/lib/supabase/helpers'
 import { ShoppingCart, ClipboardList, Package, FileText, ArrowRight, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
+import { homeFor } from '@/lib/areas'
 
 const STATUS_LABELS: Record<string, string> = {
   pendiente:      'Pendiente',
@@ -31,6 +33,12 @@ function greeting(name?: string | null) {
 
 export default async function DashboardPage() {
   const profile = await getAuthProfile()
+  // Un acceso de la nave con áreas limitadas aterriza en su primera sección, no en el resumen general.
+  if (profile.organizations.type === 'nave' && profile.areas) {
+    const home = homeFor(profile)
+    if (home !== '/dashboard') redirect(home)
+    return <div className="p-6 text-gray-700">Este acceso no tiene ninguna sección asignada. Pide a Gestión que te la asigne.</div>
+  }
   const supabase = await createClient()
   const isNave = profile.organizations.type === 'nave'
   const sb = supabase as any

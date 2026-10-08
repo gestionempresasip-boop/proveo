@@ -37,6 +37,8 @@ export interface ProfileRow {
   full_name: string | null
   phone: string | null
   avatar_url: string | null
+  /** Áreas de la nave permitidas; null = todas */
+  areas?: string[] | null
   created_at: string
 }
 

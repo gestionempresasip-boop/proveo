@@ -5,10 +5,12 @@ import { useRouter } from 'next/navigation'
 import { Lock } from 'lucide-react'
 
 // Pantalla de código de acceso (Costes, Producción…). La comprobación la hace el servidor.
-export function CodeGate({ title, description, configured, envName, unlock }: {
+export function CodeGate({ title, description, configured, problem, envName, unlock }: {
   title: string
   description: string
   configured: boolean
+  /** La variable existe pero no vale (por ejemplo, no es alfanumérica): se explica en vez de pedir el código. */
+  problem?: string | null
   envName: string
   unlock: (code: string) => Promise<{ ok: boolean; error?: string }>
 }) {
@@ -38,7 +40,9 @@ export function CodeGate({ title, description, configured, envName, unlock }: {
             <p className="text-sm text-gray-600">{description}</p>
           </div>
         </div>
-        {!configured ? (
+        {problem ? (
+          <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3">{problem} Cámbiala en Render (<code>{envName}</code>): letras y números mezclados, de 8 caracteres o más.</p>
+        ) : !configured ? (
           <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3">
             Todavía no hay ningún código configurado en el servidor (falta <code>{envName}</code>).
           </p>

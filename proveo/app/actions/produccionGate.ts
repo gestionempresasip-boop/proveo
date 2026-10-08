@@ -1,75 +1,55 @@
 'use server'
 
-import { cookies } from 'next/headers'
-import { createHash, timingSafeEqual } from 'crypto'
 import { getAuthProfile } from '@/lib/supabase/helpers'
+import { canAccess } from '@/lib/areas'
+import { codesMatch } from '@/lib/accessCode'
+import { clearGateCookie, gateToken, hasGateCookie, rejectWrongCode, setGateCookie } from '@/lib/accessGate'
 
-// Código de acceso a la pestaña Producción (las tablets del obrador). Es DISTINTO del
-// código de Costes y Productos (sueldos y precios): el equipo de cocina conoce este y
-// no el otro. Quien tiene el código de dirección también puede entrar. Solo lo comprueba
-// el servidor: nunca llega al navegador.
+// Código de acceso a la pestaña Producción (las tablets del obrador). Es DISTINTO del código de
+// Costes y del de Productos (sueldos y precios): el equipo de cocina conoce este y no los otros.
+// Quien tiene el código de Productos también puede entrar. Solo lo comprueba el servidor.
 const COOKIE_NAME = 'produccion_unlocked'
 const MAX_AGE_SECONDS = 60 * 60 * 24 * 30 // 30 días: se mete una vez por tablet
 
-const secrets = () => ({
-  prod: process.env.PRODUCCION_ACCESS_CODE?.trim() || null,
-  admin: process.env.PRODUCTOS_ACCESS_CODE?.trim() || null,
-  key: process.env.SUPABASE_SERVICE_ROLE_KEY || null,
-})
+const prodCode = () => process.env.PRODUCCION_ACCESS_CODE
+const adminCode = () => process.env.PRODUCTOS_ACCESS_CODE
 
 // La cookie depende del código de producción (o, si no hay, del de dirección):
 // al cambiar el código, las tablets vuelven a pedirlo.
-function expectedToken(): string | null {
-  const { prod, admin, key } = secrets()
-  const code = prod ?? admin
-  if (!code || !key) return null
-  return createHash('sha256').update(`produccion:${code}:${key}`).digest('hex')
-}
-
-const same = (a: string, b: string) =>
-  timingSafeEqual(createHash('sha256').update(a).digest(), createHash('sha256').update(b).digest())
+const currentToken = () => gateToken('produccion', prodCode() || adminCode())
 
 async function assertNaveUser() {
   const profile = await getAuthProfile()
-  if (!(profile.role === 'admin' || profile.organizations.type === 'nave')) throw new Error('Sin permisos')
+  if (!(profile.role === 'admin' || profile.organizations.type === 'nave') || !canAccess(profile, 'produccion')) throw new Error('Sin permisos')
 }
 
 export async function isProduccionCodeConfigured(): Promise<boolean> {
-  return expectedToken() !== null
+  return currentToken() !== null
 }
 
 export async function isProduccionUnlocked(): Promise<boolean> {
-  const token = expectedToken()
-  if (!token) return false
-  const store = await cookies()
-  return store.get(COOKIE_NAME)?.value === token
+  return hasGateCookie(COOKIE_NAME, currentToken())
 }
 
 export async function unlockProduccion(code: string): Promise<{ ok: boolean; error?: string }> {
   await assertNaveUser()
-  const { prod, admin } = secrets()
-  if (!prod && !admin) return { ok: false, error: 'Todavía no hay ningún código configurado (falta PRODUCCION_ACCESS_CODE)' }
-  const given = code.trim()
-  const ok = (prod !== null && same(given, prod)) || (admin !== null && same(given, admin))
-  if (!ok) {
-    await new Promise(r => setTimeout(r, 800)) // frena los intentos a lo loco
-    return { ok: false, error: 'Código incorrecto' }
+  if (!prodCode() && !adminCode()) return { ok: false, error: 'Todavía no hay ningún código configurado (falta PRODUCCION_ACCESS_CODE)' }
+  if (!(codesMatch(code, prodCode()) || codesMatch(code, adminCode()))) {
+    await rejectWrongCode('produccion', { PRODUCCION_ACCESS_CODE: prodCode(), PRODUCTOS_ACCESS_CODE: adminCode() })
+    // Si la variable del obrador no está en el servidor, lo normal es que no se haya guardado
+    // en Render (nombre mal escrito o despliegue sin terminar): se avisa en vez de solo «incorrecto».
+    return {
+      ok: false,
+      error: prodCode() ? 'Código incorrecto' : 'Código incorrecto. El servidor no tiene configurada la variable PRODUCCION_ACCESS_CODE: revisa en Render que el nombre esté escrito igual y que el despliegue haya terminado.',
+    }
   }
-  const token = expectedToken()
+  const token = currentToken()
   if (!token) return { ok: false, error: 'No se pudo generar el acceso' }
-  const store = await cookies()
-  store.set(COOKIE_NAME, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: MAX_AGE_SECONDS,
-  })
+  await setGateCookie(COOKIE_NAME, token, MAX_AGE_SECONDS)
   return { ok: true }
 }
 
 export async function lockProduccion() {
   await assertNaveUser()
-  const store = await cookies()
-  store.delete(COOKIE_NAME)
+  await clearGateCookie(COOKIE_NAME)
 }

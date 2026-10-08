@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
+import { assertArea } from '@/lib/areaGuard'
 
 export type OrgCostItem = {
   id: string
@@ -37,6 +38,7 @@ function validate(input: { name: string; value: number; mode: string; kind: stri
 }
 
 export async function createCostItem(input: { organizationId: string; kind: 'fijo' | 'variable'; mode: 'monthly' | 'percent'; name: string; value: number }) {
+  await assertArea('informes')
   await assertIsNaveOrAdmin()
   validate(input)
   const admin = createAdminClient() as any
@@ -51,6 +53,7 @@ export async function createCostItem(input: { organizationId: string; kind: 'fij
 }
 
 export async function updateCostItem(id: string, input: { kind: 'fijo' | 'variable'; mode: 'monthly' | 'percent'; name: string; value: number }) {
+  await assertArea('informes')
   await assertIsNaveOrAdmin()
   validate(input)
   const admin = createAdminClient() as any
@@ -63,6 +66,7 @@ export async function updateCostItem(id: string, input: { kind: 'fijo' | 'variab
 }
 
 export async function toggleCostItemActive(id: string, active: boolean) {
+  await assertArea('informes')
   await assertIsNaveOrAdmin()
   const admin = createAdminClient() as any
   const { error } = await admin.from('org_cost_items').update({ active, updated_at: new Date().toISOString() }).eq('id', id)
@@ -71,6 +75,7 @@ export async function toggleCostItemActive(id: string, active: boolean) {
 }
 
 export async function deleteCostItem(id: string) {
+  await assertArea('informes')
   await assertIsNaveOrAdmin()
   const admin = createAdminClient() as any
   const { error } = await admin.from('org_cost_items').delete().eq('id', id)
@@ -80,6 +85,7 @@ export async function deleteCostItem(id: string) {
 
 /** month = 'YYYY-MM'. amount vacío/0 borra el dato de ese mes. */
 export async function upsertRestaurantSales(organizationId: string, month: string, amount: number) {
+  await assertArea('informes')
   await assertIsNaveOrAdmin()
   if (!/^\d{4}-\d{2}$/.test(month)) throw new Error('Mes inválido')
   if (!(amount >= 0)) throw new Error('Importe inválido')

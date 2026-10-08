@@ -1,18 +1,18 @@
 'use client'
 
 import { CodeGate } from '@/components/CodeGate'
-import { unlockProducts } from '@/app/actions/productsGate'
+import { unlockCostes } from '@/app/actions/costesGate'
 
-// Los costes reales llevan sueldos y estructura de la nave: se piden con el mismo
-// código que las categorías protegidas de Productos.
-export function CostesGate({ configured }: { configured: boolean }) {
+// Costes lleva sueldos y estructura de la nave: tiene su propia clave, alfanumérica.
+export function CostesGate({ configured, problem }: { configured: boolean; problem?: string | null }) {
   return (
     <CodeGate
       title="Costes reales"
-      description="Esta sección incluye sueldos y costes de la nave. Introduce el código de acceso."
+      description="Esta sección incluye sueldos y costes de la nave. Introduce la clave de acceso."
       configured={configured}
-      envName="PRODUCTOS_ACCESS_CODE"
-      unlock={unlockProducts}
+      problem={problem}
+      envName="COSTES_ACCESS_CODE"
+      unlock={unlockCostes}
     />
   )
 }

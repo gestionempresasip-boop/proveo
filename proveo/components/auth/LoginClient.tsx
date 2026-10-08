@@ -5,6 +5,8 @@ import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, Delete } from 'lucide-react'
+import { listLoginNaveUsers, loginNaveUser } from '@/app/actions/naveAccess'
+import { FULL_ACCESS_LABEL } from '@/lib/areas'
 
 const PLACES = [
   { name: 'Nave Obrador', email: 'admin@proveo.es', type: 'nave' as const, logo: '/logos/depot.png' },
@@ -19,18 +21,47 @@ const PLACES = [
 const NUMPAD = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del']
 const PIN_PREFIX = 'pvprveo'
 
+type Person = { id: string; name: string }
+
 export function LoginClient() {
   const [selected, setSelected] = useState<(typeof PLACES)[0] | null>(null)
+  // La nave puede tener varios usuarios con nombre (creados por Gestión). Si solo existe Gestión,
+  // se entra como siempre: tocar «Nave Obrador» y poner el PIN.
+  const [people, setPeople] = useState<Person[] | null>(null)
+  const [person, setPerson] = useState<Person | null>(null)
   const [pin, setPin] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
-  function handleSelect(place: (typeof PLACES)[0]) {
-    setSelected(place)
+  async function handleSelect(place: (typeof PLACES)[0]) {
     setPin('')
     setError(null)
+    if (place.type === 'nave') {
+      setLoading(true)
+      const list = await listLoginNaveUsers().catch(() => [] as Person[])
+      setLoading(false)
+      if (list.length > 1) { setPeople(list); return }
+    }
+    setSelected(place)
+  }
+
+  function handlePerson(p: Person) {
+    setPerson(p)
+    setSelected({ ...PLACES[0], name: p.name === FULL_ACCESS_LABEL ? 'Nave Obrador' : p.name })
+    setPeople(null)
+  }
+
+  function goBack() {
+    const wasPerson = !!person
+    setSelected(null)
+    setPin('')
+    setError(null)
+    if (wasPerson) {
+      setPerson(null)
+      void listLoginNaveUsers().then(setPeople).catch(() => setPeople(null))
+    }
   }
 
   function handleKey(key: string) {
@@ -51,11 +82,14 @@ export function LoginClient() {
     if (!selected) return
     setLoading(true)
     setError(null)
-    const { error } = await supabase.auth.signInWithPassword({
-      email: selected.email,
-      password: PIN_PREFIX + pinValue,
-    })
-    if (error) {
+    let ok: boolean
+    if (person) {
+      ok = (await loginNaveUser(person.id, pinValue).catch(() => ({ ok: false }))).ok
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({ email: selected.email, password: PIN_PREFIX + pinValue })
+      ok = !error
+    }
+    if (!ok) {
       setError('PIN incorrecto')
       setPin('')
       setLoading(false)
@@ -63,6 +97,29 @@ export function LoginClient() {
     }
     router.push('/dashboard')
     router.refresh()
+  }
+
+  if (people && !selected) {
+    return (
+      <div className="min-h-screen bg-[#FAFAF8] flex flex-col items-center justify-center px-4 py-12">
+        <div className="w-full max-w-sm">
+          <button onClick={() => setPeople(null)} className="flex items-center gap-1 text-sm text-gray-600 mb-6">
+            <ChevronLeft className="w-4 h-4" /> Volver
+          </button>
+          <div className="mb-6 text-center">
+            <Image src={PLACES[0].logo} alt="Nave Obrador" width={160} height={48} className="w-full h-12 object-contain mb-3" />
+            <h1 className="text-2xl font-bold text-[#1E2B28]">¿Quién eres?</h1>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {people.map(p => (
+              <button key={p.id} onClick={() => handlePerson(p)} className="rounded-2xl border-2 border-gray-100 hover:border-[#1E2B28] bg-white shadow-sm px-4 py-5 text-lg font-bold text-black transition-all active:scale-[0.98] break-words">
+                {p.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    )
   }
 
   if (!selected) {
@@ -107,7 +164,7 @@ export function LoginClient() {
     <div className="min-h-screen bg-[#FAFAF8] flex flex-col items-center justify-center px-4">
       <div className="w-full max-w-xs">
         <button
-          onClick={() => { setSelected(null); setPin('') }}
+          onClick={goBack}
           className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-600 mb-8 transition-colors"
         >
           <ChevronLeft className="w-4 h-4" />

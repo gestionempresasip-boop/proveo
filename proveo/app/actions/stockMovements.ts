@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { assertArea } from '@/lib/areaGuard'
 
 export type StockMovement = {
   id: string
@@ -32,6 +33,7 @@ const REASON_LABEL: Record<string, string> = {
 export async function getStockMovements(opts: {
   dateFrom?: string; dateTo?: string; productId?: string; reason?: string
 }) {
+  await assertArea('stock')
   const supabase = await createClient()
   const sb = supabase as any
 

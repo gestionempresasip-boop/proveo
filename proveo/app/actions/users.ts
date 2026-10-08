@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
+import { assertArea } from '@/lib/areaGuard'
 
 const PIN_PREFIX = 'pvprveo'
 
@@ -21,6 +22,7 @@ async function assertIsNaveOrAdmin() {
 // así que el valor "visible" vive en profiles.pin y siempre se mantiene en
 // sincronía con la contraseña real.
 export async function updateUserPin(profileId: string, newPin: string) {
+  await assertArea('usuarios')
   await assertIsNaveOrAdmin()
   if (!/^\d{4}$/.test(newPin)) throw new Error('El PIN debe tener 4 dígitos')
 
@@ -36,6 +38,7 @@ export async function updateUserPin(profileId: string, newPin: string) {
 }
 
 export async function updateUserProfile(profileId: string, formData: FormData) {
+  await assertArea('usuarios')
   await assertIsNaveOrAdmin()
   const supabase = await createClient()
   const full_name = formData.get('full_name') as string

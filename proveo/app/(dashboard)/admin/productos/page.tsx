@@ -4,8 +4,10 @@ import { rowsOf } from '@/lib/serverAccess'
 import { splitByProtection, type CategoryLink, type CategoryRow } from '@/lib/protectedCategories'
 import { ProductosManager, type Product } from '@/components/products/ProductosManager'
 import { isProductsCodeConfigured, isProductsUnlocked } from '@/app/actions/productsGate'
+import { requireArea } from '@/lib/areaGuard'
 
 export default async function AdminProductosPage() {
+  await requireArea('productos')
   const profile = await getAuthProfile()
   const canEdit = profile.role === 'admin' || profile.role === 'nave_manager'
 

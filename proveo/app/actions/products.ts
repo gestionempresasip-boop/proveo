@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { assertArea } from '@/lib/areaGuard'
 
 function computePrice(costPrice: number, margin: number, priceOverride: number, priceManual: number): number {
   if (priceOverride > 0) return priceOverride
@@ -19,6 +20,7 @@ async function syncProductCategories(sb: any, productId: string, categoryIds: st
 }
 
 export async function createProduct(formData: FormData) {
+  await assertArea('productos')
   const supabase = await createClient()
   const sb = supabase as any
 
@@ -66,6 +68,7 @@ export async function createProduct(formData: FormData) {
 }
 
 export async function updateProduct(productId: string, formData: FormData) {
+  await assertArea('productos')
   const supabase = await createClient()
   const sb = supabase as any
 
@@ -114,6 +117,7 @@ export async function updateProduct(productId: string, formData: FormData) {
 }
 
 export async function toggleProductActive(productId: string, isActive: boolean) {
+  await assertArea('productos')
   const supabase = await createClient()
   await (supabase as any)
     .from('products')
@@ -123,6 +127,7 @@ export async function toggleProductActive(productId: string, isActive: boolean) 
 }
 
 export async function approveProductWithoutCost(productId: string) {
+  await assertArea('productos')
   const supabase = await createClient()
   const { error } = await (supabase as any)
     .from('products')
@@ -133,6 +138,7 @@ export async function approveProductWithoutCost(productId: string) {
 }
 
 export async function softDeleteProduct(productId: string) {
+  await assertArea('productos')
   const supabase = await createClient()
   await (supabase as any)
     .from('products')
@@ -143,6 +149,7 @@ export async function softDeleteProduct(productId: string) {
 }
 
 export async function bulkSoftDeleteProducts(productIds: string[]) {
+  await assertArea('productos')
   if (productIds.length === 0) return { deleted: 0 }
   const supabase = await createClient()
   const { error } = await (supabase as any)
@@ -173,6 +180,7 @@ const DEFAULT_CATEGORIES = [
 ]
 
 export async function seedDefaultCategories() {
+  await assertArea('productos')
   const supabase = await createClient()
   const sb = supabase as any
 
@@ -187,6 +195,7 @@ export async function seedDefaultCategories() {
 }
 
 export async function createCategory(formData: FormData) {
+  await assertArea('productos')
   const supabase = await createClient()
   const sb = supabase as any
   const name = (formData.get('name') as string).trim()
@@ -197,6 +206,7 @@ export async function createCategory(formData: FormData) {
 }
 
 export async function deleteCategory(categoryId: string) {
+  await assertArea('productos')
   const supabase = await createClient()
   const sb = supabase as any
   // unlink products from this category before deleting
@@ -206,6 +216,7 @@ export async function deleteCategory(categoryId: string) {
 }
 
 export async function updateCategory(categoryId: string, formData: FormData) {
+  await assertArea('productos')
   const supabase = await createClient()
   const sb = supabase as any
   const name = (formData.get('name') as string).trim()
@@ -218,6 +229,7 @@ export async function updateCategory(categoryId: string, formData: FormData) {
 // Fusiona dos categorías: mueve todos los productos de "fromId" a "toId"
 // (tanto la categoría principal como la tabla puente) y borra "fromId".
 export async function mergeCategories(fromId: string, toId: string) {
+  await assertArea('productos')
   if (fromId === toId) return
   const supabase = await createClient()
   const sb = supabase as any
@@ -253,6 +265,7 @@ export async function bulkAdjustPricing(
   mode: BulkPricingMode,
   value: number,
 ) {
+  await assertArea('productos')
   if (productIds.length === 0 || !value) return { updated: 0, skipped: 0 }
   const supabase = await createClient()
   const sb = supabase as any
@@ -299,6 +312,7 @@ export async function bulkAdjustPricing(
 
 // Mueve todos los productos de una categoría a otra (sin borrar la categoría de origen)
 export async function moveProductsToCategory(productIds: string[], targetCategoryId: string) {
+  await assertArea('productos')
   if (productIds.length === 0) return
   const supabase = await createClient()
   const sb = supabase as any

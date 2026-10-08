@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation'
 import { getAuthProfile } from '@/lib/supabase/helpers'
 import { adminDb, rowsOf } from '@/lib/serverAccess'
-import { isProductsCodeConfigured, isProductsUnlocked } from '@/app/actions/productsGate'
+import { canAccess } from '@/lib/areas'
+import { costesCodeStatus, isCostesUnlocked } from '@/app/actions/costesGate'
 import { getMeasuredProducts, getRunHistory } from '@/app/actions/production'
 import { loadCostContext, loadSoldPerMonth } from '@/lib/costContext'
 import { CostesGate } from '@/components/costs/CostesGate'
@@ -15,11 +16,11 @@ type ProductRow = {
 
 export default async function CostesPage() {
   const profile = await getAuthProfile()
-  const allowed = profile.role === 'admin' || (profile.role === 'nave_manager' && profile.organizations.type === 'nave')
+  const allowed = (profile.role === 'admin' || (profile.role === 'nave_manager' && profile.organizations.type === 'nave')) && canAccess(profile, 'costes')
   if (!allowed) redirect('/dashboard')
 
-  const [configured, unlocked] = await Promise.all([isProductsCodeConfigured(), isProductsUnlocked()])
-  if (!unlocked) return <CostesGate configured={configured} />
+  const [status, unlocked] = await Promise.all([costesCodeStatus(), isCostesUnlocked()])
+  if (!unlocked) return <CostesGate configured={status.configured} problem={status.problem} />
 
   const db = adminDb()
   const orgId = profile.organization_id
