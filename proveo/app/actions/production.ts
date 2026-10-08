@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { adminDb, assertCostAccess, assertNave, rowsOf } from '@/lib/serverAccess'
+import { adminDb, assertCostAccess, assertProduccion, rowsOf } from '@/lib/serverAccess'
 import { madridDay } from '@/lib/dates'
 import { median, PAUSE_STAGE, runMetrics, STAGE_PRESETS, type Participant, type RunLike, type Stage, type StageKind } from '@/lib/productionTime'
 
@@ -57,7 +57,7 @@ export type ProductionState = {
 }
 
 export async function getProductionState(): Promise<ProductionState | { error: string }> {
-  const { orgId } = await assertNave()
+  const { orgId } = await assertProduccion()
   const db = adminDb()
   const [workers, running, products, counts, finished] = await Promise.all([
     db.from('production_workers').select('id, name').eq('organization_id', orgId).eq('active', true).order('name'),
@@ -95,7 +95,7 @@ export async function getProductionState(): Promise<ProductionState | { error: s
 // ── Trabajadores ────────────────────────────────────────────────────────────
 
 export async function addProductionWorker(name: string) {
-  const { orgId } = await assertNave()
+  const { orgId } = await assertProduccion()
   const clean = name.trim().slice(0, 60)
   if (!clean) throw new Error('Escribe un nombre')
   const { error } = await adminDb().from('production_workers').insert({ organization_id: orgId, name: clean })
@@ -104,7 +104,7 @@ export async function addProductionWorker(name: string) {
 }
 
 export async function removeProductionWorker(id: string) {
-  const { orgId } = await assertNave()
+  const { orgId } = await assertProduccion()
   await adminDb().from('production_workers').update({ active: false }).eq('id', id).eq('organization_id', orgId)
   revalidatePath('/produccion')
 }
@@ -124,7 +124,7 @@ async function closeOpen(runId: string, at: string) {
 }
 
 export async function startRun(productId: string, workerId: string, station: string | null) {
-  const { orgId } = await assertNave()
+  const { orgId } = await assertProduccion()
   const db = adminDb()
   const now = nowIso()
   const { data: run, error } = await db.from('production_runs')
@@ -137,7 +137,7 @@ export async function startRun(productId: string, workerId: string, station: str
 }
 
 export async function switchStage(runId: string, stage: string) {
-  const { orgId } = await assertNave()
+  const { orgId } = await assertProduccion()
   await assertOwnRunning(runId, orgId)
   // Solo las etapas conocidas: el tipo (personal / espera / pausa) sale de aquí, no del navegador.
   const preset = STAGE_PRESETS.find(p => p.stage === stage)
@@ -153,7 +153,7 @@ export async function switchStage(runId: string, stage: string) {
 }
 
 export async function joinRun(runId: string, workerId: string) {
-  const { orgId } = await assertNave()
+  const { orgId } = await assertProduccion()
   await assertOwnRunning(runId, orgId)
   const db = adminDb()
   const { data: open } = await db.from('production_participants').select('id').eq('run_id', runId).eq('worker_id', workerId).is('left_at', null)
@@ -162,13 +162,13 @@ export async function joinRun(runId: string, workerId: string) {
 }
 
 export async function leaveRun(runId: string, workerId: string) {
-  const { orgId } = await assertNave()
+  const { orgId } = await assertProduccion()
   await assertOwnRunning(runId, orgId)
   await adminDb().from('production_participants').update({ left_at: nowIso() }).eq('run_id', runId).eq('worker_id', workerId).is('left_at', null)
 }
 
 export async function finishRun(runId: string, unitsProduced: number, unitsWasted: number) {
-  const { orgId } = await assertNave()
+  const { orgId } = await assertProduccion()
   await assertOwnRunning(runId, orgId)
   const units = Number(unitsProduced)
   if (!(units > 0)) throw new Error('Indica cuántas unidades han salido')
@@ -181,7 +181,7 @@ export async function finishRun(runId: string, unitsProduced: number, unitsWaste
 }
 
 export async function cancelRun(runId: string) {
-  const { orgId } = await assertNave()
+  const { orgId } = await assertProduccion()
   await assertOwnRunning(runId, orgId)
   const now = nowIso()
   await closeOpen(runId, now)

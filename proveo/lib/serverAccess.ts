@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAuthProfile } from '@/lib/supabase/helpers'
 import { isProductsUnlocked } from '@/app/actions/productsGate'
+import { isProduccionUnlocked } from '@/app/actions/produccionGate'
 
 // Comprobaciones de acceso compartidas por las server actions de Costes y Producción.
 // Las tablas nuevas no tienen RLS con políticas: todo pasa por aquí, con la service
@@ -17,6 +18,13 @@ export async function assertNave(): Promise<OrgContext> {
   const profile = await getAuthProfile()
   if (!(profile.role === 'admin' || profile.organizations.type === 'nave')) throw new Error('Sin permisos')
   return { orgId: profile.organization_id }
+}
+
+/** Tablets del obrador: usuario de la nave con el código de Producción ya introducido. */
+export async function assertProduccion(): Promise<OrgContext> {
+  const ctx = await assertNave()
+  if (!(await isProduccionUnlocked())) throw new Error('Introduce primero el código de Producción')
+  return ctx
 }
 
 /** Encargado de la nave o admin, con el código de acceso ya introducido (sueldos y costes). */
