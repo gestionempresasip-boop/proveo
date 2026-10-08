@@ -1,6 +1,8 @@
 import { getAuthProfile } from '@/lib/supabase/helpers'
 import { createClient } from '@/lib/supabase/server'
-import { ProductosManager } from '@/components/products/ProductosManager'
+import { rowsOf } from '@/lib/serverAccess'
+import { splitByProtection, type CategoryLink, type CategoryRow } from '@/lib/protectedCategories'
+import { ProductosManager, type Product } from '@/components/products/ProductosManager'
 import { isProductsCodeConfigured, isProductsUnlocked } from '@/app/actions/productsGate'
 
 export default async function AdminProductosPage() {
@@ -11,10 +13,9 @@ export default async function AdminProductosPage() {
     return <div className="p-6"><p className="text-red-600">Sin permisos.</p></div>
   }
 
-  const supabase = await createClient()
-  const sb = supabase as any
+  const sb = await createClient()
 
-  const [{ data: products, error: productsError }, { data: categories }, { data: links }, { data: restaurants }, { data: favorites }] = await Promise.all([
+  const [products, categories, links, restaurants, favorites] = await Promise.all([
     sb.from('products')
       .select('id, name, description, price, unit, min_order_quantity, order_increment, is_active, category_id, image_url, cost_price, iva_rate, margin, pending_review, product_categories!products_category_id_fkey(name)')
       .is('deleted_at', null)
@@ -25,59 +26,27 @@ export default async function AdminProductosPage() {
     sb.from('restaurant_favorite_products').select('organization_id, product_id'),
   ])
 
-  // Si la migración de categorías protegidas aún no está aplicada, la columna no
-  // existe y esa consulta falla: se cae a la consulta de siempre, sin protección.
-  let categoryRows: any[] = categories ?? []
-  if (!categories) {
-    const { data: plain } = await sb.from('product_categories').select('id, name, color, order_index').order('order_index').order('name')
-    categoryRows = plain ?? []
+  // Si no se pueden leer las categorías no se sabe cuáles están protegidas: no se muestra
+  // nada (mejor un error que enseñar precios protegidos).
+  if (categories.error) {
+    console.error('Error cargando categorías:', categories.error)
+    return <div className="p-6"><p className="text-red-600">No se pudieron cargar las categorías. Recarga la página.</p></div>
   }
-
-  if (productsError) {
-    console.error('Error cargando productos:', productsError)
-  }
-
-  const categoryIdsByProduct = new Map<string, string[]>()
-  for (const link of links ?? []) {
-    const list = categoryIdsByProduct.get(link.product_id) ?? []
-    list.push(link.category_id)
-    categoryIdsByProduct.set(link.product_id, list)
-  }
+  if (products.error) console.error('Error cargando productos:', products.error)
 
   const [codeConfigured, unlocked] = await Promise.all([isProductsCodeConfigured(), isProductsUnlocked()])
-  const protectedIds = new Set(categoryRows.filter(c => c.is_protected).map(c => c.id))
-
-  // Bloqueado: los productos de categorías protegidas NO salen del servidor.
-  const isHidden = (p: any) => !unlocked && (
-    (p.category_id && protectedIds.has(p.category_id)) ||
-    (categoryIdsByProduct.get(p.id) ?? []).some(id => protectedIds.has(id))
-  )
-  const lockedCounts = new Map<string, number>()
-  const visible: any[] = []
-  for (const p of products ?? []) {
-    if (isHidden(p)) {
-      const ids = new Set<string>([p.category_id, ...(categoryIdsByProduct.get(p.id) ?? [])].filter(Boolean))
-      for (const id of ids) if (protectedIds.has(id)) lockedCounts.set(id, (lockedCounts.get(id) ?? 0) + 1)
-    } else visible.push(p)
-  }
-  const lockedCategories = unlocked ? [] : categoryRows
-    .filter(c => protectedIds.has(c.id))
-    .map(c => ({ id: c.id, name: c.name, color: c.color, count: lockedCounts.get(c.id) ?? 0 }))
-
-  const productsWithCats = visible.map((p: any) => ({
-    ...p,
-    category_ids: categoryIdsByProduct.get(p.id) ?? [],
-  }))
+  const categoryRows = rowsOf<CategoryRow>(categories)
+  const { visible, locked } = splitByProtection(rowsOf<Product>(products), categoryRows, rowsOf<CategoryLink>(links), unlocked)
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
       <ProductosManager
-        products={productsWithCats}
+        products={visible}
         categories={categoryRows}
-        restaurants={restaurants ?? []}
-        favorites={favorites ?? []}
+        restaurants={rowsOf<{ id: string; name: string }>(restaurants)}
+        favorites={rowsOf<{ organization_id: string; product_id: string }>(favorites)}
         isNave
-        gate={{ codeConfigured, unlocked, locked: lockedCategories }}
+        gate={{ codeConfigured, unlocked, locked }}
       />
     </div>
   )

@@ -19,7 +19,7 @@ type Category = { id: string; name: string; color: string | null; order_index: n
 type Gate = { codeConfigured: boolean; unlocked: boolean; locked: { id: string; name: string; color: string | null; count: number }[] }
 type Restaurant = { id: string; name: string }
 type Favorite = { organization_id: string; product_id: string }
-type Product = {
+export type Product = {
   id: string; name: string; description: string | null
   price: number; unit: string
   min_order_quantity: number; order_increment: number
@@ -699,13 +699,14 @@ function CategorySection({
   onEdit: (p: Product) => void; onAddProduct: (catId: string) => void
   canProtect?: boolean; isProtected?: boolean
 }) {
-  const [prot, setProt] = useState(!!isProtected)
+  // Estado mostrado: lo que acabo de cambiar, o si no, lo que dice el servidor.
+  const [protOverride, setProtOverride] = useState<boolean | null>(null)
+  const prot = protOverride ?? !!isProtected
   const [protBusy, setProtBusy] = useState(false)
-  useEffect(() => { setProt(!!isProtected) }, [isProtected])
   async function toggleProtect() {
     setProtBusy(true)
     const res = await setCategoryProtected(categoryId, !prot)
-    if (res.ok) setProt(!prot)
+    if (res.ok) setProtOverride(!prot)
     else alert(res.error ?? 'No se pudo cambiar')
     setProtBusy(false)
   }

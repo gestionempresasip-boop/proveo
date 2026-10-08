@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 import type { ProfileWithOrg } from '@/types/database'
 import {
   ShoppingCart, Package, ClipboardList,
-  FileText, Settings, LogOut, ChefHat, RefreshCw, BarChart3, Boxes, Tag,
+  FileText, Settings, LogOut, ChefHat, RefreshCw, BarChart3, Boxes, Tag, Calculator, Timer,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -21,6 +21,7 @@ interface NavItem {
   icon: React.ElementType
   roles?: string[]
   orgTypes?: string[]
+  desktopOnly?: boolean
 }
 
 const navItems: NavItem[] = [
@@ -30,6 +31,8 @@ const navItems: NavItem[] = [
   { href: '/promociones',     label: 'Promociones', icon: Tag,           orgTypes: ['nave'] },
   { href: '/inventario',      label: 'Stock',       icon: Boxes,         orgTypes: ['nave'] },
   { href: '/albaranes',       label: 'Albaranes',   icon: FileText },
+  { href: '/produccion',      label: 'Producción',  icon: Timer,         orgTypes: ['nave'] },
+  { href: '/costes',          label: 'Costes',      icon: Calculator,    roles: ['admin', 'nave_manager'], orgTypes: ['nave'], desktopOnly: true },
   { href: '/estadisticas',    label: 'Informes',    icon: BarChart3,     orgTypes: ['nave'] },
   { href: '/admin/productos', label: 'Productos',   icon: Package,       roles: ['admin', 'nave_manager'] },
   { href: '/admin/usuarios',  label: 'Usuarios',    icon: Settings,      roles: ['admin', 'nave_manager'] },
@@ -146,7 +149,7 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
       <>
         {/* Bottom tab bar */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 flex print:hidden">
-          {visible.map(item => {
+          {visible.filter(item => !item.desktopOnly).map(item => {
             const active = isActive(item.href)
             const Icon = item.icon
             return (

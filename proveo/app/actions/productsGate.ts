@@ -3,6 +3,7 @@
 import { cookies } from 'next/headers'
 import { createHash, timingSafeEqual } from 'crypto'
 import { revalidatePath } from 'next/cache'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { getAuthProfile } from '@/lib/supabase/helpers'
 
@@ -77,8 +78,8 @@ export async function lockProducts() {
 export async function setCategoryProtected(categoryId: string, isProtected: boolean): Promise<{ ok: boolean; error?: string }> {
   await assertNaveManager()
   if (!(await isProductsUnlocked())) return { ok: false, error: 'Introduce primero el código de acceso' }
-  const supabase = await createClient()
-  const { error } = await (supabase as any).from('product_categories').update({ is_protected: isProtected }).eq('id', categoryId)
+  const supabase = (await createClient()) as unknown as SupabaseClient
+  const { error } = await supabase.from('product_categories').update({ is_protected: isProtected }).eq('id', categoryId)
   if (error) return { ok: false, error: 'No se pudo guardar (¿está aplicada la migración de categorías protegidas?)' }
   revalidatePath('/admin/productos')
   return { ok: true }
