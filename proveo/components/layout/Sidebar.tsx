@@ -32,7 +32,7 @@ const navItems: NavItem[] = [
   { href: '/inventario',      label: 'Stock',       icon: Boxes,         orgTypes: ['nave'] },
   { href: '/albaranes',       label: 'Albaranes',   icon: FileText },
   { href: '/produccion',      label: 'Producción',  icon: Timer,         orgTypes: ['nave'] },
-  { href: '/costes',          label: 'Costes',      icon: Calculator,    roles: ['admin', 'nave_manager'], orgTypes: ['nave'], desktopOnly: true },
+  { href: '/costes',          label: 'Costes',      icon: Calculator,    roles: ['admin', 'nave_manager'], orgTypes: ['nave'] },
   { href: '/estadisticas',    label: 'Informes',    icon: BarChart3,     orgTypes: ['nave'] },
   { href: '/admin/productos', label: 'Productos',   icon: Package,       roles: ['admin', 'nave_manager'] },
   { href: '/admin/usuarios',  label: 'Usuarios',    icon: Settings,      roles: ['admin', 'nave_manager'] },
@@ -148,7 +148,7 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
            dentro del scroll, para que se desplace al deslizar) ─────────── */}
       <>
         {/* Bottom tab bar */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 flex print:hidden">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 flex overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden print:hidden">
           {visible.filter(item => !item.desktopOnly).map(item => {
             const active = isActive(item.href)
             const Icon = item.icon
@@ -157,7 +157,7 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
                 key={item.href + item.label}
                 href={item.href}
                 className={cn(
-                  'flex-1 flex flex-col items-center justify-center gap-1 py-2.5 transition-colors min-h-[60px]',
+                  'flex-1 min-w-[68px] shrink-0 flex flex-col items-center justify-center gap-1 py-2.5 transition-colors min-h-[60px]',
                   active ? 'text-[#A8793A]' : 'text-gray-600 hover:text-gray-600'
                 )}
               >
