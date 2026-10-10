@@ -157,12 +157,14 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
                 key={item.href + item.label}
                 href={item.href}
                 className={cn(
-                  'flex-1 min-w-[68px] shrink-0 flex flex-col items-center justify-center gap-1 py-2.5 transition-colors min-h-[60px]',
+                  'flex-1 shrink-0 flex flex-col items-center justify-center transition-colors',
+                  // La nave tiene muchas pestañas: botones más grandes para verlas y pulsarlas mejor en el móvil
+                  isNave ? 'min-w-[78px] min-h-[72px] gap-1.5 py-3' : 'min-w-[68px] min-h-[60px] gap-1 py-2.5',
                   active ? 'text-[#A8793A]' : 'text-gray-600 hover:text-gray-600'
                 )}
               >
-                <Icon className="h-5 w-5 shrink-0" />
-                <span className="text-[10px] font-medium leading-none">{item.label}</span>
+                <Icon className={cn('shrink-0', isNave ? 'h-6 w-6' : 'h-5 w-5')} />
+                <span className={cn('font-medium leading-none', isNave ? 'text-[11px]' : 'text-[10px]')}>{item.label}</span>
               </Link>
             )
           })}
