@@ -7,6 +7,9 @@ import { CatalogoClient } from '@/components/products/CatalogoClient'
 // el componente. Quita 4 idas y vueltas a Supabase de cada visita a esta
 // pantalla (la más usada de la app) y aprovecha el caché de getAuthProfile
 // que ya usa el layout del dashboard.
+// Solo las columnas que usa el catálogo. Nunca se mandan al navegador el coste ni el margen (el catálogo lo ven los restaurantes).
+const PRODUCT_COLS = 'id, category_id, name, description, image_url, price, unit, min_order_quantity, order_increment, visibility, is_active, iva_rate, allows_box_order, box_units'
+
 export default async function CatalogoPage() {
   const profile = await getAuthProfile()
   const supabase = await createClient()
@@ -15,13 +18,13 @@ export default async function CatalogoPage() {
   const today = new Date().toISOString().split('T')[0]
 
   const [{ data: prods }, { data: cats }, { data: links }, { data: stock }, { data: favs }, { data: promos }, { data: pendingCart }] = await Promise.all([
-    sb.from('products').select('*, product_categories!products_category_id_fkey(name, color)').eq('is_active', true).is('deleted_at', null).order('name'),
+    sb.from('products').select(`${PRODUCT_COLS}, product_categories!products_category_id_fkey(name, color)`).eq('is_active', true).is('deleted_at', null).order('name'),
     sb.from('product_categories').select('*').order('order_index').order('name'),
     sb.from('product_category_links').select('product_id, category_id'),
     sb.from('nave_inventory').select('product_id, current_stock, last_restocked_at'),
     sb.from('restaurant_favorite_products').select('product_id').eq('organization_id', profile.organization_id),
     sb.from('promotions')
-      .select('*, products(*, product_categories!products_category_id_fkey(name, color))')
+      .select(`*, products(${PRODUCT_COLS}, product_categories!products_category_id_fkey(name, color))`)
       .or(`expires_at.is.null,expires_at.gte.${today}`)
       .order('created_at', { ascending: false }),
     sb.from('pending_carts').select('*').eq('organization_id', profile.organization_id).maybeSingle(),
