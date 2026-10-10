@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import { unitLabel } from '@/lib/units'
 import { OrderChat } from '@/components/orders/OrderChat'
 import { ReturnSheet, type ReturnLine } from '@/components/orders/ReturnSheet'
+import { Pager, usePaged } from '@/components/ui/Pager'
 
 const STATUS_STYLE: Record<string, { label: string; cls: string }> = {
   pendiente:      { label: 'Pendiente',      cls: 'bg-yellow-100 text-yellow-800' },
@@ -333,10 +334,15 @@ export function PedidosRestauranteClient({ orders: initialOrders, deletedOrders 
     return Array.from(map.entries()).sort((a, b) => b[0].localeCompare(a[0]))
   }, [filtered])
 
-  function isOpen(key: string, idx: number) {
+  // Con la paginación solo se dibujan 10 pedidos: los días de la página salen abiertos
+  function isOpen(key: string, _idx: number) {
     if (key in toggled) return toggled[key]
-    return idx < 2
+    return true
   }
+
+  const flat = useMemo(() => groups.flatMap(([, g]) => g), [groups])
+  const paged = usePaged(flat, `${search}|${dateFilter}`)
+  const visibleIds = new Set(paged.pageItems.map(o => o.id))
 
   function toggle(key: string, idx: number) {
     setToggled(prev => ({ ...prev, [key]: !isOpen(key, idx) }))
@@ -404,6 +410,8 @@ export function PedidosRestauranteClient({ orders: initialOrders, deletedOrders 
       ) : (
         <div className="space-y-3">
           {groups.map(([key, group], idx) => {
+            const rows = group.filter(o => visibleIds.has(o.id))
+            if (rows.length === 0) return null
             const open = isOpen(key, idx)
             return (
               <div key={key}>
@@ -421,7 +429,7 @@ export function PedidosRestauranteClient({ orders: initialOrders, deletedOrders 
                 </button>
                 {open && (
                   <div className="space-y-2">
-                    {group.map(order => (
+                    {rows.map(order => (
                       <OrderRow
                         key={order.id}
                         order={order}
@@ -435,6 +443,7 @@ export function PedidosRestauranteClient({ orders: initialOrders, deletedOrders 
               </div>
             )
           })}
+          <Pager {...paged} noun="pedidos" />
         </div>
       )}
 

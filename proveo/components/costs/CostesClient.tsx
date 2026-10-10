@@ -11,6 +11,7 @@ import { eur, pct } from '@/lib/finance'
 import { cn } from '@/lib/utils'
 import { errorMessage } from '@/lib/errors'
 import { HistorialTandas } from './HistorialTandas'
+import { Pager, usePaged } from '@/components/ui/Pager'
 import { SettingsPanel } from './SettingsPanel'
 import { SheetEditor } from './SheetEditor'
 import { TiemposMedidos } from './TiemposMedidos'
@@ -80,6 +81,7 @@ export function CostesClient({
     })
     return list.sort((a, b) => sort === 'desajuste' ? (a.gap ?? 0) - (b.gap ?? 0) : a.s.name.localeCompare(b.s.name, 'es'))
   }, [rows, query, filter, sort])
+  const pagedRows = usePaged(visibleRows, `${query}|${filter}|${sort}`)
 
   async function runImport() {
     setImporting(true); setImportMsg(null)
@@ -264,7 +266,7 @@ export function CostesClient({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {visibleRows.map(({ s, r, prod, realMargin, low, noTime, ext }) => filter === 'fuera' ? (
+                  {pagedRows.pageItems.map(({ s, r, prod, realMargin, low, noTime, ext }) => filter === 'fuera' ? (
                     <tr key={s.id} onClick={() => setEditing(s)} className="cursor-pointer hover:bg-gray-50">
                       <td className="px-4 py-2.5 font-medium text-black max-w-[260px] truncate">{s.name}</td>
                       <td className="px-3 py-2.5 text-right tabular-nums font-semibold">{eur(r.unitCost, 3)}</td>
@@ -296,6 +298,7 @@ export function CostesClient({
                 </tbody>
               </table>
             </div>
+            <Pager {...pagedRows} noun="fichas" />
             <p className="text-[11px] text-gray-500">«Margen hoy» es lo que ganas sobre el coste real con el precio que tiene el producto ahora. «Objetivo» es el margen de la ficha (al traerlas, el que tenía el producto). Pulsa una fila para ver y editar.</p>
           </div>
         )}

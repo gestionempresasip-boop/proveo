@@ -7,6 +7,7 @@ import { deleteRun, type RunHistoryItem } from '@/app/actions/production'
 import { fmtDuration } from '@/lib/productionTime'
 import { cn } from '@/lib/utils'
 import { field } from './ui'
+import { Pager, usePaged } from '@/components/ui/Pager'
 
 export function HistorialTandas({ history, filter, onFilter }: { history: RunHistoryItem[]; filter: string; onFilter: (v: string) => void }) {
   const router = useRouter()
@@ -29,6 +30,8 @@ export function HistorialTandas({ history, filter, onFilter }: { history: RunHis
   }
   const shown = filter.trim() ? items.filter(h => h.product_name.toLowerCase().includes(filter.trim().toLowerCase())) : items
 
+  const paged = usePaged(shown, filter.trim().toLowerCase())
+
   if (items.length === 0) {
     return (
       <div className="bg-white rounded-2xl border border-dashed border-gray-300 text-center py-14 px-6 text-gray-600">
@@ -48,7 +51,7 @@ export function HistorialTandas({ history, filter, onFilter }: { history: RunHis
       {msg && <p className="text-sm rounded-xl bg-green-50 border border-green-200 text-green-800 px-3.5 py-2.5">{msg}</p>}
       <div className="bg-white rounded-2xl border border-gray-100 divide-y divide-gray-100 overflow-hidden">
         {shown.length === 0 && <p className="px-4 py-8 text-center text-gray-600 text-sm">No hay tandas con ese producto.</p>}
-        {shown.map(h => {
+        {paged.pageItems.map(h => {
           const d = new Date(h.started_at)
           return (
             <div key={h.id}>
@@ -98,6 +101,7 @@ export function HistorialTandas({ history, filter, onFilter }: { history: RunHis
           )
         })}
       </div>
+      <Pager {...paged} noun="tandas" />
     </div>
   )
 }

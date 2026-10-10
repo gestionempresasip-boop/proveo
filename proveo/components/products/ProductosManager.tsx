@@ -12,6 +12,7 @@ import type { BulkPricingField, BulkPricingMode } from '@/app/actions/products'
 import { setFavoriteProduct, setFavoriteProductsBatch } from '@/app/actions/favorites'
 import { unlockProducts, lockProducts, setCategoryProtected } from '@/app/actions/productsGate'
 import { UNIT_OPTIONS, unitLabel } from '@/lib/units'
+import { Pager, usePaged } from '@/components/ui/Pager'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -692,10 +693,14 @@ function ProductRow({
 // ── Category section (collapsible) ───────────────────────────────────────────
 
 function CategorySection({
-  categoryId, name, color, products, categories, isNave, onEdit, onAddProduct, canProtect, isProtected,
+  categoryId, name, color, products, pageProducts, categories, isNave, onEdit, onAddProduct, canProtect, isProtected,
 }: {
   categoryId: string; name: string; color: string | null
-  products: Product[]; categories: Category[]; isNave?: boolean
+  /** TODOS los productos de la categoría (cuentas y acciones como «Mover todos»). */
+  products: Product[]
+  /** Los que se dibujan en esta página (paginación). Por defecto, todos. */
+  pageProducts?: Product[]
+  categories: Category[]; isNave?: boolean
   onEdit: (p: Product) => void; onAddProduct: (catId: string) => void
   canProtect?: boolean; isProtected?: boolean
 }) {
@@ -794,7 +799,7 @@ function CategorySection({
       </div>
       {open && (
         products.length > 0
-          ? <ProductsTable products={products} categories={categories} isNave={isNave} onEdit={onEdit} />
+          ? <ProductsTable products={pageProducts ?? products} categories={categories} isNave={isNave} onEdit={onEdit} />
           : <p className="text-xs text-gray-600 px-6 py-4">Sin productos. Pulsa "Añadir" para crear el primero.</p>
       )}
     </div>
@@ -941,6 +946,9 @@ function FavoritosManager({
     if (uncategorized.length > 0) groups.push({ id: '__none__', name: 'Sin categoría', color: '#9CA3AF', products: uncategorized })
     return groups
   }, [filtered, categories])
+  const favFlat = byCategory.flatMap(g => g.products.map(p => `${g.id}:${p.id}`))
+  const pagedFav = usePaged(favFlat, `${restaurantId}|${search}`)
+  const favVisible = new Set(pagedFav.pageItems)
 
   const favCount = products.filter(p => isFav(p.id)).length
 
@@ -981,7 +989,7 @@ function FavoritosManager({
       </p>
 
       <div className="space-y-3">
-        {byCategory.map(group => (
+        {byCategory.filter(g => g.products.some(p => favVisible.has(`${g.id}:${p.id}`))).map(group => (
           <div key={group.id} className="bg-white rounded-xl border border-gray-100 overflow-hidden">
             <div className="flex items-center gap-2 px-4 py-2.5 bg-gray-50 border-b border-gray-100">
               <ColorDot color={group.color} />
@@ -989,7 +997,7 @@ function FavoritosManager({
               <span className="text-xs text-gray-600">({group.products.length})</span>
             </div>
             <div className="divide-y divide-gray-50">
-              {group.products.map(p => {
+              {group.products.filter(p => favVisible.has(`${group.id}:${p.id}`)).map(p => {
                 const already = isFav(p.id)
                 return (
                   <div key={p.id} className="flex items-center gap-3 px-4 py-2.5">
@@ -1023,6 +1031,7 @@ function FavoritosManager({
         {byCategory.length === 0 && (
           <p className="text-sm text-gray-600 text-center py-8">Sin productos que coincidan con la búsqueda.</p>
         )}
+        <Pager {...pagedFav} noun="productos" />
       </div>
 
       {staged.size > 0 && (
@@ -1546,6 +1555,12 @@ export function ProductosManager({
 
   const uncategorizedCount = products.filter(p => catIdsOf(p).length === 0).length
 
+  // ── Paginación (10 por página): se dibujan pocas filas, los contadores y las acciones siguen siendo de todo ──
+  const flatRows = useMemo(() => grouped.flatMap(g => g.products.map(p => ({ gid: g.id, p }))), [grouped])
+  const pagedList = usePaged(flatRows, `${search}|${filterActive}|${selectedCategory ?? ''}`)
+  const pageKeys = new Set(pagedList.pageItems.map(r => `${r.gid}:${r.p.id}`))
+  const pagedBuscar = usePaged(buscarResults, `${buscarQuery}|${buscarCategory ?? ''}`)
+
   return (
     <>
       {showCode && <CodeModal onClose={() => setShowCode(false)} />}
@@ -1691,13 +1706,17 @@ export function ProductosManager({
             {gate && <GateBar gate={gate} onUnlock={() => setShowCode(true)} />}
 
             <div className="space-y-3">
-              {grouped.map(g => (
+              {grouped.map(g => {
+                const pageProducts = g.products.filter(p => pageKeys.has(`${g.id}:${p.id}`))
+                if (g.products.length > 0 && pageProducts.length === 0) return null // sin filas en esta página
+                return (
                 <CategorySection
                   key={g.id}
                   categoryId={g.id}
                   name={g.name}
                   color={g.color}
                   products={g.products}
+                  pageProducts={pageProducts}
                   categories={categories}
                   isNave={isNave}
                   onEdit={setEditProduct}
@@ -1705,7 +1724,9 @@ export function ProductosManager({
                   canProtect={!!gate?.unlocked}
                   isProtected={!!categoriesById[g.id]?.is_protected}
                 />
-              ))}
+                )
+              })}
+              <Pager {...pagedList} noun="productos" />
               {gate && !gate.unlocked && !search && !selectedCategory && gate.locked.map(c => (
                 <button
                   key={c.id}
@@ -1811,7 +1832,10 @@ export function ProductosManager({
 
             {buscarResults.length > 0 ? (
               <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-                <ProductsTable products={buscarResults} categories={categories} isNave={isNave} onEdit={setEditProduct} />
+                <>
+                  <ProductsTable products={pagedBuscar.pageItems} categories={categories} isNave={isNave} onEdit={setEditProduct} />
+                  <Pager {...pagedBuscar} noun="productos" className="px-4 pb-3" />
+                </>
               </div>
             ) : (
               <div className="text-center py-16 text-gray-600 bg-white rounded-xl border border-gray-100">

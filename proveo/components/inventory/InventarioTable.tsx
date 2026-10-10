@@ -10,6 +10,7 @@ import { MovementsTab } from './MovementsTab'
 import { StockCountFlow } from './StockCountFlow'
 import { PurchaseSuggestionTab } from './PurchaseSuggestionTab'
 import { AlertTriangle, CheckCircle2, XCircle, Save, ChevronDown, ChevronUp, History, Package, Download, ListChecks, X, Check, FileSpreadsheet, Trash2, Shield, ArrowUp, PackageOpen, ClipboardList, ShoppingCart, Search, Minus, Plus } from 'lucide-react'
+import { Pager, usePaged } from '@/components/ui/Pager'
 
 type InventoryRow = {
   product_id: string
@@ -740,6 +741,11 @@ export function InventarioTable({
     byCategory[cat].rows.push(r)
   })
 
+  // Paginación (10 por página) sobre la lista ya filtrada: los cambios sin guardar de otras páginas se conservan
+  const flatRows = Object.values(byCategory).flatMap(g => g.rows)
+  const paged = usePaged(flatRows, `${search}|${filter}|${categoryFilter}`)
+  const pageIds = new Set(paged.pageItems.map(r => r.product_id))
+
   const alertCount = rows.filter(r => r.current_stock > 0 && r.min_stock > 0 && r.current_stock <= r.min_stock).length
   const emptyCount = rows.filter(r => r.current_stock === 0).length
   const cajonCount = rows.filter(r => r.allows_box_order).length
@@ -986,6 +992,8 @@ export function InventarioTable({
           )}
           {Object.entries(byCategory).map(([cat, group]) => {
             const isOpen = openCategories[cat] !== false
+            const pageRows = group.rows.filter(r => pageIds.has(r.product_id))
+            if (pageRows.length === 0) return null
             return (
               <div key={cat} className="bg-white rounded-xl border border-gray-100 overflow-hidden">
                 <button
@@ -1004,7 +1012,7 @@ export function InventarioTable({
 
                 {isOpen && (
                   <div>
-                    {group.rows.map(row => (
+                    {pageRows.map(row => (
                       <InventoryRowItem
                         key={row.product_id}
                         row={row}
@@ -1026,6 +1034,8 @@ export function InventarioTable({
               </div>
             )
           })}
+
+          <Pager {...paged} noun="productos" />
 
           {filtered.length === 0 && (
             <div className="text-center py-12 text-gray-600">No se encontraron productos</div>

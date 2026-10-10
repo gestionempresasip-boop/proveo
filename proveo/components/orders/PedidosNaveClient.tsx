@@ -6,6 +6,7 @@ import { updateOrderStatus, generateDeliveryNote, deleteOrder, restoreOrder, rec
 import type { OrderStatus } from '@/app/actions/orders'
 import { unitLabel } from '@/lib/units'
 import { OrderChat } from '@/components/orders/OrderChat'
+import { Pager, usePaged } from '@/components/ui/Pager'
 import {
   Calendar, Filter, ChevronDown, MessageCircle, Printer,
   Download, FileText, Clock, CheckCircle2, Send, AlertCircle,
@@ -818,6 +819,12 @@ export function PedidosNaveClient({ orders: initialOrders, deletedOrders: initia
     return acc
   }, [orders])
 
+  // Paginación: de 10 en 10 (los contadores de arriba siguen contando todos los pedidos)
+  const filterKey = `${dateFilter}|${statusFilter}|${restFilter}|${dateFrom}|${dateTo}`
+  const pagedToday = usePaged(todayOrders, filterKey)
+  const pagedPast = usePaged(pastPending, filterKey)
+  const pagedTrash = usePaged(deletedOrders, 'papelera')
+
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-5">
       {/* Title */}
@@ -847,7 +854,7 @@ export function PedidosNaveClient({ orders: initialOrders, deletedOrders: initia
             <p className="text-center py-10 text-gray-600 text-sm">No hay pedidos eliminados</p>
           ) : (
             <div className="divide-y divide-gray-50">
-              {deletedOrders.map(o => (
+              {pagedTrash.pageItems.map(o => (
                 <div key={o.id} className="p-4 flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="font-medium text-black text-sm">
@@ -871,6 +878,7 @@ export function PedidosNaveClient({ orders: initialOrders, deletedOrders: initia
                   </button>
                 </div>
               ))}
+              <div className="px-4 pb-3"><Pager {...pagedTrash} noun="pedidos eliminados" /></div>
             </div>
           )}
         </section>
@@ -969,7 +977,8 @@ export function PedidosNaveClient({ orders: initialOrders, deletedOrders: initia
             Pendientes de días anteriores ({pastPending.length})
           </h2>
           <div className="space-y-3">
-            {pastPending.map(o => <OrderCard key={o.id} order={o} onDeleted={handleDeleted} onStatusChange={handleStatusChange} onRectified={handleRectified} onItemCanceled={handleItemCanceled} onPreparedChange={handlePreparedChange} onLotChange={handleLotChange} onWeightChange={handleWeightChange} onBoxExactUnitsChange={handleBoxExactUnitsChange} currentUserId={currentUserId} />)}
+            {pagedPast.pageItems.map(o => <OrderCard key={o.id} order={o} onDeleted={handleDeleted} onStatusChange={handleStatusChange} onRectified={handleRectified} onItemCanceled={handleItemCanceled} onPreparedChange={handlePreparedChange} onLotChange={handleLotChange} onWeightChange={handleWeightChange} onBoxExactUnitsChange={handleBoxExactUnitsChange} currentUserId={currentUserId} />)}
+            <Pager {...pagedPast} noun="pedidos" />
           </div>
         </section>
       )}
@@ -990,7 +999,8 @@ export function PedidosNaveClient({ orders: initialOrders, deletedOrders: initia
           </div>
         ) : (
           <div className="space-y-3">
-            {todayOrders.map(o => <OrderCard key={o.id} order={o} onDeleted={handleDeleted} onStatusChange={handleStatusChange} onRectified={handleRectified} onItemCanceled={handleItemCanceled} onPreparedChange={handlePreparedChange} onLotChange={handleLotChange} onWeightChange={handleWeightChange} onBoxExactUnitsChange={handleBoxExactUnitsChange} currentUserId={currentUserId} />)}
+            {pagedToday.pageItems.map(o => <OrderCard key={o.id} order={o} onDeleted={handleDeleted} onStatusChange={handleStatusChange} onRectified={handleRectified} onItemCanceled={handleItemCanceled} onPreparedChange={handlePreparedChange} onLotChange={handleLotChange} onWeightChange={handleWeightChange} onBoxExactUnitsChange={handleBoxExactUnitsChange} currentUserId={currentUserId} />)}
+            <Pager {...pagedToday} noun="pedidos" />
           </div>
         )}
       </section>

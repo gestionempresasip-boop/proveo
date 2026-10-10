@@ -15,6 +15,7 @@ import { loadCartDraft, saveCartDraft, clearCartDraft } from '@/lib/cartDraft'
 import { savePendingCart, clearPendingCart } from '@/app/actions/pendingCart'
 import { setFavoriteProduct } from '@/app/actions/favorites'
 import { unitLabel } from '@/lib/units'
+import { Pager, usePaged } from '@/components/ui/Pager'
 
 type CartItem = { product: Product; quantity: number }
 type StockRow = { product_id: string; current_stock: number; last_restocked_at: string | null }
@@ -349,6 +350,7 @@ export function CatalogoClient({
       return matchSearch && matchCat && matchFav
     })
   }, [products, searchQuery, selectedCategory, showFavorites, favoriteIds])
+  const pagedCatalog = usePaged(filteredProducts, `${searchQuery}|${selectedCategory}|${showFavorites}`)
 
   // Conteo por categoría para el badge — no depende del carrito.
   const countByCat = useMemo(() => {
@@ -822,7 +824,7 @@ export function CatalogoClient({
               <>
                 {/* Una sola lista compacta (1 columna; 2 en pantallas muy grandes) */}
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden 2xl:grid 2xl:grid-cols-2">
-                  {filteredProducts.map(product => {
+                  {pagedCatalog.pageItems.map(product => {
                     const cat = (product as any).product_categories
                     const mode = cartModes[product.id] ?? 'unidad'
                     const boxUnits = boxUnitsFor(product)
@@ -849,6 +851,7 @@ export function CatalogoClient({
                     )
                   })}
                 </div>
+                <Pager {...pagedCatalog} noun="productos" className="pb-24 lg:pb-0" />
               </>
             )}
           </div>

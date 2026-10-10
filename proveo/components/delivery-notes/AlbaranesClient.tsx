@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { FileText, Trash2, Undo2, Search, X, ChevronRight, Printer } from 'lucide-react'
 import { deleteDeliveryNote } from '@/app/actions/orders'
 import { cn } from '@/lib/utils'
+import { Pager, usePaged } from '@/components/ui/Pager'
 
 type Note = {
   id: string
@@ -279,6 +280,11 @@ export function AlbaranesClient({ notes: initialNotes, isNave }: { notes: Note[]
     return [...map.entries()].sort((a, b) => b[0].localeCompare(a[0]))
   }, [filtered])
 
+  // Paginación: de 10 en 10 sobre la lista ya filtrada (los meses siguen enseñando su total completo)
+  const flat = useMemo(() => months.flatMap(([, m]) => m.notes), [months])
+  const paged = usePaged(flat, `${search}|${typeFilter}|${restaurant}`)
+  const visibleIds = new Set(paged.pageItems.map(n => n.id))
+
   if (notes.length === 0) {
     return (
       <div className="text-center py-20 text-gray-600">
@@ -350,7 +356,10 @@ export function AlbaranesClient({ notes: initialNotes, isNave }: { notes: Note[]
         </div>
       ) : (
         <div className="space-y-5">
-          {months.map(([key, m]) => (
+          {months.map(([key, m]) => {
+            const rows = m.notes.filter(n => visibleIds.has(n.id))
+            if (rows.length === 0) return null
+            return (
             <section key={key}>
               <div className="flex items-baseline justify-between px-1 pb-2">
                 <h2 className="font-bold text-black capitalize">{m.label}</h2>
@@ -360,12 +369,14 @@ export function AlbaranesClient({ notes: initialNotes, isNave }: { notes: Note[]
                 </p>
               </div>
               <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden divide-y divide-gray-100">
-                {m.notes.map(note => (
+                {rows.map(note => (
                   <NoteRow key={note.id} note={note} isNave={isNave} onDeleted={handleDeleted} />
                 ))}
               </div>
             </section>
-          ))}
+            )
+          })}
+          <Pager {...paged} noun="albaranes" />
         </div>
       )}
     </div>
