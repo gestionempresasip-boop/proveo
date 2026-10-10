@@ -1590,7 +1590,7 @@ export function ProductosManager({
 
       <div className="space-y-4">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-black">Gestión de Productos</h1>
             <p className="text-gray-700 mt-0.5 text-sm">{products.length} productos · {categories.length} categorías</p>
