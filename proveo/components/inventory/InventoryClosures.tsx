@@ -167,7 +167,7 @@ export function InventoryClosures({ isNave, organizationId }: { isNave: boolean;
           Guarda una foto del stock actual valorada al precio de coste. No se pueden generar cierres de periodos que aún no han terminado — para el cierre de un mes, hazlo el último día de ese mes.
         </p>
 
-        <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
+        <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>button]:shrink-0 [&>button]:whitespace-nowrap">
           {([['dia', 'Día'], ['mes', 'Mes'], ['anual', 'Año'], ['personalizado', 'Personalizado']] as const).map(([k, l]) => (
             <button key={k} onClick={() => setPeriodType(k)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${

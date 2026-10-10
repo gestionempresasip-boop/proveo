@@ -123,9 +123,13 @@
   }
   body {
     @apply bg-background text-foreground;
+    overflow-x: clip;
   }
   html {
     @apply font-sans;
+    /* La página nunca se desplaza hacia los lados (móvil/tablet): lo ancho scrollea dentro de su propio contenedor */
+    overflow-x: clip;
+    overscroll-behavior-x: none;
     /* Texto un poco más grande en toda la app para mejor legibilidad */
     font-size: 18px;
   }
