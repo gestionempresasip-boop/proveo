@@ -43,6 +43,9 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   // No anunciar «X-Powered-By: Next.js» en cada respuesta.
   poweredByHeader: false,
+  // Al volver a una pantalla vista hace menos de 20 s se muestra al instante (las acciones que guardan datos
+  // limpian esta caché solas, así que lo que cambias tú siempre se ve al momento).
+  experimental: { staleTimes: { dynamic: 20, static: 180 } },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

@@ -446,6 +446,7 @@ export function CatalogoClient({
     // Aviso a la nave de que ha entrado un pedido nuevo (también best-effort).
     notifyNewOrder(order.id).catch(() => {})
     setSubmitted(true); setCart({}); setCartOpen(false); setDestination('')
+    router.refresh() // limpia la caché de pantallas: «Mis pedidos» debe enseñar el pedido nuevo
     setTimeout(() => router.push('/pedidos'), 2000)
   }
 

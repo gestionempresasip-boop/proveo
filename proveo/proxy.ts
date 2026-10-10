@@ -23,7 +23,10 @@ export async function proxy(request: NextRequest) {
     }
   )
 
-  const { data: { user } } = await supabase.auth.getUser()
+  // getClaims verifica la firma y la caducidad del token en el propio servidor (sin viajar a Supabase en
+  // cada clic, que era lo que más tardaba al cambiar de pestaña). Si el token ha caducado, lo renueva.
+  const { data: claimsData } = await supabase.auth.getClaims()
+  const user = claimsData?.claims?.sub ? { id: claimsData.claims.sub } : null
   const { pathname } = request.nextUrl
 
   // Si el usuario no está autenticado y trata de acceder a rutas protegidas
