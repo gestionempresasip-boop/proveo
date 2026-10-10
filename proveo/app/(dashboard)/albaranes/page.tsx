@@ -17,7 +17,8 @@ export default async function AlbaranesPage({ searchParams }: { searchParams: Pr
 
   let query = sb
     .from('delivery_notes')
-    .select('*, orders(order_number, total_price, restaurant_id, organizations(name)), delivery_note_items(delivered_quantity, unit_price, return_reason)')
+    // Solo las columnas que usa la lista; las líneas del albarán únicamente hacen falta en las devoluciones (su importe sale de ellas)
+    .select('id, note_number, delivered_at, type, orders(order_number, total_price, restaurant_id, organizations(name))')
     .order('delivered_at', { ascending: false })
 
   if (!showAll) {
@@ -30,6 +31,16 @@ export default async function AlbaranesPage({ searchParams }: { searchParams: Pr
 
   const { data: notes } = await query
   const validNotes = (notes ?? []).filter((n: any) => n.orders)
+  const returnIds = validNotes.filter((n: any) => n.type === 'devolucion').map((n: any) => n.id)
+  if (returnIds.length > 0) {
+    const { data: lines } = await sb
+      .from('delivery_note_items')
+      .select('delivery_note_id, delivered_quantity, unit_price, return_reason')
+      .in('delivery_note_id', returnIds)
+    const byNote = new Map<string, any[]>()
+    for (const l of lines ?? []) (byNote.get(l.delivery_note_id) ?? byNote.set(l.delivery_note_id, []).get(l.delivery_note_id)!).push(l)
+    for (const n of validNotes) if (n.type === 'devolucion') n.delivery_note_items = byNote.get(n.id) ?? []
+  }
 
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-6">

@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useTransition, useMemo } from 'react'
+import { useState, useTransition, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import { updateOrderStatus, generateDeliveryNote, deleteOrder, restoreOrder, rectifyOrderItem, cancelOrderItem, setItemPrepared, setItemLot, setItemWeight, setItemBoxExactUnits, reopenOrder } from '@/app/actions/orders'
 import type { OrderStatus } from '@/app/actions/orders'
 import { unitLabel } from '@/lib/units'
+import { getOrdersSince, getTrashOrders } from '@/app/actions/ordersList'
 import { OrderChat } from '@/components/orders/OrderChat'
 import { Pager, usePaged } from '@/components/ui/Pager'
 import {
@@ -707,9 +708,13 @@ function OrderCard({
 type DateFilter = 'hoy' | 'semana' | 'mes' | 'custom'
 type StatusFilter = 'todos' | 'pendiente' | 'hecho' | 'enviado'
 
-export function PedidosNaveClient({ orders: initialOrders, deletedOrders: initialDeletedOrders, restaurants, currentUserId }: { orders: Order[]; deletedOrders: Order[]; restaurants: Restaurant[]; currentUserId: string }) {
+export function PedidosNaveClient({ orders: initialOrders, trashCount, loadedFrom, restaurants, currentUserId }: { orders: Order[]; trashCount: number; loadedFrom: string; restaurants: Restaurant[]; currentUserId: string }) {
   const [orders, setOrders] = useState<Order[]>(initialOrders)
-  const [deletedOrders, setDeletedOrders] = useState<Order[]>(initialDeletedOrders)
+  // La página solo trae lo de hoy y lo pendiente; el resto (semana, mes, rango, papelera) se pide al usarlo.
+  const [deletedOrders, setDeletedOrders] = useState<Order[]>([])
+  const [trashLoaded, setTrashLoaded] = useState(false)
+  const [loadedFromMs, setLoadedFromMs] = useState(() => new Date(loadedFrom).getTime())
+  const [loadError, setLoadError] = useState<number | null>(null)
   const [showTrash, setShowTrash] = useState(false)
   const [dateFilter, setDateFilter] = useState<DateFilter>('hoy')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('todos')
@@ -776,6 +781,43 @@ export function PedidosNaveClient({ orders: initialOrders, deletedOrders: initia
   const today = startOfDay(new Date())
   const todayLabel = today.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
+  // Desde cuándo hacen falta pedidos según el filtro de fechas (null: lo ya cargado basta)
+  const needFromMs = dateFilter === 'semana' ? startOfWeek(new Date()).getTime()
+    : dateFilter === 'mes' ? startOfMonth(new Date()).getTime()
+    : dateFilter === 'custom' ? (dateFrom ? new Date(dateFrom).getTime() : Date.now() - 365 * 86400000)
+    : null
+  const loadingRange = needFromMs != null && !Number.isNaN(needFromMs) && needFromMs < loadedFromMs && loadError !== needFromMs
+
+  useEffect(() => {
+    if (!loadingRange || needFromMs == null) return
+    let cancelled = false
+    getOrdersSince(new Date(needFromMs).toISOString())
+      .then((rows: Order[]) => {
+        if (cancelled) return
+        setOrders(prev => {
+          const have = new Set(prev.map(o => o.id))
+          return [...prev, ...rows.filter(r => !have.has(r.id))].sort((a, b) => b.created_at.localeCompare(a.created_at))
+        })
+        setLoadedFromMs(needFromMs)
+      })
+      .catch(() => { if (!cancelled) setLoadError(needFromMs) })
+    return () => { cancelled = true }
+  }, [loadingRange, needFromMs])
+
+  useEffect(() => {
+    if (!showTrash || trashLoaded) return
+    let cancelled = false
+    getTrashOrders()
+      .then((rows: Order[]) => {
+        if (cancelled) return
+        setDeletedOrders(rows)
+        setTrashLoaded(true)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [showTrash, trashLoaded])
+  const trashTotal = trashLoaded ? deletedOrders.length : trashCount + deletedOrders.length
+
   const filtered = useMemo(() => {
     return orders.filter(order => {
       const d = new Date(order.created_at)
@@ -840,7 +882,7 @@ export function PedidosNaveClient({ orders: initialOrders, deletedOrders: initia
           }`}
         >
           <Trash2 className="w-3.5 h-3.5" />
-          Eliminados ({deletedOrders.length})
+          Eliminados ({trashTotal})
         </button>
       </div>
 
@@ -850,7 +892,9 @@ export function PedidosNaveClient({ orders: initialOrders, deletedOrders: initia
             <h2 className="text-sm font-semibold text-black">Pedidos eliminados</h2>
             <p className="text-xs text-gray-600 mt-0.5">Últimos 90 días · se puede restaurar un pedido eliminado por error</p>
           </div>
-          {deletedOrders.length === 0 ? (
+          {!trashLoaded ? (
+            <p className="text-center py-10 text-gray-600 text-sm">Cargando…</p>
+          ) : deletedOrders.length === 0 ? (
             <p className="text-center py-10 text-gray-600 text-sm">No hay pedidos eliminados</p>
           ) : (
             <div className="divide-y divide-gray-50">
@@ -968,6 +1012,9 @@ export function PedidosNaveClient({ orders: initialOrders, deletedOrders: initia
           </div>
         </div>
       </div>
+
+      {loadingRange && <p className="text-center text-sm text-gray-600 animate-pulse">Cargando pedidos…</p>}
+      {loadError != null && loadError === needFromMs && <p className="text-center text-sm text-red-600">No se pudieron cargar los pedidos de ese periodo. Vuelve a intentarlo.</p>}
 
       {/* Past pending (only in "hoy" mode) */}
       {dateFilter === 'hoy' && pastPending.length > 0 && (

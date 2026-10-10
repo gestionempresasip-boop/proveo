@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getAuthProfile } from '@/lib/supabase/helpers'
 import { Package } from 'lucide-react'
 import { PedidosNaveClient } from '@/components/orders/PedidosNaveClient'
+import { NAVE_ORDER_SELECT, RECENT_HOURS, TRASH_DAYS } from '@/lib/ordersQuery'
 import { PedidosRestauranteClient } from '@/components/orders/PedidosRestauranteClient'
 
 export default async function PedidosPage() {
@@ -12,23 +13,23 @@ export default async function PedidosPage() {
 
   // ── Nave: fetch all orders + restaurants ─────────────────────────────────
   if (isNave) {
-    const naveSelect = '*, organizations(id, name), order_items(*, products(name, unit)), delivery_notes(id, note_number, type, delivery_note_items(product_id, delivered_quantity, return_reason, products(name))), deleted_by_profile:profiles!deleted_by(full_name)'
-    const [{ data: orders }, { data: deletedOrders }, { data: restaurants }] = await Promise.all([
+    const recentFrom = new Date(Date.now() - RECENT_HOURS * 3600000).toISOString()
+    // Al entrar solo hace falta lo de hoy y lo pendiente; semana/mes/rango y la papelera se piden al usarlos.
+    const [{ data: orders }, { count: trashCount }, { data: restaurants }] = await Promise.all([
       sb
         .from('orders')
-        .select(naveSelect)
+        .select(NAVE_ORDER_SELECT)
         .is('deleted_at', null)
+        .or(`status.eq.pendiente,created_at.gte.${recentFrom}`)
         .order('created_at', { ascending: false })
         .limit(500),
       // Papelera: pedidos eliminados (borrado suave), para poder verlos y
       // restaurarlos si fue un error. Últimos 90 días, no hace falta más.
       sb
         .from('orders')
-        .select(naveSelect)
+        .select('id', { count: 'exact', head: true })
         .not('deleted_at', 'is', null)
-        .gte('deleted_at', new Date(Date.now() - 90 * 86400000).toISOString())
-        .order('deleted_at', { ascending: false })
-        .limit(100),
+        .gte('deleted_at', new Date(Date.now() - TRASH_DAYS * 86400000).toISOString()),
       sb
         .from('organizations')
         .select('id, name')
@@ -39,7 +40,8 @@ export default async function PedidosPage() {
     return (
       <PedidosNaveClient
         orders={orders ?? []}
-        deletedOrders={deletedOrders ?? []}
+        trashCount={trashCount ?? 0}
+        loadedFrom={recentFrom}
         restaurants={restaurants ?? []}
         currentUserId={profile.id}
       />
