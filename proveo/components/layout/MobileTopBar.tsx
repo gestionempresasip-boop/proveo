@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import type { ProfileWithOrg } from '@/types/database'
 import { ORG_LOGOS } from '@/lib/orgLogos'
+import { loginPathFor } from '@/lib/loginPath'
 import { NotificationBell } from '@/components/notifications/NotificationProvider'
 
 // Barra superior en móvil. A diferencia de la de abajo (fija), esta va en el
@@ -25,7 +26,7 @@ export function MobileTopBar({ profile }: { profile: ProfileWithOrg }) {
 
   async function handleLogout() {
     await supabase.auth.signOut()
-    router.push('/login')
+    router.push(loginPathFor(profile.organizations))
   }
 
   function handleRefresh() {

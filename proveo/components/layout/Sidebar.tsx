@@ -7,12 +7,13 @@ import { cn } from '@/lib/utils'
 import type { ProfileWithOrg } from '@/types/database'
 import {
   ShoppingCart, Package, ClipboardList,
-  FileText, Settings, LogOut, ChefHat, RefreshCw, BarChart3, Boxes, Tag, Calculator, Timer,
+  FileText, Settings, LogOut, ChefHat, RefreshCw, BarChart3, Boxes, Tag, Calculator, Timer, Store,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { ORG_LOGOS } from '@/lib/orgLogos'
+import { loginPathFor } from '@/lib/loginPath'
 import { NotificationBell } from '@/components/notifications/NotificationProvider'
 
 interface NavItem {
@@ -35,6 +36,7 @@ const navItems: NavItem[] = [
   { href: '/costes',          label: 'Costes',      icon: Calculator,    roles: ['admin', 'nave_manager'], orgTypes: ['nave'] },
   { href: '/estadisticas',    label: 'Informes',    icon: BarChart3,     orgTypes: ['nave'] },
   { href: '/admin/productos', label: 'Productos',   icon: Package,       roles: ['admin', 'nave_manager'] },
+  { href: '/admin/clientes',  label: 'Clientes',    icon: Store,         roles: ['admin', 'nave_manager'], orgTypes: ['nave'] },
   { href: '/admin/usuarios',  label: 'Usuarios',    icon: Settings,      roles: ['admin', 'nave_manager'] },
 ]
 
@@ -64,7 +66,7 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
 
   async function handleLogout() {
     await supabase.auth.signOut()
-    router.push('/login')
+    router.push(loginPathFor(profile.organizations))
   }
 
   function isActive(href: string) {

@@ -5,8 +5,11 @@ import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, Delete } from 'lucide-react'
+import { rememberEntry } from '@/lib/loginPath'
 
-const PLACES = [
+type Place = { name: string; email: string; type: 'nave' | 'restaurante'; logo?: string }
+
+const PLACES: Place[] = [
   { name: 'Nave Obrador', email: 'admin@proveo.es', type: 'nave' as const, logo: '/logos/depot.png' },
   { name: 'Barranco Playa', email: 'barrancoplaya@proveo.es', type: 'restaurante' as const, logo: '/logos/barranco.png' },
   { name: 'Va Bene Cala', email: 'vabenecala@proveo.es', type: 'restaurante' as const, logo: '/logos/va-bene-cala.png' },
@@ -19,15 +22,17 @@ const PLACES = [
 const NUMPAD = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del']
 const PIN_PREFIX = 'pvprveo'
 
-export function LoginClient() {
-  const [selected, setSelected] = useState<(typeof PLACES)[0] | null>(null)
+// `places` permite una entrada con un solo local (la de un cliente externo, que no debe ver los demás).
+export function LoginClient({ places = PLACES, clientSlug }: { places?: Place[]; clientSlug?: string } = {}) {
+  const single = places.length === 1
+  const [selected, setSelected] = useState<Place | null>(single ? places[0] : null)
   const [pin, setPin] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
-  function handleSelect(place: (typeof PLACES)[0]) {
+  function handleSelect(place: Place) {
     setSelected(place)
     setPin('')
     setError(null)
@@ -61,6 +66,7 @@ export function LoginClient() {
       setLoading(false)
       return
     }
+    rememberEntry(clientSlug)
     router.push('/dashboard')
     router.refresh()
   }
@@ -74,7 +80,7 @@ export function LoginClient() {
         </div>
 
         <div className="w-full max-w-sm grid grid-cols-2 gap-3">
-          {PLACES.map((place) => (
+          {places.map((place) => (
             <button
               key={place.email}
               onClick={() => handleSelect(place)}
@@ -88,13 +94,17 @@ export function LoginClient() {
                 }
               `}
             >
-              <Image
-                src={place.logo}
-                alt={place.name}
-                width={160}
-                height={48}
-                className="w-full h-12 object-contain"
-              />
+              {place.logo ? (
+                <Image
+                  src={place.logo}
+                  alt={place.name}
+                  width={160}
+                  height={48}
+                  className="w-full h-12 object-contain"
+                />
+              ) : (
+                <span className="w-12 h-12 rounded-full bg-[#1E2B28] text-white text-xl font-bold flex items-center justify-center">{place.name.charAt(0).toUpperCase()}</span>
+              )}
               <span className="text-black">{place.name}</span>
             </button>
           ))}
@@ -106,23 +116,29 @@ export function LoginClient() {
   return (
     <div className="min-h-screen bg-[#FAFAF8] flex flex-col items-center justify-center px-4">
       <div className="w-full max-w-xs">
-        <button
-          onClick={() => { setSelected(null); setPin('') }}
-          className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-600 mb-8 transition-colors"
-        >
-          <ChevronLeft className="w-4 h-4" />
-          Volver
-        </button>
+        {!single && (
+          <button
+            onClick={() => { setSelected(null); setPin('') }}
+            className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-600 mb-8 transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Volver
+          </button>
+        )}
 
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center mb-4">
-            <Image
-              src={selected.logo}
-              alt={selected.name}
-              width={200}
-              height={64}
-              className="w-24 h-16 object-contain"
-            />
+            {selected.logo ? (
+              <Image
+                src={selected.logo}
+                alt={selected.name}
+                width={200}
+                height={64}
+                className="w-24 h-16 object-contain"
+              />
+            ) : (
+              <span className="w-16 h-16 rounded-full bg-[#1E2B28] text-white text-2xl font-bold flex items-center justify-center">{selected.name.charAt(0).toUpperCase()}</span>
+            )}
           </div>
           <h2 className="text-xl font-bold text-black">{selected.name}</h2>
           <p className="text-gray-600 text-sm mt-1">Introduce tu PIN</p>

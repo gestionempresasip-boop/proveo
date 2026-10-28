@@ -28,6 +28,11 @@ export interface OrganizationRow {
   address: string | null
   logo_url: string | null
   created_at: string
+  // Clientes externos (distribuidores); existen tras ejecutar la migración 20261029
+  is_external?: boolean
+  fiscal_name?: string | null
+  tax_id?: string | null
+  login_slug?: string | null
 }
 
 export interface ProfileRow {

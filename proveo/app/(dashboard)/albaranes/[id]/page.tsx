@@ -18,7 +18,7 @@ export default async function AlbaranDetailPage({ params }: { params: Promise<{ 
     .select(`
       *,
       orders(order_number, total_price, notes, created_at, destination,
-        organizations(name, address, phone, email)
+        organizations(name, address, phone, email, fiscal_name, tax_id)
       ),
       delivery_note_items(*, products(name, unit, iva_rate))
     `)

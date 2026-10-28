@@ -30,8 +30,12 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Si el usuario no está autenticado y trata de acceder a rutas protegidas
-  if (!user && !pathname.startsWith('/login') && !pathname.startsWith('/auth') && !pathname.startsWith('/api/health')) {
-    return NextResponse.redirect(new URL('/login', request.url))
+  // /cliente/<dirección>: entrada propia de un cliente externo (solo ve su local)
+  if (!user && !pathname.startsWith('/login') && !pathname.startsWith('/cliente/') && !pathname.startsWith('/auth') && !pathname.startsWith('/api/health')) {
+    // Un dispositivo que entró como cliente externo vuelve a SU pantalla de entrada, no a la del grupo
+    const clientSlug = request.cookies.get('proveo_client')?.value
+    const target = clientSlug && /^[a-z0-9-]{3,40}$/.test(clientSlug) ? `/cliente/${clientSlug}` : '/login'
+    return NextResponse.redirect(new URL(target, request.url))
   }
 
   // Si está autenticado y va a /login, redirigir al dashboard

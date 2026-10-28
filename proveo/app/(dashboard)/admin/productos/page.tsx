@@ -27,7 +27,7 @@ export default async function AdminProductosPage() {
       .order('name'),
     sb.from('product_categories').select('id, name, color, order_index, is_protected').order('order_index').order('name'),
     sb.from('product_category_links').select('product_id, category_id'),
-    sb.from('organizations').select('id, name').eq('type', 'restaurante').order('name'),
+    sb.from('organizations').select('id, name, is_external').eq('type', 'restaurante').order('name'),
     sb.from('restaurant_favorite_products').select('organization_id, product_id'),
   ])
 
@@ -56,7 +56,7 @@ export default async function AdminProductosPage() {
       <ProductosManager
         products={visible}
         categories={categoryRows}
-        restaurants={rowsOf<{ id: string; name: string }>(restaurants)}
+        restaurants={rowsOf<{ id: string; name: string; is_external?: boolean | null }>(restaurants).filter(r => !r.is_external)}
         favorites={rowsOf<{ organization_id: string; product_id: string }>(favorites)}
         isNave
         gate={{ codeConfigured, unlocked, locked }}

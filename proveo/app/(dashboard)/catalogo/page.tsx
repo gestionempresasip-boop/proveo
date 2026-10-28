@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getAuthProfile } from '@/lib/supabase/helpers'
 import { CatalogoClient } from '@/components/products/CatalogoClient'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 // Server Component: trae productos/categorías/stock/favoritos en el
 // servidor (en paralelo) en vez de pedirlos desde el navegador tras montar
@@ -16,6 +17,57 @@ export default async function CatalogoPage() {
   const sb = supabase as any
 
   const today = new Date().toISOString().split('T')[0]
+  const isExternal = !!profile.organizations.is_external
+
+  // Cliente externo (distribuidor): solo los productos que la nave le ha asignado, a su precio, sin
+  // promociones del grupo. Se piden en el servidor con la clave de servicio para poder incluir productos
+  // ocultos a los restaurantes (que son justo los de venta exterior); el filtro es SIEMPRE por su organización.
+  if (isExternal) {
+    const admin = createAdminClient() as any
+    const { data: assigned } = await admin.from('client_product_prices').select('product_id, price').eq('organization_id', profile.organization_id)
+    const priceById = new Map<string, number>((assigned ?? []).map((r: any) => [r.product_id, Number(r.price)]))
+    const ids = [...priceById.keys()]
+    const none = { data: [] as any[] }
+    const [{ data: xProds }, { data: xCats }, { data: xLinks }, { data: xStock }, { data: xFavs }, { data: xCart }] = await Promise.all([
+      ids.length ? admin.from('products').select(`${PRODUCT_COLS}, product_categories!products_category_id_fkey(name, color)`).in('id', ids).is('deleted_at', null).order('name') : none,
+      admin.from('product_categories').select('*').order('order_index').order('name'),
+      ids.length ? admin.from('product_category_links').select('product_id, category_id').in('product_id', ids) : none,
+      ids.length ? admin.from('nave_inventory').select('product_id, current_stock, last_restocked_at').in('product_id', ids) : none,
+      admin.from('restaurant_favorite_products').select('product_id').eq('organization_id', profile.organization_id),
+      admin.from('pending_carts').select('*').eq('organization_id', profile.organization_id).maybeSingle(),
+    ])
+    const catIdsByProduct = new Map<string, string[]>()
+    for (const l of xLinks ?? []) catIdsByProduct.set(l.product_id, [...(catIdsByProduct.get(l.product_id) ?? []), l.category_id])
+    const extProducts = (xProds ?? []).map((p: any) => ({
+      ...p,
+      price: priceById.get(p.id) ?? p.price,
+      is_active: true,
+      category_ids: catIdsByProduct.get(p.id) ?? (p.category_id ? [p.category_id] : []),
+    }))
+    const usedCats = new Set<string>(extProducts.flatMap((p: any) => p.category_ids))
+    return (
+      <CatalogoClient
+        initialProducts={extProducts}
+        initialCategories={(xCats ?? []).filter((c: any) => usedCats.has(c.id))}
+        initialStock={xStock ?? []}
+        initialFavoriteIds={(xFavs ?? []).map((f: { product_id: string }) => f.product_id)}
+        initialPromotions={[]}
+        initialPendingCart={xCart ? {
+          cart: xCart.cart ?? {},
+          cartModes: xCart.cart_modes ?? {},
+          cartBoxUnits: xCart.cart_box_units ?? {},
+          notes: xCart.notes ?? '',
+          destination: xCart.destination ?? '',
+          updatedByName: xCart.updated_by_name ?? null,
+          updatedByMe: xCart.updated_by === profile.id,
+          updatedAt: xCart.updated_at,
+        } : null}
+        organizationId={profile.organization_id}
+        userId={profile.id}
+        userName={profile.full_name ?? null}
+      />
+    )
+  }
 
   const [{ data: prods }, { data: cats }, { data: links }, { data: stock }, { data: favs }, { data: promos }, { data: pendingCart }] = await Promise.all([
     sb.from('products').select(`${PRODUCT_COLS}, product_categories!products_category_id_fkey(name, color)`).eq('is_active', true).is('deleted_at', null).order('name'),

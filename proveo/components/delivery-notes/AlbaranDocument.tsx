@@ -51,7 +51,10 @@ export function AlbaranDocument({ note }: { note: any }) {
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-xs text-gray-600 uppercase font-medium mb-2">Destinatario</p>
-              <p className="font-semibold text-black">{restaurant?.name ?? 'Restaurante'}</p>
+              <p className="font-semibold text-black">{restaurant?.fiscal_name || restaurant?.name || 'Restaurante'}</p>
+              {restaurant?.fiscal_name && restaurant?.name && restaurant.fiscal_name !== restaurant.name && <p className="text-sm text-gray-700">{restaurant.name}</p>}
+              {restaurant?.tax_id && <p className="text-sm text-gray-700">CIF: {restaurant.tax_id}</p>}
+              {restaurant?.address && <p className="text-sm text-gray-700">{restaurant.address}</p>}
               {restaurant?.phone && <p className="text-sm text-gray-700">{restaurant.phone}</p>}
               <p className="text-sm text-gray-600 mt-1">Pedido #{order?.order_number}</p>
             </div>
