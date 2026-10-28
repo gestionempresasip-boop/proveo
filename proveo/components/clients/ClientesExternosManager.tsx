@@ -2,10 +2,9 @@
 
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Search, Copy, Check, Link2, Save, Store } from 'lucide-react'
+import { Plus, Search, Copy, Check, Link2, Save, Store, ChevronDown, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { unitLabel } from '@/lib/units'
-import { Pager, usePaged } from '@/components/ui/Pager'
 import { createExternalClient, saveClientProducts, updateExternalClient } from '@/app/actions/externalClients'
 
 export type ExternalClient = {
@@ -243,7 +242,34 @@ function ClientProducts({ client, catalog, initial }: { client: ExternalClient; 
       return !q || p.name.toLowerCase().includes(q) || (p.category ?? '').toLowerCase().includes(q)
     })
   }, [catalog, draft, filter, query])
-  const paged = usePaged(list, `${filter}|${query}`, 25)
+  // Agrupado por categoría. Los totales de cada categoría cuentan TODO el catálogo, no solo lo filtrado.
+  const NO_CAT = 'Sin categoría'
+  const groups = useMemo(() => {
+    const m = new Map<string, ClientProduct[]>()
+    for (const p of list) m.set(p.category ?? NO_CAT, [...(m.get(p.category ?? NO_CAT) ?? []), p])
+    return [...m.entries()].sort(([a], [b]) => (a === NO_CAT ? 1 : b === NO_CAT ? -1 : a.localeCompare(b, 'es')))
+  }, [list])
+  const totalByCat = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const p of catalog) m.set(p.category ?? NO_CAT, (m.get(p.category ?? NO_CAT) ?? 0) + 1)
+    return m
+  }, [catalog])
+  const [openCats, setOpenCats] = useState<Set<string>>(new Set())
+  const searching = query.trim() !== ''
+  const isOpen = (cat: string) => searching || openCats.has(cat)
+  function toggleOpen(cat: string) {
+    setOpenCats(s => { const n = new Set(s); if (n.has(cat)) n.delete(cat); else n.add(cat); return n })
+  }
+  // Marca o desmarca la categoría entera (lo que se ve de ella: con una búsqueda, solo lo encontrado)
+  function toggleGroup(items: ClientProduct[]) {
+    setMsg(null)
+    setDraft(d => {
+      const next = { ...d }
+      if (items.every(p => p.id in next)) for (const p of items) delete next[p.id]
+      else for (const p of items) if (!(p.id in next)) next[p.id] = fmt4(p.price)
+      return next
+    })
+  }
 
   const changes = useMemo(() => {
     const upserts: { productId: string; price: number }[] = []
@@ -334,59 +360,91 @@ function ClientProducts({ client, catalog, initial }: { client: ExternalClient; 
         <button onClick={unassignFiltered} className="rounded-lg border border-gray-200 px-3 py-1.5 font-semibold text-black hover:border-red-400">Quitar los de la lista</button>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b-2 border-[#1E2B28] text-left">
-              <th className="py-2 pr-2 w-10"></th>
-              <th className="py-2 pr-2 font-semibold text-black">Producto</th>
-              <th className="py-2 pr-2 font-semibold text-black text-right whitespace-nowrap">Precio grupo</th>
-              <th className="py-2 pr-2 font-semibold text-black text-right whitespace-nowrap">Su precio sin IVA</th>
-              <th className="py-2 font-semibold text-black text-right whitespace-nowrap">Su precio con IVA</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paged.pageItems.map(p => {
-              const on = p.id in draft
-              const sin = on ? parseNum(draft[p.id]) : NaN
-              return (
-                <tr key={p.id} className={cn('border-b border-gray-100', on && 'bg-emerald-50/50')}>
-                  <td className="py-2 pr-2">
-                    <input type="checkbox" checked={on} onChange={() => toggle(p)} className="w-5 h-5 accent-[#1E2B28]" aria-label={`Asignar ${p.name}`} />
-                  </td>
-                  <td className="py-2 pr-2">
-                    <span className="font-medium text-black">{p.name}</span>
-                    <span className="block text-xs text-gray-600">
-                      {unitLabel(p.unit)}{p.category ? ` · ${p.category}` : ''}{!p.active ? ' · oculto a restaurantes' : ''}
-                    </span>
-                  </td>
-                  <td className="py-2 pr-2 text-right text-gray-700 whitespace-nowrap">{eur(p.price)}</td>
-                  <td className="py-2 pr-2 text-right">
-                    {on ? (
-                      <input className={cn(inputCls, 'w-24 text-right ml-auto')} inputMode="decimal" value={draft[p.id]} onChange={e => setSin(p.id, e.target.value)} aria-label={`Precio sin IVA de ${p.name}`} />
-                    ) : <span className="text-gray-300">—</span>}
-                  </td>
-                  <td className="py-2 text-right">
-                    {on ? (
-                      <input className={cn(inputCls, 'w-24 text-right ml-auto')} inputMode="decimal"
-                        defaultValue={Number.isFinite(sin) ? (sin * (1 + p.iva)).toFixed(2) : ''}
-                        key={`${p.id}-${Number.isFinite(sin) ? (sin * (1 + p.iva)).toFixed(2) : ''}`}
-                        onBlur={e => setCon(p, e.target.value)}
-                        aria-label={`Precio con IVA de ${p.name}`} />
-                    ) : <span className="text-gray-300">—</span>}
-                  </td>
-                </tr>
-              )
-            })}
-            {paged.pageItems.length === 0 && (
-              <tr><td colSpan={5} className="py-8 text-center text-gray-600">
-                {filter === 'asignados' ? 'Aún no hay productos asignados. Cambia a «Todos los productos» y marca los que quieras.' : 'No hay productos que coincidan.'}
-              </td></tr>
-            )}
-          </tbody>
-        </table>
+      <div className="flex flex-wrap gap-2 text-sm">
+        <button onClick={() => setOpenCats(new Set(groups.map(([c]) => c)))} className="rounded-lg border border-gray-200 px-3 py-1.5 font-semibold text-black hover:border-[#1E2B28]">Abrir todas las categorías</button>
+        <button onClick={() => setOpenCats(new Set())} className="rounded-lg border border-gray-200 px-3 py-1.5 font-semibold text-black hover:border-[#1E2B28]">Cerrar todas</button>
       </div>
-      <Pager {...paged} noun="productos" />
+
+      <div className="space-y-3">
+        {groups.map(([cat, items]) => {
+          const assignedHere = items.filter(p => p.id in draft).length
+          const all = assignedHere === items.length
+          const some = assignedHere > 0 && !all
+          const open = isOpen(cat)
+          return (
+            <div key={cat} className="rounded-xl border border-gray-200 overflow-hidden">
+              <div className={cn('flex items-center gap-3 px-3 py-2.5', assignedHere > 0 ? 'bg-emerald-50' : 'bg-gray-50')}>
+                <input type="checkbox" checked={all} ref={el => { if (el) el.indeterminate = some }}
+                  onChange={() => toggleGroup(items)} className="w-5 h-5 accent-[#1E2B28] shrink-0"
+                  aria-label={'Asignar toda la categoría ' + cat} />
+                <button onClick={() => toggleOpen(cat)} className="flex-1 min-w-0 flex items-center gap-2 text-left">
+                  {open ? <ChevronDown className="w-4 h-4 shrink-0 text-gray-600" /> : <ChevronRight className="w-4 h-4 shrink-0 text-gray-600" />}
+                  <span className="font-semibold text-black truncate">{cat}</span>
+                  <span className="text-xs text-gray-600 shrink-0">
+                    {assignedHere}/{searching || filter === 'asignados' ? items.length : (totalByCat.get(cat) ?? items.length)} asignados
+                  </span>
+                </button>
+                <button onClick={() => toggleGroup(items)}
+                  className="shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-black hover:border-[#1E2B28]">
+                  {all ? 'Quitar categoría' : 'Asignar toda la categoría'}
+                </button>
+              </div>
+              {open && (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-200 text-left text-xs text-gray-600">
+                        <th className="py-2 pl-3 pr-2 w-10"></th>
+                        <th className="py-2 pr-2 font-semibold">Producto</th>
+                        <th className="py-2 pr-2 font-semibold text-right whitespace-nowrap">Precio grupo</th>
+                        <th className="py-2 pr-2 font-semibold text-right whitespace-nowrap">Su precio sin IVA</th>
+                        <th className="py-2 pr-3 font-semibold text-right whitespace-nowrap">Su precio con IVA</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {items.map(p => {
+                        const on = p.id in draft
+                        const sin = on ? parseNum(draft[p.id]) : NaN
+                        const con = Number.isFinite(sin) ? (sin * (1 + p.iva)).toFixed(2) : ''
+                        return (
+                          <tr key={p.id} className={cn('border-b border-gray-100 last:border-0', on && 'bg-emerald-50/50')}>
+                            <td className="py-2 pl-3 pr-2">
+                              <input type="checkbox" checked={on} onChange={() => toggle(p)} className="w-5 h-5 accent-[#1E2B28]" aria-label={'Asignar ' + p.name} />
+                            </td>
+                            <td className="py-2 pr-2">
+                              <span className="font-medium text-black">{p.name}</span>
+                              <span className="block text-xs text-gray-600">{unitLabel(p.unit)}{!p.active ? ' · oculto a restaurantes' : ''}</span>
+                            </td>
+                            <td className="py-2 pr-2 text-right text-gray-700 whitespace-nowrap">{eur(p.price)}</td>
+                            <td className="py-2 pr-2 text-right">
+                              {on ? (
+                                <input className={cn(inputCls, 'w-24 text-right ml-auto')} inputMode="decimal" value={draft[p.id]} onChange={e => setSin(p.id, e.target.value)} aria-label={'Precio sin IVA de ' + p.name} />
+                              ) : <span className="text-gray-300">—</span>}
+                            </td>
+                            <td className="py-2 pr-3 text-right">
+                              {on ? (
+                                <input className={cn(inputCls, 'w-24 text-right ml-auto')} inputMode="decimal"
+                                  defaultValue={con} key={p.id + '-' + con}
+                                  onBlur={e => setCon(p, e.target.value)}
+                                  aria-label={'Precio con IVA de ' + p.name} />
+                              ) : <span className="text-gray-300">—</span>}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )
+        })}
+        {groups.length === 0 && (
+          <p className="py-8 text-center text-gray-600">
+            {filter === 'asignados' ? 'Aún no hay productos asignados. Cambia a «Todos los productos» y marca los que quieras.' : 'No hay productos que coincidan.'}
+          </p>
+        )}
+      </div>
       <p className="text-xs text-gray-600">
         Al marcar un producto se rellena con el precio del grupo; cámbialo por el de este cliente. Puedes escribir el precio sin IVA o el final con IVA (el otro se calcula). El IVA es el de cada producto.
       </p>
