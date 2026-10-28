@@ -71,10 +71,6 @@ export async function getNaveOrgId(): Promise<string | null> {
   }
 }
 
-function eur(n: number) {
-  return `${Number(n).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€`
-}
-
 export async function notifyNewOrderCreated(orderId: string, callerOrgId: string): Promise<void> {
   try {
     const admin = createAdminClient() as any
@@ -96,7 +92,7 @@ export async function notifyNewOrderCreated(orderId: string, callerOrgId: string
       kind: 'pedido_nuevo',
       severity: 'info',
       title: `Pedido nuevo #${order.order_number}`,
-      body: `${order.organizations?.name ?? 'Un restaurante'} · ${n} producto${n !== 1 ? 's' : ''} · ${eur(order.total_price)}`,
+      body: `${order.organizations?.name ?? 'Un restaurante'} · ${n} producto${n !== 1 ? 's' : ''}`,
       link: '/pedidos',
       orderId: order.id,
       dedupeKey: `pedido-nuevo:${order.id}`,

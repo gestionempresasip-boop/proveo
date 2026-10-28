@@ -404,16 +404,14 @@ function OrderActions({ order, onDeleted, onStatusChange }: { order: Order; onDe
     const items = order.order_items.map(i => `• ${i.products?.name ?? '?'}: ${i.quantity} ${i.unit}`).join('\n')
     const text = `*Pedido #${order.order_number} — ${order.organizations?.name ?? 'Restaurante'}*\n`
       + `Estado: ${STATUS_CONFIG[status]?.label}\n\n`
-      + `Productos:\n${items}\n\n`
-      + `*Total: ${Number(order.total_price).toFixed(2)}€*`
+      + `Productos:\n${items}`
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank')
   }
 
   function exportCSV() {
-    const header = 'Producto,Cantidad,Unidad,Precio ud.,Total'
+    const header = 'Producto,Cantidad,Unidad'
     const rows = order.order_items.map(i =>
-      [`"${i.products?.name ?? ''}"`, i.quantity, i.unit,
-       Number(i.unit_price).toFixed(2), Number(i.total_price).toFixed(2)].join(',')
+      [`"${i.products?.name ?? ''}"`, i.quantity, i.unit].join(',')
     )
     const csv = [
       `Pedido #${order.order_number} — ${order.organizations?.name}`,
@@ -422,8 +420,6 @@ function OrderActions({ order, onDeleted, onStatusChange }: { order: Order; onDe
       '',
       header,
       ...rows,
-      '',
-      `Total,,,, ${Number(order.total_price).toFixed(2)}`,
     ].join('\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
@@ -636,7 +632,6 @@ function OrderCard({
               {' · '}
               {order.order_items.length} producto{order.order_items.length !== 1 ? 's' : ''}
             </span>
-            <span className="font-semibold text-[#1E2B28] text-sm ml-auto">{Number(order.total_price).toFixed(2)}€</span>
           </div>
           {status === 'pendiente' && (() => {
             const live = order.order_items.filter(i => Number(i.rectified_quantity ?? -1) !== 0)
@@ -902,7 +897,7 @@ export function PedidosNaveClient({ orders: initialOrders, trashCount, loadedFro
                 <div key={o.id} className="p-4 flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="font-medium text-black text-sm">
-                      #{o.order_number} · {o.organizations?.name ?? 'Desconocido'} · {o.total_price.toFixed(2)}€
+                      #{o.order_number} · {o.organizations?.name ?? 'Desconocido'}
                     </p>
                     <p className="text-xs text-gray-600 mt-0.5">
                       {o.order_items?.length ?? 0} producto{(o.order_items?.length ?? 0) !== 1 ? 's' : ''} · pedido el {new Date(o.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}

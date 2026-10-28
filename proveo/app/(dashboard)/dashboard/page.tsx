@@ -175,9 +175,12 @@ export default async function DashboardPage() {
                   </span>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
-                  <span className="text-sm font-semibold text-gray-900">
-                    {Number(order.total_price).toFixed(2)}€
-                  </span>
+                  {/* La nave no ve importes aquí: los precios solo salen en el albarán */}
+                  {!isNave && (
+                    <span className="text-sm font-semibold text-gray-900">
+                      {Number(order.total_price).toFixed(2)}€
+                    </span>
+                  )}
                   <div className="flex items-center gap-1.5">
                     <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${STATUS_DOT[order.status] ?? 'bg-gray-300'}`} />
                     <span className="text-xs text-gray-600 hidden sm:block">
