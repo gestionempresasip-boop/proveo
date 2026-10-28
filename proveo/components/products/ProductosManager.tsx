@@ -33,6 +33,8 @@ export type Product = {
   pending_review?: boolean
   allows_box_order?: boolean
   box_units?: number | null
+  internal_notes?: string
+  notes_enabled?: boolean
   product_categories: { name: string } | null
 }
 
@@ -270,6 +272,14 @@ function ProductFields({
         <input name="description" defaultValue={product?.description ?? ''} placeholder="Opcional"
           className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
       </div>
+      {isNave && product?.notes_enabled && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3">
+          <label className="text-xs text-amber-900 font-semibold block mb-1">Notas internas <span className="font-normal">(no las ve nadie más que la nave)</span></label>
+          <textarea name="internal_notes" defaultValue={product.internal_notes ?? ''} rows={4}
+            placeholder="Ej: coste de la tanda, tiempo de preparación, proveedor, rendimiento…"
+            className="w-full border border-amber-200 bg-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
+        </div>
+      )}
       <div>
         <label className="text-xs text-gray-700 font-medium block mb-1">URL de imagen</label>
         <input name="image_url" type="url" defaultValue={product?.image_url ?? ''} placeholder="https://... (pega una URL de imagen)"
@@ -617,6 +627,11 @@ function ProductRow({
         <div className="min-w-0">
           <p className="font-semibold text-black leading-tight">{p.name}</p>
           {p.description && <p className="text-xs text-gray-600 mt-0.5">{p.description}</p>}
+          {isNave && p.internal_notes && (
+            <p className="text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-md px-2 py-1 mt-1 whitespace-pre-line line-clamp-3" title="Nota interna (solo la nave)">
+              <span className="font-semibold">Nota:</span> {p.internal_notes}
+            </p>
+          )}
           {(p.category_ids?.length ?? 0) > 1 && (
             <div className="flex flex-wrap gap-1 mt-1">
               {p.category_ids!.map(cid => {

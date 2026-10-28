@@ -67,6 +67,16 @@ export async function createProduct(formData: FormData) {
   revalidatePath('/admin/productos')
 }
 
+// Notas internas (solo nave): viven en su propia tabla con RLS para que ningún restaurante pueda leerlas.
+async function saveInternalNotes(sb: any, productId: string, notes: string) {
+  const text = notes.trim()
+  const { data: { user } } = await sb.auth.getUser()
+  const res = text
+    ? await sb.from('product_internal_notes').upsert({ product_id: productId, notes: text, updated_at: new Date().toISOString(), updated_by: user?.id ?? null }, { onConflict: 'product_id' })
+    : await sb.from('product_internal_notes').delete().eq('product_id', productId)
+  if (res.error) throw new Error('El producto se guardó, pero no las notas internas (falta ejecutar el SQL de notas en Supabase).')
+}
+
 export async function updateProduct(productId: string, formData: FormData) {
   await assertUnlocked('productos')
   const supabase = await createClient()
@@ -113,6 +123,7 @@ export async function updateProduct(productId: string, formData: FormData) {
 
   if (error) throw new Error(error.message)
   await syncProductCategories(sb, productId, category_ids)
+  if (formData.has('internal_notes')) await saveInternalNotes(sb, productId, String(formData.get('internal_notes') ?? ''))
   revalidatePath('/admin/productos')
 }
 

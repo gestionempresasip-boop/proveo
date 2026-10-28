@@ -40,7 +40,13 @@ export default async function AdminProductosPage() {
   if (products.error) console.error('Error cargando productos:', products.error)
 
   const categoryRows = rowsOf<CategoryRow>(categories)
-  const { visible, locked } = splitByProtection(rowsOf<Product>(products), categoryRows, rowsOf<CategoryLink>(links), unlocked)
+  const { visible: visibleBase, locked } = splitByProtection(rowsOf<Product>(products), categoryRows, rowsOf<CategoryLink>(links), unlocked)
+
+  // Notas internas (solo nave). Si la tabla aún no existe (falta ejecutar el SQL) el campo simplemente no aparece.
+  const notesRes = await sb.from('product_internal_notes').select('product_id, notes')
+  const notesEnabled = !notesRes.error
+  const notesById = new Map<string, string>(((notesRes.data ?? []) as { product_id: string; notes: string }[]).map(n => [n.product_id, n.notes]))
+  const visible = visibleBase.map(p => ({ ...p, notes_enabled: notesEnabled, internal_notes: notesById.get(p.id) ?? '' }))
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
