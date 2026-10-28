@@ -13,6 +13,8 @@ import { setFavoriteProduct, setFavoriteProductsBatch } from '@/app/actions/favo
 import { unlockProducts, lockProducts, setCategoryProtected } from '@/app/actions/productsGate'
 import { UNIT_OPTIONS, unitLabel } from '@/lib/units'
 import { Pager, usePaged } from '@/components/ui/Pager'
+import { ExportMenu } from '@/components/stats/ExportMenu'
+import { exportReportExcel, exportReportPDF, type ReportSection } from '@/lib/reportExport'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -151,6 +153,53 @@ function ApproveWithoutCostButton({ product, onApproved }: { product: Product; o
       <ShieldCheck className="w-3.5 h-3.5" />
       Archivar sin coste
     </button>
+  )
+}
+
+// ── Exportar a Excel / PDF (solo nave: lleva costes y márgenes) ─────────────────────────
+
+const EXPORT_HEADERS = ['Producto', 'Descripción', 'Unidad', 'Coste (€)', 'Margen (%)', 'Precio sin IVA (€)', 'IVA (%)', 'Precio final (€)', 'Visible', 'Notas internas']
+
+function exportRow(p: Product): (string | number)[] {
+  const cost = Number(p.cost_price) || 0
+  const iva = Math.round((Number(p.iva_rate) || 0) * 100)
+  const r2 = (n: number) => Math.round(n * 100) / 100
+  return [
+    p.name, p.description ?? '', unitLabel(p.unit),
+    cost > 0 ? r2(cost) : '', cost > 0 ? r2((Number(p.margin) || 0) * 100) : '',
+    r2(Number(p.price) || 0), iva, r2(finalPrice(p)),
+    p.is_active ? 'Visible' : 'Oculto', p.internal_notes ?? '',
+  ]
+}
+
+/** Una sección por categoría (un producto en varias categorías sale en cada una). */
+function exportSections(products: Product[], categories: Category[], onlyCategoryId?: string): ReportSection[] {
+  const sections: ReportSection[] = []
+  const cats = categories.filter(c => !onlyCategoryId || c.id === onlyCategoryId)
+  for (const c of cats) {
+    const list = products.filter(p => catIdsOf(p).includes(c.id))
+    if (list.length > 0) sections.push({ heading: c.name, headers: EXPORT_HEADERS, rows: list.map(exportRow) })
+  }
+  if (!onlyCategoryId) {
+    const none = products.filter(p => catIdsOf(p).length === 0)
+    if (none.length > 0) sections.push({ heading: 'Sin categoría', headers: EXPORT_HEADERS, rows: none.map(exportRow) })
+  }
+  return sections
+}
+
+function exportFileName(label: string, ext: string) {
+  const safe = label.normalize('NFD').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').toLowerCase() || 'productos'
+  return 'productos_' + safe + '_' + new Date().toISOString().slice(0, 10) + '.' + ext
+}
+
+function ProductExportMenu({ products, categories, categoryId, label }: { products: Product[]; categories: Category[]; categoryId?: string; label: string }) {
+  const sections = () => exportSections(products, categories, categoryId)
+  const count = () => new Set(sections().flatMap(sec => sec.rows.map(r => String(r[0])))).size
+  return (
+    <ExportMenu
+      onExcel={() => exportReportExcel(sections(), exportFileName(label, 'xlsx'))}
+      onPDF={() => exportReportPDF('Productos — ' + label, count() + ' productos · generado el ' + new Date().toLocaleDateString('es-ES') + ' · solo para uso interno de la nave', sections(), exportFileName(label, 'pdf'))}
+    />
   )
 }
 
@@ -814,6 +863,11 @@ function CategorySection({
           {visibleCount > 0 && <span className="bg-green-50 text-green-600 px-2 py-0.5 rounded-full">{visibleCount} visibles</span>}
           {hiddenCount  > 0 && <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{hiddenCount} ocultos</span>}
         </div>
+        {isNave && products.length > 0 && (
+          <div onClick={e => e.stopPropagation()}>
+            <ProductExportMenu products={products} categories={categories} categoryId={categoryId === '__none__' ? undefined : categoryId} label={name} />
+          </div>
+        )}
         {categoryId !== '__none__' && products.length > 0 && (
           moving ? (
             <select
@@ -1656,7 +1710,8 @@ export function ProductosManager({
             <h1 className="text-xl sm:text-2xl font-bold text-black">Gestión de Productos</h1>
             <p className="text-gray-700 mt-0.5 text-sm">{products.length} productos · {categories.length} categorías</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {isNave && <ProductExportMenu products={products} categories={categories} label="todas las categorías" />}
             {isNave && (
               <button
                 onClick={() => setShowBulkPricing(true)}
