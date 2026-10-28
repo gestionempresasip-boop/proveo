@@ -46,7 +46,10 @@ export default async function AdminProductosPage() {
   const notesRes = await sb.from('product_internal_notes').select('product_id, notes')
   const notesEnabled = !notesRes.error
   const notesById = new Map<string, string>(((notesRes.data ?? []) as { product_id: string; notes: string }[]).map(n => [n.product_id, n.notes]))
-  const visible = visibleBase.map(p => ({ ...p, notes_enabled: notesEnabled, internal_notes: notesById.get(p.id) ?? '' }))
+  // Stock de la nave (para la exportación). Si no se puede leer, esas columnas salen vacías.
+  const invRes = await sb.from('nave_inventory').select('product_id, current_stock, min_stock')
+  const invById = new Map<string, { stock: number; min: number }>(((invRes.data ?? []) as { product_id: string; current_stock: number; min_stock: number }[]).map(r => [r.product_id, { stock: Number(r.current_stock), min: Number(r.min_stock) }]))
+  const visible = visibleBase.map(p => ({ ...p, notes_enabled: notesEnabled, internal_notes: notesById.get(p.id) ?? '', stock: invById.get(p.id)?.stock ?? null, min_stock: invById.get(p.id)?.min ?? null }))
 
   return (
     <div className="p-6 max-w-5xl mx-auto">

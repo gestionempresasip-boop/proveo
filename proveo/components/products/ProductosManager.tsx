@@ -36,6 +36,8 @@ export type Product = {
   allows_box_order?: boolean
   box_units?: number | null
   internal_notes?: string
+  stock?: number | null
+  min_stock?: number | null
   notes_enabled?: boolean
   product_categories: { name: string } | null
 }
@@ -158,7 +160,7 @@ function ApproveWithoutCostButton({ product, onApproved }: { product: Product; o
 
 // ── Exportar a Excel / PDF (solo nave: lleva costes y márgenes) ─────────────────────────
 
-const EXPORT_HEADERS = ['Producto', 'Descripción', 'Unidad', 'Coste (€)', 'Margen (%)', 'Precio sin IVA (€)', 'IVA (%)', 'Precio final (€)', 'Visible', 'Notas internas']
+const EXPORT_HEADERS = ['Producto', 'Descripción', 'Unidad', 'Stock actual', 'Stock mínimo', 'Coste (€)', 'Margen (%)', 'Precio sin IVA (€)', 'IVA (%)', 'Precio final (€)', 'Visible', 'Notas internas']
 
 function exportRow(p: Product): (string | number)[] {
   const cost = Number(p.cost_price) || 0
@@ -166,6 +168,7 @@ function exportRow(p: Product): (string | number)[] {
   const r2 = (n: number) => Math.round(n * 100) / 100
   return [
     p.name, p.description ?? '', unitLabel(p.unit),
+    p.stock != null ? Number(p.stock) : '', p.min_stock != null && Number(p.min_stock) > 0 ? Number(p.min_stock) : '',
     cost > 0 ? r2(cost) : '', cost > 0 ? r2((Number(p.margin) || 0) * 100) : '',
     r2(Number(p.price) || 0), iva, r2(finalPrice(p)),
     p.is_active ? 'Visible' : 'Oculto', p.internal_notes ?? '',
