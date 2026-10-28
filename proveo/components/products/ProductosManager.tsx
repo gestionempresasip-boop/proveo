@@ -168,12 +168,30 @@ function PricingCalculator({
   fallbackPrice?: number
 }) {
   const [cost, setCost]     = useState(Number(initCost)   || 0)
-  const [margin, setMargin] = useState(Math.round((Number(initMargin) || 0) * 100))  // as %
   const [ivaPct, setIvaPct] = useState(Math.round((Number(initIva)   || 0.10) * 100)) // as %
 
-  const priceNoIva  = cost > 0 ? cost * (1 + margin / 100) : (fallbackPrice || 0)
-  const ivaAmount   = priceNoIva * (ivaPct / 100)
-  const priceConIva = priceNoIva + ivaAmount
+  // Se puede partir del margen, del precio sin IVA o del precio final (con IVA): lo último que
+  // escribas manda y los otros dos se calculan solos. «typed» es el texto del campo que mandas.
+  type Source = 'margin' | 'sin' | 'con'
+  const startsFromCost = (Number(initCost) || 0) > 0
+  const [source, setSource] = useState<Source>(startsFromCost ? 'margin' : 'sin')
+  const [typed, setTyped] = useState<string>(
+    startsFromCost ? String(Math.round((Number(initMargin) || 0) * 10000) / 100) : (fallbackPrice ? String(fallbackPrice) : '')
+  )
+  const num = (Number(typed.replace(',', '.')) || 0)
+
+  const priceNoIva =
+    source === 'margin' ? (cost > 0 ? cost * (1 + num / 100) : (fallbackPrice || 0))
+    : source === 'sin'  ? num
+    : num / (1 + ivaPct / 100)
+  const priceConIva = source === 'con' ? num : priceNoIva * (1 + ivaPct / 100)
+  const ivaAmount   = priceConIva - priceNoIva
+  const margin = source === 'margin' ? num : (cost > 0 && priceNoIva > 0 ? (priceNoIva / cost - 1) * 100 : 0)
+
+  const fmt = (n: number, d: number) => (n ? String(Math.round(n * 10 ** d) / 10 ** d) : '')
+  const shown = (s: Source, computed: string) => (source === s ? typed : computed)
+  const edit = (s: Source) => (e: React.ChangeEvent<HTMLInputElement>) => { setSource(s); setTyped(e.target.value) }
+  const field = 'w-full border border-amber-200 bg-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400'
 
   return (
     <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
@@ -191,6 +209,8 @@ function PricingCalculator({
       {/* price_override drives the final price saved to DB */}
       <input type="hidden" name="price_override"  value={priceNoIva > 0 ? priceNoIva.toFixed(6) : ''} />
 
+      <p className="text-xs text-amber-900">Escribe el <b>margen</b>, el <b>precio sin IVA</b> o el <b>precio final</b>: lo demás se calcula solo.</p>
+
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="text-xs text-gray-700 font-medium block mb-1">Precio de coste (€)</label>
@@ -199,20 +219,40 @@ function PricingCalculator({
             value={cost || ''}
             onChange={e => setCost(Number(e.target.value) || 0)}
             placeholder="0.0000"
-            className="w-full border border-amber-200 bg-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+            className={field}
           />
         </div>
         <div>
           <label className="text-xs text-gray-700 font-medium block mb-1">Margen (%)</label>
-          <div className="flex items-center gap-1.5">
-            <input
-              type="number" step="1" min="0" max="2000"
-              value={margin}
-              onChange={e => setMargin(Number(e.target.value) || 0)}
-              className="w-full border border-amber-200 bg-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
-            />
-            <span className="text-sm text-amber-700 font-medium shrink-0">%</span>
-          </div>
+          <input
+            type="number" step="0.01" min="0" max="5000" inputMode="decimal"
+            value={shown('margin', cost > 0 && priceNoIva > 0 ? fmt(margin, 2) : '')}
+            onChange={edit('margin')}
+            placeholder={cost > 0 ? '0' : '—'}
+            disabled={cost <= 0}
+            title={cost <= 0 ? 'Pon primero el coste para calcular el margen' : undefined}
+            className={field + (cost <= 0 ? ' opacity-60' : '')}
+          />
+        </div>
+        <div>
+          <label className="text-xs text-gray-700 font-medium block mb-1">Precio sin IVA (€)</label>
+          <input
+            type="number" step="0.0001" min="0" inputMode="decimal"
+            value={shown('sin', fmt(priceNoIva, 4))}
+            onChange={edit('sin')}
+            placeholder="0.0000"
+            className={field}
+          />
+        </div>
+        <div>
+          <label className="text-xs text-gray-700 font-medium block mb-1">Precio final con IVA (€)</label>
+          <input
+            type="number" step="0.01" min="0" inputMode="decimal"
+            value={shown('con', fmt(priceConIva, 2))}
+            onChange={edit('con')}
+            placeholder="0.00"
+            className={field + ' font-semibold'}
+          />
         </div>
       </div>
 
@@ -241,6 +281,12 @@ function PricingCalculator({
           <span className="text-sm font-semibold text-black">Precio final (con IVA)</span>
           <span className="text-xl font-bold text-[#1E2B28] tabular-nums">{priceConIva.toFixed(2)} €</span>
         </div>
+        {cost > 0 && priceNoIva > 0 && (
+          <div className="flex justify-between text-xs text-gray-600 tabular-nums pt-0.5">
+            <span>Margen sobre el coste</span>
+            <span className="font-semibold text-amber-800">{margin.toFixed(2)} %</span>
+          </div>
+        )}
         <p className="text-xs text-gray-600 pt-0.5">Este es el precio que verán los restaurantes</p>
       </div>
     </div>
