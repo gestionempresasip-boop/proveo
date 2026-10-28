@@ -203,7 +203,7 @@ function UnitConverter() {
             <span className="text-gray-600 mr-1">Equivale a</span>
             <span className="font-bold text-[#1E2B28]">
               {kg != null && `${kg % 1 === 0 ? kg : kg.toFixed(2)} kg`}
-              {lt != null && `${lt % 1 === 0 ? lt : lt.toFixed(2)} lt`}
+              {lt != null && `${lt % 1 === 0 ? lt : lt.toFixed(2)} l`}
             </span>
           </div>
         </div>

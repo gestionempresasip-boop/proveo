@@ -2,7 +2,7 @@
 export const UNIT_OPTIONS = [
   { value: 'kg',           label: 'kg' },
   { value: 'g',            label: 'g' },
-  { value: 'l',            label: 'lt' },
+  { value: 'l',            label: 'l' },
   { value: 'ml',           label: 'ml' },
   { value: 'unidad',       label: 'unidad' },
   { value: 'caja',         label: 'caja' },
@@ -50,13 +50,13 @@ export function toLitros(unit: string, quantity: number): number | null {
   return factor != null ? quantity * factor : null
 }
 
-/** Texto corto "(= 8 kg)" para mostrar junto a la cantidad pedida. Vacío si no aplica o es trivial (ya está en kg/lt). */
+/** Texto corto "(= 8 kg)" para mostrar junto a la cantidad pedida. Vacío si no aplica o es trivial (ya está en kg/l). */
 export function realQuantityLabel(unit: string, quantity: number): string {
   if (unit === 'kg' || unit === 'l') return ''
   const kg = toKg(unit, quantity)
   if (kg != null) return `(= ${kg % 1 === 0 ? kg : kg.toFixed(2)} kg)`
   const lt = toLitros(unit, quantity)
-  if (lt != null) return `(= ${lt % 1 === 0 ? lt : lt.toFixed(2)} lt)`
+  if (lt != null) return `(= ${lt % 1 === 0 ? lt : lt.toFixed(2)} l)`
   return ''
 }
 
