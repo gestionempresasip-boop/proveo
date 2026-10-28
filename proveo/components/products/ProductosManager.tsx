@@ -86,7 +86,7 @@ function ToggleActiveButton({ product }: { product: Product }) {
     <button onClick={toggle} disabled={pending} title={active ? 'Ocultar a restaurantes' : 'Hacer visible'}
       className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors border ${
         active ? 'bg-green-50 text-green-700 border-green-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200'
-               : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-green-50 hover:text-green-700 hover:border-green-200'
+               : 'bg-sky-100 text-sky-800 border-sky-300 hover:bg-green-50 hover:text-green-700 hover:border-green-200'
       }`}>
       {active ? <><Eye className="w-3 h-3" />Visible</> : <><EyeOff className="w-3 h-3" />Oculto</>}
     </button>
@@ -718,12 +718,13 @@ function ProductRow({
   const lbl = 'text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-0.5 xl:hidden'
 
   return (
-    <div className={`px-4 py-4 border-b border-gray-100 last:border-0 hover:bg-gray-50/60 transition-colors xl:grid ${cols} xl:items-center xl:gap-3 ${!p.is_active ? 'opacity-60' : ''}`}>
+    <div className={`px-4 py-4 border-b border-gray-100 last:border-0 transition-colors xl:grid ${cols} xl:items-center xl:gap-3 ${!p.is_active ? 'bg-sky-50 border-l-4 border-l-sky-400 hover:bg-sky-100/70' : 'hover:bg-gray-50/60'}`}>
       {/* Producto */}
       <div className="flex items-start gap-2 min-w-0">
         <Package className="w-4 h-4 text-gray-500 shrink-0 mt-0.5" />
         <div className="min-w-0">
           <p className="font-semibold text-black leading-tight">{p.name}</p>
+          {!p.is_active && <span className="inline-block mt-1 text-[10px] font-semibold uppercase tracking-wide text-sky-800 bg-sky-100 border border-sky-300 rounded-full px-2 py-0.5">No visible para restaurantes</span>}
           {p.description && <p className="text-xs text-gray-600 mt-0.5">{p.description}</p>}
           {isNave && p.internal_notes && (
             <p className="text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-md px-2 py-1 mt-1 whitespace-pre-line line-clamp-3" title="Nota interna (solo la nave)">
