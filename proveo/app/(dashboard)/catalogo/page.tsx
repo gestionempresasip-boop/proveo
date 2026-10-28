@@ -65,6 +65,7 @@ export default async function CatalogoPage() {
         organizationId={profile.organization_id}
         userId={profile.id}
         userName={profile.full_name ?? null}
+        showPrices
       />
     )
   }

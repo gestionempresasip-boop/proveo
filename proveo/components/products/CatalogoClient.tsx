@@ -81,6 +81,8 @@ interface CatalogoClientProps {
   organizationId: string
   userId: string
   userName: string | null
+  // Solo clientes externos: enseña precio (con IVA) en cada artículo y en la cesta.
+  showPrices?: boolean
 }
 
 // ¿Tienen las dos cestas los mismos productos y cantidades? Comparamos por
@@ -102,7 +104,7 @@ function timeAgo(iso: string) {
 
 export function CatalogoClient({
   initialProducts, initialCategories, initialStock, initialFavoriteIds, initialPromotions, initialPendingCart,
-  organizationId, userId, userName,
+  organizationId, userId, userName, showPrices = false,
 }: CatalogoClientProps) {
   const products = initialProducts
   const categories = initialCategories
@@ -493,6 +495,12 @@ export function CatalogoClient({
               <div key={product.id} className="flex items-center gap-2 text-sm">
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-black leading-tight text-xs">{product.name}</p>
+                  {showPrices && (
+                    <p className="text-[11px] text-gray-600 mt-0.5">
+                      {priceWithIva(product).toFixed(2)} € / {unitLabel(product.unit)}
+                      <span className="font-semibold text-gray-900"> · {((isBox ? quantity * boxUnits : quantity) * priceWithIva(product)).toFixed(2)} €</span>
+                    </p>
+                  )}
                   {isBox && (
                     <div className="flex items-center gap-1 mt-0.5">
                       <span className="text-[10px] text-gray-500">≈ {quantity * boxUnits} unidades ·</span>
@@ -555,6 +563,12 @@ export function CatalogoClient({
     <div className="p-4 pt-3 border-t border-gray-100 shrink-0 bg-white">
       {stockError && (
         <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3">{stockError}</p>
+      )}
+      {showPrices && (
+        <div className="flex items-baseline justify-between mb-3">
+          <span className="text-sm font-semibold text-black">Total <span className="text-[11px] font-normal text-gray-500">(IVA incluido)</span></span>
+          <span className="text-lg font-bold text-black tabular-nums">{cartTotal.toFixed(2)} €</span>
+        </div>
       )}
       <textarea
         placeholder="Notas o instrucciones (opcional)"
@@ -848,6 +862,7 @@ export function CatalogoClient({
                         onToggleFavorite={toggleFavorite}
                         boxMode={mode}
                         onBoxModeChange={handleBoxModeChange}
+                        price={showPrices ? priceWithIva(product) : undefined}
                       />
                     )
                   })}

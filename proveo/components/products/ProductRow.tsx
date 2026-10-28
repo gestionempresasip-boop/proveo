@@ -18,11 +18,15 @@ interface ProductRowProps {
   onToggleFavorite?: (productId: string, next: boolean) => void
   boxMode?: 'unidad' | 'cajon'
   onBoxModeChange?: (productId: string, mode: 'unidad' | 'cajon') => void
+  // Precio unitario con IVA. Solo se pasa a los clientes externos; los restaurantes del grupo no ven precios.
+  price?: number
 }
+
+const eur = (n: number) => `${n.toFixed(2)} €`
 
 export const ProductRow = memo(function ProductRow({
   product, quantity, onQuantityChange, categoryColor, categoryName, maxStock, justRestocked,
-  isFavorite, onToggleFavorite, boxMode, onBoxModeChange,
+  isFavorite, onToggleFavorite, boxMode, onBoxModeChange, price,
 }: ProductRowProps) {
   const [expanded, setExpanded] = useState(false)
   const [inputValue, setInputValue] = useState(quantity > 0 ? String(quantity) : '')
@@ -37,6 +41,8 @@ export const ProductRow = memo(function ProductRow({
   const unit      = isBoxMode ? 'caja' : unitLabel(product.unit)
   const outOfStock   = maxStock !== undefined && maxStock <= 0
   const atStockLimit = maxStock !== undefined && quantity >= maxStock
+  // Precio de lo que se pide: por caja si está en modo caja, si no por unidad de medida.
+  const shownPrice = price === undefined ? undefined : (isBoxMode && boxUnits ? price * boxUnits : price)
 
   useEffect(() => {
     setInputValue(quantity > 0 ? String(quantity) : '')
@@ -118,6 +124,9 @@ export const ProductRow = memo(function ProductRow({
                 ? <>Quedan {maxStock} {unit}{isBoxMode && boxUnits ? ` (≈${maxStock * boxUnits} und)` : ''}</>
                 : unit
             }
+            {shownPrice !== undefined && (
+              <span className="ml-1.5 font-semibold text-gray-800">· {eur(shownPrice)} / {unit}</span>
+            )}
           </p>
         </div>
 
@@ -216,6 +225,7 @@ export const ProductRow = memo(function ProductRow({
               {hasQuantity && (
                 <span className="text-[10px] text-gray-500 mt-0.5 whitespace-nowrap">
                   {unit}{isBoxMode && boxUnits ? ` ≈${quantity * boxUnits} und` : ''}
+                  {shownPrice !== undefined && ` · ${eur(shownPrice * quantity)}`}
                 </span>
               )}
             </div>
