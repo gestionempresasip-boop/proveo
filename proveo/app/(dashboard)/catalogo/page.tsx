@@ -28,11 +28,10 @@ export default async function CatalogoPage() {
     const priceById = new Map<string, number>((assigned ?? []).map((r: any) => [r.product_id, Number(r.price)]))
     const ids = [...priceById.keys()]
     const none = { data: [] as any[] }
-    const [{ data: xProds }, { data: xCats }, { data: xLinks }, { data: xStock }, { data: xFavs }, { data: xCart }] = await Promise.all([
+    const [{ data: xProds }, { data: xCats }, { data: xLinks }, { data: xFavs }, { data: xCart }] = await Promise.all([
       ids.length ? admin.from('products').select(`${PRODUCT_COLS}, product_categories!products_category_id_fkey(name, color)`).in('id', ids).is('deleted_at', null).order('name') : none,
       admin.from('product_categories').select('*').order('order_index').order('name'),
       ids.length ? admin.from('product_category_links').select('product_id, category_id').in('product_id', ids) : none,
-      ids.length ? admin.from('nave_inventory').select('product_id, current_stock, last_restocked_at').in('product_id', ids) : none,
       admin.from('restaurant_favorite_products').select('product_id').eq('organization_id', profile.organization_id),
       admin.from('pending_carts').select('*').eq('organization_id', profile.organization_id).maybeSingle(),
     ])
@@ -49,7 +48,8 @@ export default async function CatalogoPage() {
       <CatalogoClient
         initialProducts={extProducts}
         initialCategories={(xCats ?? []).filter((c: any) => usedCats.has(c.id))}
-        initialStock={xStock ?? []}
+        // Sin stock: el cliente externo no ve lo que queda en la nave y puede pedir lo asignado aunque no haya
+        initialStock={[]}
         initialFavoriteIds={(xFavs ?? []).map((f: { product_id: string }) => f.product_id)}
         initialPromotions={[]}
         initialPendingCart={xCart ? {
