@@ -405,20 +405,18 @@ function ProductFields({
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        {/* When isNave the price is driven by the PricingCalculator via price_override.
-            We still render it for fallback (cost=0 case) but it's labeled clearly. */}
-        <div>
-          <label className="text-xs text-gray-700 font-medium block mb-1">
-            {isNave ? 'Precio sin IVA (€) — anulado por coste+margen si > 0' : 'Precio (€) *'}
-          </label>
-          <input name="price" type="number" step="0.0001" min="0"
-            defaultValue={product?.price ?? 0}
-            required={!isNave}
-            className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28] ${
-              isNave ? 'border-gray-100 bg-gray-50 text-gray-600' : 'border-gray-200'
-            }`} />
-          {isNave && <p className="text-xs text-gray-600 mt-0.5">Se calcula automáticamente arriba</p>}
-        </div>
+        {/* En la nave el precio lo marca SOLO la calculadora de arriba (price_override).
+            No se renderiza un segundo campo "price" porque arrastraba el valor viejo e
+            impedía borrar el precio: al vaciar la calculadora, el precio queda en 0. */}
+        {!isNave && (
+          <div>
+            <label className="text-xs text-gray-700 font-medium block mb-1">Precio (€) *</label>
+            <input name="price" type="number" step="0.0001" min="0"
+              defaultValue={product?.price ?? 0}
+              required
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]" />
+          </div>
+        )}
         <div>
           <label className="text-xs text-gray-700 font-medium block mb-1">Unidad *</label>
           <select name="unit" defaultValue={product?.unit ?? 'kg'}
