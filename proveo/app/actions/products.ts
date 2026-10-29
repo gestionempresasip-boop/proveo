@@ -3,6 +3,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { assertUnlocked } from '@/lib/gateGuard'
+import { getAuthProfile } from '@/lib/supabase/helpers'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 function computePrice(costPrice: number, margin: number, priceOverride: number, priceManual: number): number {
   if (priceOverride > 0) return priceOverride
@@ -140,6 +142,39 @@ export async function toggleProductActive(productId: string, isActive: boolean) 
     .from('products')
     .update({ is_active: !isActive })
     .eq('id', productId)
+  revalidatePath('/admin/productos')
+}
+
+// Quién ve un producto: todos los restaurantes, solo algunos concretos, o ninguno (oculto).
+// La tabla de accesos solo la puede escribir un admin por RLS, así que se escribe con la clave de
+// servicio DESPUÉS de comprobar que quien llama es admin o de la nave. Los clientes externos no
+// dependen de esto: sus productos se asignan en la pestaña Clientes.
+export async function setProductVisibility(productId: string, mode: 'todos' | 'algunos' | 'oculto', orgIds: string[] = []) {
+  await assertUnlocked('productos')
+  const profile = await getAuthProfile()
+  if (!(profile.role === 'admin' || (profile.role === 'nave_manager' && profile.organizations.type === 'nave'))) throw new Error('Sin permisos')
+  const admin = createAdminClient() as any
+
+  if (mode === 'algunos') {
+    if (orgIds.length === 0) throw new Error('Elige al menos un restaurante')
+    // Solo restaurantes del grupo (no clientes externos)
+    const { data: orgs } = await admin.from('organizations').select('id').eq('type', 'restaurante').eq('is_external', false).in('id', orgIds)
+    const valid = (orgs ?? []).map((o: { id: string }) => o.id)
+    if (valid.length === 0) throw new Error('Restaurantes no válidos')
+    const up = await admin.from('products').update({ is_active: true, visibility: 'restringido' }).eq('id', productId)
+    if (up.error) throw new Error(up.error.message)
+    const del = await admin.from('product_restaurant_access').delete().eq('product_id', productId)
+    if (del.error) throw new Error(del.error.message)
+    const ins = await admin.from('product_restaurant_access').insert(valid.map((organization_id: string) => ({ product_id: productId, organization_id })))
+    if (ins.error) throw new Error(ins.error.message)
+  } else if (mode === 'todos') {
+    const up = await admin.from('products').update({ is_active: true, visibility: 'todos' }).eq('id', productId)
+    if (up.error) throw new Error(up.error.message)
+    await admin.from('product_restaurant_access').delete().eq('product_id', productId)
+  } else {
+    const up = await admin.from('products').update({ is_active: false }).eq('id', productId)
+    if (up.error) throw new Error(up.error.message)
+  }
   revalidatePath('/admin/productos')
 }
 

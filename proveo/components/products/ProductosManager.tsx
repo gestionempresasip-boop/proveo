@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useTransition, useMemo, useEffect, useCallback } from 'react'
+import { useState, useTransition, useMemo, useEffect, useCallback, createContext, useContext } from 'react'
 import { Package, Pencil, Trash2, Eye, EyeOff, Plus, X, Check, ChevronDown, ChevronRight, Sparkles, Tag, Euro, Search, Calculator, Star, ShieldCheck, ArrowUp, Lock, LockOpen } from 'lucide-react'
 import {
-  toggleProductActive, softDeleteProduct, updateProduct, createProduct,
+  setProductVisibility, softDeleteProduct, updateProduct, createProduct,
   createCategory, deleteCategory, updateCategory, seedDefaultCategories,
   mergeCategories, moveProductsToCategory, bulkAdjustPricing,
   approveProductWithoutCost,
@@ -36,6 +36,8 @@ export type Product = {
   allows_box_order?: boolean
   box_units?: number | null
   box_label?: 'caja' | 'bolsa' | null
+  visibility?: 'todos' | 'restringido' | null
+  access_org_ids?: string[]
   internal_notes?: string
   stock?: number | null
   min_stock?: number | null
@@ -75,22 +77,105 @@ function catIdsOf(p: Product): string[] {
   return p.category_id ? [p.category_id] : []
 }
 
-// ── Toggle active ─────────────────────────────────────────────────────────────
+// ── Visibilidad: todos / solo algunos restaurantes / oculto ───────────────────
+
+const RestaurantsCtx = createContext<Restaurant[]>([])
 
 function ToggleActiveButton({ product }: { product: Product }) {
+  const restaurants = useContext(RestaurantsCtx)
+  const [open, setOpen] = useState(false)
   const [active, setActive] = useState(product.is_active)
+  const [restricted, setRestricted] = useState(product.visibility === 'restringido')
+  const [orgIds, setOrgIds] = useState<string[]>(product.access_org_ids ?? [])
+  const [mode, setMode] = useState<'todos' | 'algunos' | 'oculto'>(
+    !product.is_active ? 'oculto' : product.visibility === 'restringido' ? 'algunos' : 'todos'
+  )
   const [pending, startTransition] = useTransition()
-  function toggle() {
-    startTransition(async () => { setActive(prev => !prev); await toggleProductActive(product.id, active) })
+  const [error, setError] = useState<string | null>(null)
+
+  const names = restaurants.filter(r => orgIds.includes(r.id)).map(r => r.name)
+  const label = !active ? 'Oculto' : restricted ? (names.length === 1 ? names[0] : `${names.length} restaurantes`) : 'Visible'
+
+  function save() {
+    setError(null)
+    startTransition(async () => {
+      try {
+        await setProductVisibility(product.id, mode, orgIds)
+        setActive(mode !== 'oculto')
+        if (mode === 'algunos') setRestricted(true)
+        if (mode === 'todos') { setRestricted(false); setOrgIds([]) }
+        setOpen(false)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'No se pudo guardar')
+      }
+    })
   }
+
+  const tone = !active
+    ? 'bg-sky-100 text-sky-800 border-sky-300 hover:bg-sky-200'
+    : restricted
+      ? 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'
+      : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
+
   return (
-    <button onClick={toggle} disabled={pending} title={active ? 'Ocultar a restaurantes' : 'Hacer visible'}
-      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors border ${
-        active ? 'bg-green-50 text-green-700 border-green-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200'
-               : 'bg-sky-100 text-sky-800 border-sky-300 hover:bg-green-50 hover:text-green-700 hover:border-green-200'
-      }`}>
-      {active ? <><Eye className="w-3 h-3" />Visible</> : <><EyeOff className="w-3 h-3" />Oculto</>}
-    </button>
+    <>
+      <button onClick={() => setOpen(true)} title="Elegir quién puede ver este producto"
+        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors border ${tone}`}>
+        {active ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+        <span className="truncate max-w-[9rem]">{label}</span>
+      </button>
+
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => !pending && setOpen(false)}>
+          <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl p-5 space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="font-semibold text-black">¿Quién ve este producto?</h3>
+                <p className="text-xs text-gray-600 truncate">{product.name}</p>
+              </div>
+              <button onClick={() => setOpen(false)} className="text-gray-600 shrink-0"><X className="w-5 h-5" /></button>
+            </div>
+
+            <div className="space-y-2">
+              {([
+                ['todos', 'Todos los restaurantes', 'Visible para todo el grupo'],
+                ['algunos', 'Solo algunos restaurantes', 'Eliges cuáles lo ven'],
+                ['oculto', 'Oculto', 'No lo ve ningún restaurante'],
+              ] as const).map(([val, title, hint]) => (
+                <label key={val} className={`flex items-start gap-3 rounded-xl border p-3 cursor-pointer ${mode === val ? 'border-[#1E2B28] bg-[#1E2B28]/5' : 'border-gray-200'}`}>
+                  <input type="radio" name={`vis-${product.id}`} checked={mode === val} onChange={() => setMode(val)} className="mt-1 accent-[#1E2B28]" />
+                  <span className="text-sm"><span className="font-semibold text-black block">{title}</span><span className="text-xs text-gray-600">{hint}</span></span>
+                </label>
+              ))}
+            </div>
+
+            {mode === 'algunos' && (
+              <div className="border border-gray-200 rounded-xl p-2 max-h-48 overflow-y-auto space-y-1">
+                {restaurants.length === 0 && <p className="text-xs text-gray-600 px-1">No hay restaurantes</p>}
+                {restaurants.map(r => (
+                  <label key={r.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 cursor-pointer text-sm">
+                    <input type="checkbox" checked={orgIds.includes(r.id)} className="accent-[#1E2B28]"
+                      onChange={e => setOrgIds(prev => e.target.checked ? [...prev, r.id] : prev.filter(id => id !== r.id))} />
+                    {r.name}
+                  </label>
+                ))}
+              </div>
+            )}
+
+            <p className="text-[11px] text-gray-500">Los clientes externos (distribuidores) se asignan en la pestaña Clientes.</p>
+            {error && <p className="text-xs text-red-600">{error}</p>}
+
+            <div className="flex gap-2">
+              <button onClick={() => setOpen(false)} disabled={pending} className="flex-1 border border-gray-200 rounded-xl py-2 text-sm font-medium text-gray-700">Cancelar</button>
+              <button onClick={save} disabled={pending || (mode === 'algunos' && orgIds.length === 0)}
+                className="flex-1 bg-[#1E2B28] text-white rounded-xl py-2 text-sm font-semibold disabled:opacity-50">
+                {pending ? 'Guardando…' : 'Guardar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 
@@ -1702,6 +1787,7 @@ export function ProductosManager({
   const pagedBuscar = usePaged(buscarResults, `${buscarQuery}|${buscarCategory ?? ''}`)
 
   return (
+    <RestaurantsCtx.Provider value={restaurants}>
     <>
       {showCode && <CodeModal onClose={() => setShowCode(false)} />}
       {editProduct && (
@@ -2008,5 +2094,6 @@ export function ProductosManager({
         </button>
       )}
     </>
+    </RestaurantsCtx.Provider>
   )
 }

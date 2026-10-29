@@ -23,7 +23,7 @@ export default async function AdminProductosPage() {
 
   const [products, categories, links, restaurants, favorites] = await Promise.all([
     sb.from('products')
-      .select('id, name, description, price, unit, min_order_quantity, order_increment, is_active, category_id, image_url, cost_price, iva_rate, margin, pending_review, allows_box_order, box_units, box_label, product_categories!products_category_id_fkey(name)')
+      .select('id, name, description, price, unit, min_order_quantity, order_increment, is_active, category_id, image_url, cost_price, iva_rate, margin, pending_review, allows_box_order, box_units, box_label, visibility, product_categories!products_category_id_fkey(name)')
       .is('deleted_at', null)
       .order('name'),
     sb.from('product_categories').select('id, name, color, order_index, is_protected').order('order_index').order('name'),
@@ -50,7 +50,11 @@ export default async function AdminProductosPage() {
   // Stock de la nave (para la exportación). Si no se puede leer, esas columnas salen vacías.
   const invRes = await sb.from('nave_inventory').select('product_id, current_stock, min_stock')
   const invById = new Map<string, { stock: number; min: number }>(((invRes.data ?? []) as { product_id: string; current_stock: number; min_stock: number }[]).map(r => [r.product_id, { stock: Number(r.current_stock), min: Number(r.min_stock) }]))
-  const visible = visibleBase.map(p => ({ ...p, notes_enabled: notesEnabled, internal_notes: notesById.get(p.id) ?? '', stock: invById.get(p.id)?.stock ?? null, min_stock: invById.get(p.id)?.min ?? null }))
+  // Restaurantes con acceso a cada producto restringido
+  const accessRes = await sb.from('product_restaurant_access').select('product_id, organization_id')
+  const accessById = new Map<string, string[]>()
+  for (const r of ((accessRes.data ?? []) as { product_id: string; organization_id: string }[])) accessById.set(r.product_id, [...(accessById.get(r.product_id) ?? []), r.organization_id])
+  const visible = visibleBase.map(p => ({ ...p, access_org_ids: accessById.get(p.id) ?? [], notes_enabled: notesEnabled, internal_notes: notesById.get(p.id) ?? '', stock: invById.get(p.id)?.stock ?? null, min_stock: invById.get(p.id)?.min ?? null }))
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
