@@ -837,19 +837,24 @@ function ProductRow({
               <span className="font-semibold">Nota:</span> {p.internal_notes}
             </p>
           )}
-          {(p.category_ids?.length ?? 0) > 1 && (
-            <div className="flex flex-wrap gap-1 mt-1">
-              {p.category_ids!.map(cid => {
-                const c = categories.find(cat => cat.id === cid)
-                if (!c) return null
-                return (
-                  <span key={cid} className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-700">
-                    <ColorDot color={c.color} />{c.name}
-                  </span>
-                )
-              })}
-            </div>
-          )}
+          {(() => {
+            const ids = catIdsOf(p).filter(cid => categories.some(cat => cat.id === cid))
+            return (
+              <div className="flex flex-wrap gap-1 mt-1">
+                {ids.length === 0 && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200">Sin categoría</span>
+                )}
+                {ids.map(cid => {
+                  const c = categories.find(cat => cat.id === cid)!
+                  return (
+                    <span key={cid} className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-700">
+                      <ColorDot color={c.color} />{c.name}
+                    </span>
+                  )
+                })}
+              </div>
+            )
+          })()}
         </div>
       </div>
 
