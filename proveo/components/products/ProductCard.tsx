@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 import type { Product } from '@/types/database'
 import { useState, useEffect, memo } from 'react'
 import { unitLabel } from '@/lib/units'
+import { boxWordOf } from '@/lib/boxLabel'
 import { productEmoji } from '@/lib/productEmoji'
 
 interface ProductCardProps {
@@ -39,7 +40,8 @@ export const ProductCard = memo(function ProductCard({
   const hasQuantity = quantity > 0
   const increment = isBoxMode ? 1 : (Number(product.order_increment) || 1)
   const minQty    = isBoxMode ? 1 : (Number(product.min_order_quantity) || 1)
-  const unit      = isBoxMode ? 'caja' : unitLabel(product.unit)
+  const boxWord   = boxWordOf(product as any)
+  const unit      = isBoxMode ? boxWord : unitLabel(product.unit)
   const outOfStock    = maxStock !== undefined && maxStock <= 0
   const atStockLimit  = maxStock !== undefined && quantity >= maxStock
 
@@ -122,7 +124,7 @@ export const ProductCard = memo(function ProductCard({
 
         {hasQuantity && (
           <div className="absolute top-2 right-2 bg-[#A8793A] text-white text-xs font-bold px-2 py-1 rounded-full shadow-sm">
-            {isBoxMode ? `${quantity} caja` : `${quantity} ${unit}`}
+            {`${quantity} ${unit}`}
           </div>
         )}
         {outOfStock && (
@@ -164,7 +166,7 @@ export const ProductCard = memo(function ProductCard({
                 isBoxMode ? 'bg-white text-black shadow-sm' : 'text-gray-600 hover:text-gray-800'
               )}
             >
-              Caja{boxUnits ? ` ≈${boxUnits}` : ''}
+              {boxWord === 'bolsa' ? 'Bolsa' : 'Caja'}{boxUnits ? ` ≈${boxUnits}` : ''}
             </button>
           </div>
         )}

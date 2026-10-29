@@ -15,6 +15,7 @@ import { loadCartDraft, saveCartDraft, clearCartDraft } from '@/lib/cartDraft'
 import { savePendingCart, clearPendingCart } from '@/app/actions/pendingCart'
 import { setFavoriteProduct } from '@/app/actions/favorites'
 import { unitLabel } from '@/lib/units'
+import { boxWordOf } from '@/lib/boxLabel'
 import { Pager, usePaged } from '@/components/ui/Pager'
 
 type CartItem = { product: Product; quantity: number }
@@ -399,7 +400,7 @@ export function CatalogoClient({
       const boxUnits = boxUnitsFor(overStock.product)
       const leftUnits = freshStock[overStock.product.id]
       const leftDisplay = mode === 'cajon' ? Math.floor(leftUnits / boxUnits) : leftUnits
-      const unitDisplay = mode === 'cajon' ? 'caja' : overStock.product.unit
+      const unitDisplay = mode === 'cajon' ? boxWordOf(overStock.product as any) : overStock.product.unit
       setStockError(`No queda suficiente stock de "${overStock.product.name}" (quedan ${leftDisplay} ${unitDisplay})`)
       handleQuantityChange(overStock.product.id, Math.max(0, leftDisplay))
       submittingRef.current = false
@@ -514,9 +515,9 @@ export function CatalogoClient({
                           handleBoxUnitsChange(product.id, isNaN(v) ? 0 : v)
                         }}
                         className="w-10 text-[10px] text-center border border-gray-200 rounded px-0.5 py-0 focus:outline-none focus:ring-1 focus:ring-[#1E2B28]"
-                        title="Botellas por caja"
+                        title={`Unidades por ${boxWordOf(product as any)}`}
                       />
-                      <span className="text-[10px] text-gray-500">und/caja</span>
+                      <span className="text-[10px] text-gray-500">und/{boxWordOf(product as any)}</span>
                     </div>
                   )}
                 </div>
@@ -529,7 +530,7 @@ export function CatalogoClient({
                     <Minus className="h-3 w-3 text-gray-700" />
                   </button>
                   <span className="w-14 text-center text-xs font-semibold tabular-nums text-gray-900">
-                    {isBox ? `${quantity} caja` : `${quantity} ${unitLabel(product.unit)}`}
+                    {isBox ? `${quantity} ${boxWordOf(product as any)}` : `${quantity} ${unitLabel(product.unit)}`}
                   </span>
                   <button
                     onClick={increaseCart}

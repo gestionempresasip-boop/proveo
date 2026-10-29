@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 import type { Product } from '@/types/database'
 import { useState, useEffect, memo } from 'react'
 import { unitLabel } from '@/lib/units'
+import { boxWordOf } from '@/lib/boxLabel'
 
 interface ProductRowProps {
   product: Product
@@ -38,7 +39,8 @@ export const ProductRow = memo(function ProductRow({
   const hasQuantity = quantity > 0
   const increment = isBoxMode ? 1 : (Number(product.order_increment) || 1)
   const minQty    = isBoxMode ? 1 : (Number(product.min_order_quantity) || 1)
-  const unit      = isBoxMode ? 'caja' : unitLabel(product.unit)
+  const boxWord   = boxWordOf(product as any)
+  const unit      = isBoxMode ? boxWord : unitLabel(product.unit)
   const outOfStock   = maxStock !== undefined && maxStock <= 0
   const atStockLimit = maxStock !== undefined && quantity >= maxStock
   // Precio de lo que se pide: por caja si está en modo caja, si no por unidad de medida.
@@ -134,7 +136,7 @@ export const ProductRow = memo(function ProductRow({
         <div className="flex items-center gap-1.5 shrink-0">
           {hasQuantity && (
             <span className="text-xs font-bold bg-[#A8793A] text-white px-2 py-0.5 rounded-full whitespace-nowrap">
-              {isBoxMode ? `${quantity} caja` : `${quantity} ${unit}`}
+              {`${quantity} ${unit}`}
             </span>
           )}
           {!outOfStock && !expanded && !hasQuantity && (
@@ -189,7 +191,7 @@ export const ProductRow = memo(function ProductRow({
                     isBoxMode ? 'bg-white text-black shadow-sm' : 'text-gray-600 hover:text-gray-800'
                   )}
                 >
-                  Caja{boxUnits ? ` ≈${boxUnits} und` : ''}
+                  {boxWord === 'bolsa' ? 'Bolsa' : 'Caja'}{boxUnits ? ` ≈${boxUnits} und` : ''}
                 </button>
               </div>
             </div>

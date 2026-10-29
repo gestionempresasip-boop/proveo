@@ -8,6 +8,7 @@ import { unitLabel } from '@/lib/units'
 import { getOrdersSince, getTrashOrders } from '@/app/actions/ordersList'
 import { OrderChat } from '@/components/orders/OrderChat'
 import { Pager, usePaged } from '@/components/ui/Pager'
+import { boxWordOf, boxPlural } from '@/lib/boxLabel'
 import {
   Calendar, Filter, ChevronDown, MessageCircle, Printer,
   Download, FileText, Clock, CheckCircle2, Send, AlertCircle,
@@ -46,7 +47,7 @@ type OrderItem = {
   id: string; product_id: string; quantity: number; rectified_quantity?: number | null
   rectification_note?: string | null
   prepared?: boolean; lot_number?: string | null; actual_weight?: number | null
-  unit: string; unit_price: number; total_price: number; products: { name: string } | null
+  unit: string; unit_price: number; total_price: number; products: { name: string; box_label?: string | null } | null
   order_mode?: 'unidad' | 'cajon' | null
   box_count?: number | null
   box_approximate_units?: number | null
@@ -96,6 +97,7 @@ function ItemRow({
   const [pending, startTransition] = useTransition()
 
   const isCajon = item.order_mode === 'cajon'
+  const boxWord = boxWordOf(item.products)
   const isCanceled = item.rectified_quantity != null && Number(item.rectified_quantity) === 0
   const isRectified = item.rectified_quantity != null && Number(item.rectified_quantity) !== Number(item.quantity)
 
@@ -263,11 +265,11 @@ function ItemRow({
         <div className="flex items-center gap-1.5 shrink-0">
           {isCajon ? (
             <span className="text-blue-800 text-[11px]">
-              {item.box_count} caja{(item.box_count ?? 1) !== 1 ? 's' : ''}
+              {item.box_count} {boxPlural(boxWord, item.box_count ?? 1)}
               {' '}
               {item.box_exact_units != null
-                ? <span className="font-semibold">· {item.box_exact_units} und/caj.</span>
-                : <span className="text-gray-500">≈{item.box_approximate_units} und/caj.</span>
+                ? <span className="font-semibold">· {item.box_exact_units} und/{boxWord}</span>
+                : <span className="text-gray-500">≈{item.box_approximate_units} und/{boxWord}</span>
               }
             </span>
           ) : isRectified ? (
@@ -314,7 +316,7 @@ function ItemRow({
       {isCajon && (
         <div className="flex items-center gap-1.5 pl-6 bg-blue-50 rounded-lg py-1.5 px-2 -mx-0 mt-0.5">
           <span className="text-blue-800 shrink-0 text-[11px] font-medium">
-            Unidades exactas/caja:
+            Unidades exactas/{boxWord}:
           </span>
           <input
             type="number" step="1" min="1"

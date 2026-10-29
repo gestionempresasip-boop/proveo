@@ -70,6 +70,7 @@ export interface ProductRow {
   created_at: string
   allows_box_order: boolean
   box_units: number | null
+  box_label?: 'caja' | 'bolsa' | null
 }
 
 export interface OrderRow {

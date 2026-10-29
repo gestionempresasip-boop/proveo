@@ -9,7 +9,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 // pantalla (la más usada de la app) y aprovecha el caché de getAuthProfile
 // que ya usa el layout del dashboard.
 // Solo las columnas que usa el catálogo. Nunca se mandan al navegador el coste ni el margen (el catálogo lo ven los restaurantes).
-const PRODUCT_COLS = 'id, category_id, name, description, image_url, price, unit, min_order_quantity, order_increment, visibility, is_active, iva_rate, allows_box_order, box_units'
+const PRODUCT_COLS = 'id, category_id, name, description, image_url, price, unit, min_order_quantity, order_increment, visibility, is_active, iva_rate, allows_box_order, box_units, box_label'
 
 export default async function CatalogoPage() {
   const profile = await getAuthProfile()

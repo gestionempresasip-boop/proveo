@@ -35,6 +35,7 @@ export type Product = {
   pending_review?: boolean
   allows_box_order?: boolean
   box_units?: number | null
+  box_label?: 'caja' | 'bolsa' | null
   internal_notes?: string
   stock?: number | null
   min_stock?: number | null
@@ -357,6 +358,7 @@ function ProductFields({
   isNave?: boolean
 }) {
   const [allowsBox, setAllowsBox] = useState(product?.allows_box_order ?? false)
+  const [boxLabel, setBoxLabel] = useState<'caja' | 'bolsa'>(product?.box_label === 'bolsa' ? 'bolsa' : 'caja')
 
   return (
     <div className="space-y-3">
@@ -448,12 +450,22 @@ function ProductFields({
             onChange={e => setAllowsBox(e.target.checked)}
             className="accent-[#1E2B28] w-4 h-4"
           />
-          Se puede pedir también por caja
+          Se puede pedir también por caja o bolsa
         </label>
         {allowsBox && (
           <div>
+            <label className="text-xs text-blue-800 font-medium block mb-1">Se pide por</label>
+            <select
+              name="box_label"
+              value={boxLabel}
+              onChange={e => setBoxLabel(e.target.value === 'bolsa' ? 'bolsa' : 'caja')}
+              className="w-full mb-2 border border-blue-200 bg-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
+            >
+              <option value="caja">Caja</option>
+              <option value="bolsa">Bolsa</option>
+            </select>
             <label className="text-xs text-blue-800 font-medium block mb-1">
-              Unidades aproximadas por caja *
+              Unidades aproximadas por {boxLabel} *
             </label>
             <input
               name="box_units"
@@ -466,7 +478,7 @@ function ProductFields({
               className="w-full border border-blue-200 bg-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
             />
             <p className="text-xs text-blue-700 mt-1">
-              El restaurante pedirá cajones enteros. La nave ajustará las unidades exactas al preparar.
+              Se pedirán {boxLabel}s enteras. La nave ajustará las unidades exactas al preparar y el albarán y el precio se recalculan.
             </p>
           </div>
         )}
@@ -541,6 +553,7 @@ function NuevoModal({
   const [pending, startTransition] = useTransition()
   const [done, setDone] = useState(false)
   const [allowsBox, setAllowsBox] = useState(false)
+  const [boxLabel, setBoxLabel] = useState<'caja' | 'bolsa'>('caja')
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
@@ -627,12 +640,22 @@ function NuevoModal({
                   onChange={e => setAllowsBox(e.target.checked)}
                   className="accent-[#1E2B28] w-4 h-4"
                 />
-                Se puede pedir también por caja
+                Se puede pedir también por caja o bolsa
               </label>
               {allowsBox && (
                 <div>
+                  <label className="text-xs text-blue-800 font-medium block mb-1">Se pide por</label>
+                  <select
+                    name="box_label"
+                    value={boxLabel}
+                    onChange={e => setBoxLabel(e.target.value === 'bolsa' ? 'bolsa' : 'caja')}
+                    className="w-full mb-2 border border-blue-200 bg-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
+                  >
+                    <option value="caja">Caja</option>
+                    <option value="bolsa">Bolsa</option>
+                  </select>
                   <label className="text-xs text-blue-800 font-medium block mb-1">
-                    Unidades aproximadas por caja *
+                    Unidades aproximadas por {boxLabel} *
                   </label>
                   <input
                     name="box_units"
@@ -644,7 +667,7 @@ function NuevoModal({
                     className="w-full border border-blue-200 bg-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
                   />
                   <p className="text-xs text-blue-700 mt-1">
-                    El restaurante pedirá cajones enteros. La nave ajustará las unidades exactas al preparar.
+                    Se pedirán {boxLabel}s enteras. La nave ajustará las unidades exactas al preparar y el albarán y el precio se recalculan.
                   </p>
                 </div>
               )}
