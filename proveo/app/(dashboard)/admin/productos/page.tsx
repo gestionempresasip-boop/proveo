@@ -1,5 +1,6 @@
 import { getAuthProfile } from '@/lib/supabase/helpers'
 import { createClient } from '@/lib/supabase/server'
+import { fetchAll } from '@/lib/fetchAll'
 import { rowsOf } from '@/lib/serverAccess'
 import { splitByProtection, type CategoryLink, type CategoryRow } from '@/lib/protectedCategories'
 import { ProductosManager, type Product } from '@/components/products/ProductosManager'
@@ -26,7 +27,7 @@ export default async function AdminProductosPage() {
       .is('deleted_at', null)
       .order('name'),
     sb.from('product_categories').select('id, name, color, order_index, is_protected').order('order_index').order('name'),
-    sb.from('product_category_links').select('product_id, category_id'),
+    fetchAll<CategoryLink>((a, b) => sb.from('product_category_links').select('product_id, category_id').order('product_id').order('category_id').range(a, b)),
     sb.from('organizations').select('id, name, is_external').eq('type', 'restaurante').order('name'),
     sb.from('restaurant_favorite_products').select('organization_id, product_id'),
   ])
@@ -40,7 +41,7 @@ export default async function AdminProductosPage() {
   if (products.error) console.error('Error cargando productos:', products.error)
 
   const categoryRows = rowsOf<CategoryRow>(categories)
-  const { visible: visibleBase, locked } = splitByProtection(rowsOf<Product>(products), categoryRows, rowsOf<CategoryLink>(links), unlocked)
+  const { visible: visibleBase, locked } = splitByProtection(rowsOf<Product>(products), categoryRows, links, unlocked)
 
   // Notas internas (solo nave). Si la tabla aún no existe (falta ejecutar el SQL) el campo simplemente no aparece.
   const notesRes = await sb.from('product_internal_notes').select('product_id, notes')

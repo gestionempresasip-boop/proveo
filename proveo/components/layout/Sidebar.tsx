@@ -25,6 +25,9 @@ interface NavItem {
   desktopOnly?: boolean
 }
 
+// Pestañas de la nave marcadas en verde fosforescente
+const HIGHLIGHT = new Set(['Pedidos', 'Productos', 'Stock', 'Albaranes'])
+
 const navItems: NavItem[] = [
   { href: '/catalogo',        label: 'Pedido',      icon: ShoppingCart,  orgTypes: ['restaurante'] },
   { href: '/pedidos',         label: 'Mis pedidos', icon: ClipboardList, orgTypes: ['restaurante'] },
@@ -134,7 +137,11 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
                 href={item.href}
                 className={cn(
                   'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold transition-all',
-                  active ? 'bg-white text-gray-900 shadow-sm' : 'text-white hover:bg-white/10'
+                  active
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : isNave && HIGHLIGHT.has(item.label)
+                      ? 'bg-[#39FF14] text-black hover:bg-[#2fe010] shadow-[0_0_10px_rgba(57,255,20,0.45)]'
+                      : 'text-white hover:bg-white/10'
                 )}
               >
                 <Icon className={cn('h-4 w-4 shrink-0', active && 'text-[#A8793A]')} />
@@ -162,7 +169,8 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
                   'flex-1 shrink-0 flex flex-col items-center justify-center transition-colors',
                   // La nave tiene muchas pestañas: botones más grandes para verlas y pulsarlas mejor en el móvil
                   isNave ? 'min-w-[78px] min-h-[72px] gap-1.5 py-3' : 'min-w-[68px] min-h-[60px] gap-1 py-2.5',
-                  active ? 'text-[#A8793A]' : 'text-gray-600 hover:text-gray-600'
+                  active ? 'text-[#A8793A]' : 'text-gray-600 hover:text-gray-600',
+                  isNave && HIGHLIGHT.has(item.label) && (active ? 'bg-[#39FF14]/40' : 'bg-[#39FF14] text-black')
                 )}
               >
                 <Icon className={cn('shrink-0', isNave ? 'h-6 w-6' : 'h-5 w-5')} />

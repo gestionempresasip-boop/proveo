@@ -11,11 +11,13 @@ function computePrice(costPrice: number, margin: number, priceOverride: number, 
 }
 
 async function syncProductCategories(sb: any, productId: string, categoryIds: string[]) {
-  await sb.from('product_category_links').delete().eq('product_id', productId)
+  const del = await sb.from('product_category_links').delete().eq('product_id', productId)
+  if (del.error) throw new Error(`No se pudieron guardar las categorías: ${del.error.message}`)
   if (categoryIds.length > 0) {
-    await sb.from('product_category_links').insert(
+    const ins = await sb.from('product_category_links').insert(
       categoryIds.map(category_id => ({ product_id: productId, category_id }))
     )
+    if (ins.error) throw new Error(`No se pudieron guardar las categorías: ${ins.error.message}`)
   }
 }
 

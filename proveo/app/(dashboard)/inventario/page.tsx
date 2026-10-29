@@ -17,11 +17,11 @@ export default async function InventarioPage() {
 
   // Cargar productos + categorías + inventario en paralelo (son independientes)
   const [{ data: products }, { data: categories }, { data: inventoryRows }] = await Promise.all([
-    sb.from('products')
-      .select('id, name, unit, category_id, allows_box_order, box_units, product_categories!products_category_id_fkey(name, color)')
-      .eq('is_active', true)
-      .is('deleted_at', null)
-      .order('name'),
+    // La nave ve también los productos ocultos (is_active = false) para poder fijar su stock;
+    // los restaurantes solo los activos.
+    (isNave
+      ? sb.from('products').select('id, name, unit, category_id, allows_box_order, box_units, product_categories!products_category_id_fkey(name, color)').is('deleted_at', null).order('name')
+      : sb.from('products').select('id, name, unit, category_id, allows_box_order, box_units, product_categories!products_category_id_fkey(name, color)').eq('is_active', true).is('deleted_at', null).order('name')),
     sb.from('product_categories').select('id, name, color').order('order_index').order('name'),
     isNave
       ? sb.from('nave_inventory').select('product_id, current_stock, min_stock, last_updated')

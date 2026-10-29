@@ -1,5 +1,6 @@
 import { getAuthProfile } from '@/lib/supabase/helpers'
 import { createClient } from '@/lib/supabase/server'
+import { fetchAll } from '@/lib/fetchAll'
 import { rowsOf } from '@/lib/serverAccess'
 import { splitByProtection, type CategoryLink, type CategoryRow } from '@/lib/protectedCategories'
 import { ProductosGate } from '@/components/products/ProductosGate'
@@ -23,7 +24,7 @@ export default async function AdminClientesPage() {
       .is('deleted_at', null)
       .order('name'),
     sb.from('product_categories').select('id, name, color, order_index, is_protected').order('order_index').order('name'),
-    sb.from('product_category_links').select('product_id, category_id'),
+    fetchAll<any>((a, b) => sb.from('product_category_links').select('product_id, category_id').order('product_id').order('category_id').range(a, b)),
     sb.from('client_product_prices').select('organization_id, product_id, price'),
   ])
 
@@ -36,7 +37,7 @@ export default async function AdminClientesPage() {
   const categoryRows = rowsOf<CategoryRow>(categories)
   const { visible } = splitByProtection(
     rowsOf<{ id: string; name: string; price: number; unit: string; iva_rate: number | null; is_active: boolean; category_id: string | null; product_categories: { name: string } | null }>(products),
-    categoryRows, rowsOf<CategoryLink>(links), unlocked,
+    categoryRows, links as CategoryLink[], unlocked,
   )
   const catalog: ClientProduct[] = visible.map(p => ({
     id: p.id, name: p.name, unit: p.unit, price: Number(p.price) || 0, iva: Number(p.iva_rate) || 0,

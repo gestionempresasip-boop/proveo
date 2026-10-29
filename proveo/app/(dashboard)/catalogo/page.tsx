@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getAuthProfile } from '@/lib/supabase/helpers'
 import { CatalogoClient } from '@/components/products/CatalogoClient'
+import { fetchAll } from '@/lib/fetchAll'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 // Server Component: trae productos/categorías/stock/favoritos en el
@@ -73,7 +74,7 @@ export default async function CatalogoPage() {
   const [{ data: prods }, { data: cats }, { data: links }, { data: stock }, { data: favs }, { data: promos }, { data: pendingCart }] = await Promise.all([
     sb.from('products').select(`${PRODUCT_COLS}, product_categories!products_category_id_fkey(name, color)`).eq('is_active', true).is('deleted_at', null).order('name'),
     sb.from('product_categories').select('*').order('order_index').order('name'),
-    sb.from('product_category_links').select('product_id, category_id'),
+    fetchAll<any>((a, b) => sb.from('product_category_links').select('product_id, category_id').order('product_id').order('category_id').range(a, b)).then(data => ({ data })),
     sb.from('nave_inventory').select('product_id, current_stock, last_restocked_at'),
     sb.from('restaurant_favorite_products').select('product_id').eq('organization_id', profile.organization_id),
     sb.from('promotions')

@@ -395,7 +395,7 @@ function ProductFields({
                 type="checkbox"
                 name="category_ids"
                 value={c.id}
-                defaultChecked={product ? (product.category_ids ?? (product.category_id ? [product.category_id] : [])).includes(c.id) : false}
+                defaultChecked={product ? catIdsOf(product).includes(c.id) : false}
                 className="accent-[#1E2B28]"
               />
               <ColorDot color={c.color} />
@@ -1354,7 +1354,7 @@ function BulkPricingModal({
     if (scope === 'todos') return products.map(p => p.id)
     if (scope === 'categoria') {
       return products.filter(p => {
-        const ids = p.category_ids ?? (p.category_id ? [p.category_id] : [])
+        const ids = catIdsOf(p)
         return ids.some(id => selectedCats.has(id))
       }).map(p => p.id)
     }
