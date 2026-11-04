@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ORG_LOGOS } from '@/lib/orgLogos'
 import { loginPathFor } from '@/lib/loginPath'
 import { NotificationBell } from '@/components/notifications/NotificationProvider'
@@ -66,6 +66,24 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
 
   const orgLabel = isNave ? 'Nave Obrador' : profile.organizations.name
   const orgLogo = ORG_LOGOS[profile.organizations.name]
+
+  // iOS a veces no recoloca la pantalla al cerrar el teclado y la barra inferior se queda a media altura.
+  // Al salir de un campo de texto se hace un scroll a la misma posición, que obliga a recolocarla. No mueve la página.
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const onFocusOut = (e: FocusEvent) => {
+      const t = e.target as HTMLElement | null
+      if (!t || !/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return
+      clearTimeout(timer)
+      timer = setTimeout(() => {
+        const a = document.activeElement as HTMLElement | null
+        if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return
+        window.scrollTo(window.scrollX, window.scrollY)
+      }, 350)
+    }
+    document.addEventListener('focusout', onFocusOut)
+    return () => { document.removeEventListener('focusout', onFocusOut); clearTimeout(timer) }
+  }, [])
 
   async function handleLogout() {
     await supabase.auth.signOut()
@@ -157,7 +175,7 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
            dentro del scroll, para que se desplace al deslizar) ─────────── */}
       <>
         {/* Bottom tab bar */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 flex overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden print:hidden">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 [transform:translateZ(0)] bg-white border-t border-gray-200 flex overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden print:hidden">
           {visible.filter(item => !item.desktopOnly).map(item => {
             const active = isActive(item.href)
             const Icon = item.icon

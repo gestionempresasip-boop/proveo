@@ -14,7 +14,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     <NotificationProvider>
     <div className="flex min-h-dvh bg-gray-50 print:bg-white">
       <Sidebar profile={profile} />
-      <main className={`flex-1 min-w-0 ${isNave ? 'pb-[72px]' : 'pb-[60px]'} md:pb-0 print:pb-0`}>
+      <main className={`flex-1 min-w-0 overflow-x-clip ${isNave ? 'pb-[72px]' : 'pb-[60px]'} md:pb-0 print:pb-0`}>
         <MobileTopBar profile={profile} />
         {children}
       </main>
