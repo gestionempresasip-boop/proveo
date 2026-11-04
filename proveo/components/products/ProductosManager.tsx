@@ -13,7 +13,7 @@ import type { BulkPricingField, BulkPricingMode } from '@/app/actions/products'
 import { setFavoriteProduct, setFavoriteProductsBatch } from '@/app/actions/favorites'
 import { unlockProducts, lockProducts, setCategoryProtected } from '@/app/actions/productsGate'
 import { UNIT_OPTIONS, unitLabel, kgPerUnit } from '@/lib/units'
-import { getProductCostHistory, type CostHistoryEntry } from '@/app/actions/priceLog'
+import { getProductCostHistory, getLastCostChanges, type CostHistoryEntry, type LastCostChange } from '@/app/actions/priceLog'
 import { recommendPrices, DEFAULT_ASSUMPTIONS, type PricingAssumptions } from '@/lib/priceRecommendation'
 import { Pager, usePaged } from '@/components/ui/Pager'
 import { ExportMenu } from '@/components/stats/ExportMenu'
@@ -253,32 +253,38 @@ function ApproveWithoutCostButton({ product, onApproved }: { product: Product; o
 
 // ── Exportar a Excel / PDF (solo nave: lleva costes y márgenes) ─────────────────────────
 
-const EXPORT_HEADERS = ['Producto', 'Descripción', 'Unidad', 'Stock actual', 'Stock mínimo', 'Coste (€)', 'Margen (%)', 'Precio sin IVA (€)', 'IVA (%)', 'Precio final (€)', 'Visible', 'Notas internas']
+const EXPORT_HEADERS = ['Producto', 'Descripción', 'Unidad', 'Stock actual', 'Stock mínimo', 'Coste (€)', 'Coste anterior (€)', 'Var. coste (%)', 'Último cambio de coste', 'Margen (%)', 'Precio sin IVA (€)', 'IVA (%)', 'Precio final (€)', 'Visible', 'Notas internas']
 
-function exportRow(p: Product): (string | number)[] {
+function exportRow(p: Product, last: Record<string, LastCostChange>): (string | number)[] {
   const cost = Number(p.cost_price) || 0
+  const ch = last[p.id]
+  const prev = ch ? Number(ch.old_cost) || 0 : 0
   const iva = Math.round((Number(p.iva_rate) || 0) * 100)
   const r2 = (n: number) => Math.round(n * 100) / 100
   return [
     p.name, p.description ?? '', unitLabel(p.unit),
     p.stock != null ? Number(p.stock) : '', p.min_stock != null && Number(p.min_stock) > 0 ? Number(p.min_stock) : '',
-    cost > 0 ? r2(cost) : '', cost > 0 ? r2((Number(p.margin) || 0) * 100) : '',
+    cost > 0 ? r2(cost) : '',
+    prev > 0 ? Math.round(prev * 1000) / 1000 : '',
+    prev > 0 && cost > 0 ? Math.round((cost / prev - 1) * 1000) / 10 : '',
+    ch ? new Date(ch.changed_at).toLocaleDateString('es-ES') : '',
+    cost > 0 ? r2((Number(p.margin) || 0) * 100) : '',
     r2(Number(p.price) || 0), iva, r2(finalPrice(p)),
     p.is_active ? 'Visible' : 'Oculto', p.internal_notes ?? '',
   ]
 }
 
 /** Una sección por categoría (un producto en varias categorías sale en cada una). */
-function exportSections(products: Product[], categories: Category[], onlyCategoryId?: string): ReportSection[] {
+function exportSections(products: Product[], categories: Category[], onlyCategoryId?: string, last: Record<string, LastCostChange> = {}): ReportSection[] {
   const sections: ReportSection[] = []
   const cats = categories.filter(c => !onlyCategoryId || c.id === onlyCategoryId)
   for (const c of cats) {
     const list = products.filter(p => catIdsOf(p).includes(c.id))
-    if (list.length > 0) sections.push({ heading: c.name, headers: EXPORT_HEADERS, rows: list.map(exportRow) })
+    if (list.length > 0) sections.push({ heading: c.name, headers: EXPORT_HEADERS, rows: list.map(p => exportRow(p, last)) })
   }
   if (!onlyCategoryId) {
     const none = products.filter(p => catIdsOf(p).length === 0)
-    if (none.length > 0) sections.push({ heading: 'Sin categoría', headers: EXPORT_HEADERS, rows: none.map(exportRow) })
+    if (none.length > 0) sections.push({ heading: 'Sin categoría', headers: EXPORT_HEADERS, rows: none.map(p => exportRow(p, last)) })
   }
   return sections
 }
@@ -289,12 +295,20 @@ function exportFileName(label: string, ext: string) {
 }
 
 function ProductExportMenu({ products, categories, categoryId, label }: { products: Product[]; categories: Category[]; categoryId?: string; label: string }) {
-  const sections = () => exportSections(products, categories, categoryId)
-  const count = () => new Set(sections().flatMap(sec => sec.rows.map(r => String(r[0])))).size
+  // Al exportar se añade el último cambio de coste de cada producto (si aún no existe el registro, esas columnas salen vacías)
+  const sections = async () => {
+    let last: Record<string, LastCostChange> = {}
+    try { last = await getLastCostChanges() } catch { /* sin registro: columnas vacías */ }
+    return exportSections(products, categories, categoryId, last)
+  }
   return (
     <ExportMenu
-      onExcel={() => exportReportExcel(sections(), exportFileName(label, 'xlsx'))}
-      onPDF={() => exportReportPDF('Productos — ' + label, count() + ' productos · generado el ' + new Date().toLocaleDateString('es-ES') + ' · solo para uso interno de la nave', sections(), exportFileName(label, 'pdf'))}
+      onExcel={async () => exportReportExcel(await sections(), exportFileName(label, 'xlsx'))}
+      onPDF={async () => {
+        const secs = await sections()
+        const count = new Set(secs.flatMap(sec => sec.rows.map(r => String(r[0])))).size
+        await exportReportPDF('Productos — ' + label, count + ' productos · generado el ' + new Date().toLocaleDateString('es-ES') + ' · solo para uso interno de la nave', secs, exportFileName(label, 'pdf'))
+      }}
     />
   )
 }

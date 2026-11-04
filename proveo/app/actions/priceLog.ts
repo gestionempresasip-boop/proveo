@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getAuthProfile } from '@/lib/supabase/helpers'
 import { assertUnlocked } from '@/lib/gateGuard'
+import { fetchAll } from '@/lib/fetchAll'
 
 export type CostHistoryEntry = {
   changed_at: string
@@ -30,6 +31,28 @@ export async function getProductCostHistory(productId: string): Promise<CostHist
   return ((data ?? []) as CostHistoryEntry[]).map(r => ({
     changed_at: r.changed_at, old_cost: n(r.old_cost), new_cost: n(r.new_cost), old_price: n(r.old_price), new_price: n(r.new_price),
   }))
+}
+
+export type LastCostChange = { old_cost: number | null; new_cost: number | null; changed_at: string }
+
+// Último cambio de COSTE de cada producto (para añadirlo a la exportación de productos).
+export async function getLastCostChanges(): Promise<Record<string, LastCostChange>> {
+  const profile = await getAuthProfile()
+  const ok = profile.role === 'admin' || (profile.role === 'nave_manager' && profile.organizations.type === 'nave')
+  if (!ok) throw new Error('Sin permisos')
+  await assertUnlocked('productos')
+
+  const sb = (await createClient()) as any
+  type Row = { product_id: string; old_cost: number | string | null; new_cost: number | string | null; changed_at: string }
+  const rows = await fetchAll<Row>((a, b) =>
+    sb.from('product_price_log').select('product_id, old_cost, new_cost, changed_at').order('changed_at', { ascending: false }).order('id').range(a, b))
+  const r4 = (v: unknown) => Math.round(Number(v ?? 0) * 10000)
+  const out: Record<string, LastCostChange> = {}
+  for (const r of rows) {
+    if (out[r.product_id] || r4(r.old_cost) === r4(r.new_cost)) continue   // el más reciente en el que cambió el coste
+    out[r.product_id] = { old_cost: r.old_cost == null ? null : Number(r.old_cost), new_cost: r.new_cost == null ? null : Number(r.new_cost), changed_at: r.changed_at }
+  }
+  return out
 }
 
 // Marca como "ya pasados al programa de facturación" todos los cambios pendientes de estos productos.

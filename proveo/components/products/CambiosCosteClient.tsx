@@ -11,7 +11,10 @@ export type PriceLogRow = {
   id: string; product_id: string; product_name: string; unit: string | null
   old_cost: number | null; new_cost: number | null; old_price: number | null; new_price: number | null
   changed_at: string; billed_at: string | null
+  changed_by?: string | null; changed_by_name?: string
 }
+
+const localDay = (iso: string) => new Date(iso).toLocaleDateString('sv-SE') // AAAA-MM-DD en hora local
 
 type Dir = 'sube' | 'baja' | 'igual' | 'nuevo'
 type Agg = {
@@ -94,7 +97,38 @@ export function CambiosCosteClient({ pending, history, tableMissing }: { pending
   const selected = visible.filter(a => !off.has(a.product_id))
   const counts = { sube: aggs.filter(a => a.dir === 'sube').length, baja: aggs.filter(a => a.dir === 'baja').length }
 
-  const histVisible = history.filter(r => !q || r.product_name.toLowerCase().includes(q))
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
+  const [who, setWho] = useState('')
+  const people = useMemo(() => [...new Set(history.map(r => r.changed_by_name ?? 'Proceso automático'))].sort((a, b) => a.localeCompare(b, 'es')), [history])
+  const histVisible = history.filter(r => {
+    if (q && !r.product_name.toLowerCase().includes(q)) return false
+    const d = localDay(r.changed_at)
+    if (from && d < from) return false
+    if (to && d > to) return false
+    if (who && (r.changed_by_name ?? 'Proceso automático') !== who) return false
+    return true
+  })
+
+  async function downloadHistory() {
+    const rows = histVisible.map(r => {
+      const pc = pct(r.old_cost, r.new_cost), pp = pct(r.old_price, r.new_price)
+      const d = new Date(r.changed_at)
+      return [
+        d.toLocaleDateString('es-ES'), d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+        r.product_name, r.unit ? unitLabel(r.unit) : '',
+        r.old_cost ?? '', r.new_cost ?? '', pc == null ? '' : Math.round(pc * 10) / 10,
+        r.old_price ?? '', r.new_price ?? '', pp == null ? '' : Math.round(pp * 10) / 10,
+        DIR_LABEL[directionOf(r.old_cost, r.new_cost, r.old_price, r.new_price)],
+        r.changed_by_name ?? 'Proceso automático',
+        r.billed_at ? 'Pasado el ' + fecha(r.billed_at) : 'Pendiente',
+      ]
+    })
+    await exportReportExcel(
+      [{ heading: 'Cambios de coste', headers: ['Fecha', 'Hora', 'Producto', 'Unidad', 'Coste anterior', 'Coste nuevo', 'Var. coste %', 'Precio anterior', 'Precio nuevo', 'Var. precio %', 'Cambio', 'Modificado por', 'Facturación'], rows }],
+      'historial_cambios_de_coste_' + new Date().toISOString().slice(0, 10) + '.xlsx',
+    )
+  }
 
   function toggle(id: string) {
     setOff(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n })
@@ -223,6 +257,28 @@ export function CambiosCosteClient({ pending, history, tableMissing }: { pending
           )}
         </>
       ) : (
+        <>
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="text-[11px] text-gray-700 font-medium">Desde
+            <input type="date" value={from} onChange={e => setFrom(e.target.value)} className="block border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm" />
+          </label>
+          <label className="text-[11px] text-gray-700 font-medium">Hasta
+            <input type="date" value={to} onChange={e => setTo(e.target.value)} className="block border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm" />
+          </label>
+          <label className="text-[11px] text-gray-700 font-medium">Modificado por
+            <select value={who} onChange={e => setWho(e.target.value)} className="block border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm bg-white">
+              <option value="">Todos</option>
+              {people.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </label>
+          {(from || to || who) && (
+            <button onClick={() => { setFrom(''); setTo(''); setWho('') }} className="text-xs font-medium text-gray-700 underline pb-2">Quitar filtros</button>
+          )}
+          <button onClick={downloadHistory} disabled={histVisible.length === 0}
+            className="ml-auto flex items-center gap-1.5 border border-[#1E2B28] text-[#1E2B28] text-sm font-medium px-3 py-2 rounded-xl hover:bg-green-50 disabled:opacity-50">
+            <Download className="w-4 h-4" /> Excel ({histVisible.length})
+          </button>
+        </div>
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
           {histVisible.length === 0 ? (
             <p className="text-sm text-gray-600 py-8 text-center">Todavía no hay cambios registrados.</p>
@@ -237,6 +293,7 @@ export function CambiosCosteClient({ pending, history, tableMissing }: { pending
                         <span className="text-sm font-semibold text-black">{r.product_name}</span>
                         <DirBadge dir={dir} />
                         {r.billed_at ? <span className="text-[11px] text-green-700">Pasado a facturación el {fecha(r.billed_at)}</span> : <span className="text-[11px] text-amber-700">Pendiente</span>}
+                        <span className="text-[11px] text-gray-600">· {r.changed_by_name ?? 'Proceso automático'}</span>
                       </div>
                       <p className="text-xs text-gray-700 tabular-nums mt-0.5">
                         Coste <b>{eur(r.old_cost)}</b> → <b>{eur(r.new_cost)}</b>
@@ -250,8 +307,8 @@ export function CambiosCosteClient({ pending, history, tableMissing }: { pending
               })}
             </ul>
           )}
-          {history.length >= 500 && <p className="text-[11px] text-gray-500 px-3 py-2 border-t border-gray-100">Se muestran los últimos 500 cambios.</p>}
         </div>
+        </>
       )}
     </div>
   )
