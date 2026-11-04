@@ -24,6 +24,15 @@ type InventoryRow = {
   last_updated: string | null
   allows_box_order?: boolean
   box_units?: number | null
+  is_active?: boolean
+  is_client_product?: boolean
+}
+
+type Segment = 'todos' | 'restaurantes' | 'clientes' | 'ocultos'
+// Restaurantes = visibles; Clientes = ocultos a restaurantes pero asignados a algún cliente externo; Ocultos = el resto
+function segmentOf(r: InventoryRow): Exclude<Segment, 'todos'> {
+  if (r.is_active !== false) return 'restaurantes'
+  return r.is_client_product ? 'clientes' : 'ocultos'
 }
 
 type Category = { id: string; name: string; color: string | null }
@@ -618,6 +627,7 @@ export function InventarioTable({
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'todos' | 'bajo' | 'sinstock' | 'cajon'>('todos')
   const [categoryFilter, setCategoryFilter] = useState<string>('todas')
+  const [segment, setSegment] = useState<Segment>('todos')
   const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({})
   const [showBulkMin, setShowBulkMin] = useState(false)
   const [showBulkDelete, setShowBulkDelete] = useState(false)
@@ -728,6 +738,7 @@ export function InventarioTable({
     const stock = r.current_stock
     const min = r.min_stock
     if (!matchCategory) return false
+    if (isNave && segment !== 'todos' && segmentOf(r) !== segment) return false
     if (filter === 'sinstock') return matchSearch && stock === 0
     if (filter === 'bajo') return matchSearch && stock > 0 && min > 0 && stock <= min
     if (filter === 'cajon') return matchSearch && !!r.allows_box_order
@@ -743,12 +754,20 @@ export function InventarioTable({
 
   // Paginación (10 por página) sobre la lista ya filtrada: los cambios sin guardar de otras páginas se conservan
   const flatRows = Object.values(byCategory).flatMap(g => g.rows)
-  const paged = usePaged(flatRows, `${search}|${filter}|${categoryFilter}`)
+  const paged = usePaged(flatRows, `${search}|${filter}|${categoryFilter}|${segment}`)
   const pageIds = new Set(paged.pageItems.map(r => r.product_id))
 
   const alertCount = rows.filter(r => r.current_stock > 0 && r.min_stock > 0 && r.current_stock <= r.min_stock).length
   const emptyCount = rows.filter(r => r.current_stock === 0).length
   const cajonCount = rows.filter(r => r.allows_box_order).length
+  // Cuántos productos hay en cada grupo (respetando el filtro de stock activo)
+  const matchesStockFilter = (r: InventoryRow) =>
+    filter === 'sinstock' ? r.current_stock === 0
+    : filter === 'bajo' ? r.current_stock > 0 && r.min_stock > 0 && r.current_stock <= r.min_stock
+    : filter === 'cajon' ? !!r.allows_box_order
+    : true
+  const segCounts = { restaurantes: 0, clientes: 0, ocultos: 0 }
+  for (const r of rows) if (matchesStockFilter(r)) segCounts[segmentOf(r)]++
 
   function toggleCategory(cat: string) {
     setOpenCategories(prev => ({ ...prev, [cat]: !prev[cat] }))
@@ -848,7 +867,12 @@ export function InventarioTable({
               <p className={`text-xs mt-0.5 ${filter === 'bajo' ? 'text-orange-100' : 'text-gray-700'}`}>Stock bajo</p>
             </button>
             <button
-              onClick={() => setFilter(filter === 'sinstock' ? 'todos' : 'sinstock')}
+              onClick={() => {
+                const next = filter === 'sinstock' ? 'todos' : 'sinstock'
+                setFilter(next)
+                // Al mirar lo que no tiene stock, lo normal es querer solo lo que se vende a los restaurantes
+                if (isNave) setSegment(next === 'sinstock' ? 'restaurantes' : 'todos')
+              }}
               className={`rounded-xl p-4 text-left transition-all ${filter === 'sinstock' ? 'bg-red-500 text-white' : 'bg-white border border-gray-100 hover:border-red-400'}`}
             >
               <p className={`text-2xl font-bold ${filter === 'sinstock' ? 'text-white' : emptyCount > 0 ? 'text-red-600' : 'text-black'}`}>{emptyCount}</p>
@@ -867,6 +891,28 @@ export function InventarioTable({
               </button>
             )}
           </div>
+
+          {/* Grupos: lo que vendemos a restaurantes, a clientes y lo no visible (se conserva por si hace falta) */}
+          {isNave && (
+            <div className="flex flex-wrap gap-1.5">
+              {([
+                ['todos', 'Todos', rows.length],
+                ['restaurantes', 'Restaurantes', segCounts.restaurantes],
+                ['clientes', 'Clientes', segCounts.clientes],
+                ['ocultos', 'No visibles', segCounts.ocultos],
+              ] as const).map(([key, label, count]) => (
+                <button
+                  key={key}
+                  onClick={() => setSegment(key)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                    segment === key ? 'bg-[#1E2B28] text-white border-[#1E2B28]' : 'bg-white text-gray-700 border-gray-200 hover:border-[#1E2B28]'
+                  }`}
+                >
+                  {label} <span className="opacity-70">({key === 'todos' ? (filter === 'todos' ? rows.length : segCounts.restaurantes + segCounts.clientes + segCounts.ocultos) : count})</span>
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Buscador + acciones */}
           <div className="flex flex-col lg:flex-row gap-2">

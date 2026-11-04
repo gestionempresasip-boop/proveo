@@ -4,6 +4,7 @@ import { InventarioTable } from '@/components/inventory/InventarioTable'
 import { Package } from 'lucide-react'
 import { isStockCodeConfigured, isStockUnlocked } from '@/app/actions/stockGate'
 import { StockGate } from '@/components/inventory/StockGate'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export default async function InventarioPage() {
   const supabase = await createClient()
@@ -20,13 +21,20 @@ export default async function InventarioPage() {
     // La nave ve también los productos ocultos (is_active = false) para poder fijar su stock;
     // los restaurantes solo los activos.
     (isNave
-      ? sb.from('products').select('id, name, unit, category_id, allows_box_order, box_units, product_categories!products_category_id_fkey(name, color)').is('deleted_at', null).order('name')
+      ? sb.from('products').select('id, name, unit, category_id, is_active, allows_box_order, box_units, product_categories!products_category_id_fkey(name, color)').is('deleted_at', null).order('name')
       : sb.from('products').select('id, name, unit, category_id, allows_box_order, box_units, product_categories!products_category_id_fkey(name, color)').eq('is_active', true).is('deleted_at', null).order('name')),
     sb.from('product_categories').select('id, name, color').order('order_index').order('name'),
     isNave
       ? sb.from('nave_inventory').select('product_id, current_stock, min_stock, last_updated')
       : sb.from('restaurant_inventory').select('product_id, current_stock, min_stock, last_updated').eq('organization_id', profile.organization_id),
   ])
+
+  // Para la nave: qué productos están asignados a algún cliente externo (venta exterior)
+  const clientIds = new Set<string>()
+  if (isNave) {
+    const { data: assigned } = await (createAdminClient() as any).from('client_product_prices').select('product_id')
+    for (const a of assigned ?? []) clientIds.add(a.product_id)
+  }
 
   const inventoryMap: Record<string, { current_stock: number; min_stock: number; last_updated: string }> = {}
   ;(inventoryRows ?? []).forEach((row: any) => { inventoryMap[row.product_id] = row })
@@ -42,6 +50,8 @@ export default async function InventarioPage() {
     current_stock: inventoryMap[p.id]?.current_stock ?? 0,
     min_stock: inventoryMap[p.id]?.min_stock ?? 0,
     last_updated: inventoryMap[p.id]?.last_updated ?? null,
+    is_active: p.is_active ?? true,
+    is_client_product: clientIds.has(p.id),
     allows_box_order: p.allows_box_order ?? false,
     box_units: p.box_units ?? null,
   }))
