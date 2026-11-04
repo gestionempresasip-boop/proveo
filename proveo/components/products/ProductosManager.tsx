@@ -13,6 +13,7 @@ import type { BulkPricingField, BulkPricingMode } from '@/app/actions/products'
 import { setFavoriteProduct, setFavoriteProductsBatch } from '@/app/actions/favorites'
 import { unlockProducts, lockProducts, setCategoryProtected } from '@/app/actions/productsGate'
 import { UNIT_OPTIONS, unitLabel, kgPerUnit } from '@/lib/units'
+import { getProductCostHistory, type CostHistoryEntry } from '@/app/actions/priceLog'
 import { recommendPrices, DEFAULT_ASSUMPTIONS, type PricingAssumptions } from '@/lib/priceRecommendation'
 import { Pager, usePaged } from '@/components/ui/Pager'
 import { ExportMenu } from '@/components/stats/ExportMenu'
@@ -731,6 +732,71 @@ function ProductFields({
   )
 }
 
+// ── Historial de coste del producto (solo nave) ─────────────────────────────
+
+function CostHistory({ productId }: { productId: string }) {
+  const [open, setOpen] = useState(false)
+  const [rows, setRows] = useState<CostHistoryEntry[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  const money = (v: number | null) => (v == null || !(v > 0) ? '—' : (v < 1 ? v.toFixed(3) : v.toFixed(2)).replace('.', ',') + ' €')
+  const day = (iso: string) => new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })
+  const diff = (a: number | null, b: number | null) => (a && a > 0 && b != null ? ((b / a) - 1) * 100 : null)
+
+  async function toggle() {
+    const next = !open
+    setOpen(next)
+    if (!next) return
+    setLoading(true); setError(null)
+    try { setRows(await getProductCostHistory(productId)) }
+    catch (e) { setError(e instanceof Error ? e.message : 'No se pudo leer el historial') }
+    finally { setLoading(false) }
+  }
+
+  const first = rows && rows.length > 0 ? rows[rows.length - 1] : null
+
+  return (
+    <div className="border border-gray-200 rounded-xl">
+      <button type="button" onClick={toggle} aria-expanded={open} className="w-full flex items-center gap-2 px-3 py-2.5 text-left">
+        <History className="w-3.5 h-3.5 text-gray-600" />
+        <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Historial de coste</span>
+        <ChevronDown className={'w-4 h-4 text-gray-500 ml-auto transition-transform ' + (open ? 'rotate-180' : '')} />
+      </button>
+      {open && (
+        <div className="px-3 pb-3 space-y-1.5">
+          {loading && <p className="text-xs text-gray-600">Cargando…</p>}
+          {error && <p className="text-xs text-red-600">{error}</p>}
+          {rows && rows.length === 0 && (
+            <p className="text-xs text-gray-600">Aún no hay cambios apuntados. Cuando cambies el coste y guardes, aquí quedará lo que valía antes y la fecha.</p>
+          )}
+          {rows && rows.map((r, i) => {
+            const costChanged = Math.round((r.old_cost ?? 0) * 10000) !== Math.round((r.new_cost ?? 0) * 10000)
+            const priceChanged = Math.round((r.old_price ?? 0) * 10000) !== Math.round((r.new_price ?? 0) * 10000)
+            const pc = diff(r.old_cost, r.new_cost)
+            return (
+              <div key={i} className="flex items-baseline gap-2 text-xs tabular-nums">
+                <span className="text-gray-600 w-24 shrink-0">{day(r.changed_at)}</span>
+                <span className="text-black">
+                  {costChanged && <>Coste <b>{money(r.old_cost)}</b> → <b>{money(r.new_cost)}</b>{pc != null && <span className={pc > 0 ? 'text-red-600' : 'text-green-700'}> ({pc > 0 ? '+' : ''}{pc.toFixed(1).replace('.', ',')} %)</span>}</>}
+                  {costChanged && priceChanged && <span className="text-gray-400"> · </span>}
+                  {priceChanged && <span className="text-gray-700">Precio {money(r.old_price)} → {money(r.new_price)}</span>}
+                </span>
+              </div>
+            )
+          })}
+          {first && first.old_cost != null && first.old_cost > 0 && (
+            <div className="flex items-baseline gap-2 text-xs tabular-nums border-t border-gray-100 pt-1.5">
+              <span className="text-gray-600 w-24 shrink-0">Hasta {day(first.changed_at)}</span>
+              <span className="text-black">Coste <b>{money(first.old_cost)}</b> <span className="text-gray-500">(valor inicial)</span></span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Edit modal ────────────────────────────────────────────────────────────────
 
 function EditModal({
@@ -776,6 +842,7 @@ function EditModal({
               unit={product.unit}
             />
           )}
+          {isNave && <CostHistory productId={product.id} />}
           <ProductFields product={product} categories={categories} isNave={isNave} />
           {saveError && (
             <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{saveError}</p>
