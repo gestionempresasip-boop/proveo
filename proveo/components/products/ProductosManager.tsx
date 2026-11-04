@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useTransition, useMemo, useEffect, useCallback, createContext, useContext } from 'react'
-import { Package, Pencil, Trash2, Eye, EyeOff, Plus, X, Check, ChevronDown, ChevronRight, Sparkles, Tag, Euro, Search, Calculator, Star, ShieldCheck, ArrowUp, Lock, LockOpen } from 'lucide-react'
+import Link from 'next/link'
+import { History, Package, Pencil, Trash2, Eye, EyeOff, Plus, X, Check, ChevronDown, ChevronRight, Sparkles, Tag, Euro, Search, Calculator, Star, ShieldCheck, ArrowUp, Lock, LockOpen } from 'lucide-react'
 import {
   setProductVisibility, softDeleteProduct, updateProduct, createProduct,
   createCategory, deleteCategory, updateCategory, seedDefaultCategories,
@@ -2000,6 +2001,14 @@ export function ProductosManager({
               >
                 <Calculator className="w-4 h-4" /> Precios en masa
               </button>
+            )}
+            {isNave && (
+              <Link
+                href="/admin/productos/cambios"
+                className="flex items-center gap-2 border border-[#1E2B28] text-[#1E2B28] text-sm font-medium px-4 py-2.5 rounded-xl hover:bg-green-50 transition-colors"
+              >
+                <History className="w-4 h-4" /> Cambios de coste
+              </Link>
             )}
             <button
               onClick={() => { setNuevoDefaultCat(undefined); setShowNuevo(true) }}
