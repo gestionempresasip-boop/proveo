@@ -12,6 +12,7 @@ import type { BulkPricingField, BulkPricingMode } from '@/app/actions/products'
 import { setFavoriteProduct, setFavoriteProductsBatch } from '@/app/actions/favorites'
 import { unlockProducts, lockProducts, setCategoryProtected } from '@/app/actions/productsGate'
 import { UNIT_OPTIONS, unitLabel } from '@/lib/units'
+import { recommendPrices, DEFAULT_ASSUMPTIONS, type PricingAssumptions } from '@/lib/priceRecommendation'
 import { Pager, usePaged } from '@/components/ui/Pager'
 import { ExportMenu } from '@/components/stats/ExportMenu'
 import { exportReportExcel, exportReportPDF, type ReportSection } from '@/lib/reportExport'
@@ -42,6 +43,10 @@ export type Product = {
   stock?: number | null
   min_stock?: number | null
   notes_enabled?: boolean
+  labor_enabled?: boolean
+  batch_units?: number | null
+  labor_hours?: number | null
+  client_prices?: { min: number; max: number; count: number } | null
   product_categories: { name: string } | null
 }
 
@@ -299,14 +304,44 @@ function PricingCalculator({
   margin: initMargin = 0,      // stored as decimal 0–n, e.g. 0.25 = 25%
   iva_rate: initIva = 0.10,    // stored as decimal 0–1, e.g. 0.10 = 10%
   fallbackPrice = 0,
+  batch_units: initBatch = null,
+  labor_hours: initHours = null,
+  laborEnabled = false,
+  isNew = false,
+  clientPrices = null,
 }: {
   cost_price?: number | null
   margin?: number | null
   iva_rate?: number | null
   fallbackPrice?: number
+  batch_units?: number | null
+  labor_hours?: number | null
+  laborEnabled?: boolean
+  isNew?: boolean
+  clientPrices?: { min: number; max: number; count: number } | null
 }) {
   const [cost, setCost]     = useState(Number(initCost)   || 0)
   const [ivaPct, setIvaPct] = useState(Math.round((Number(initIva)   || 0.10) * 100)) // as %
+
+  // Precio recomendado: tanda, horas y supuestos (el €/hora y los recargos se recuerdan en este navegador)
+  const [batchUnits, setBatchUnits] = useState(initBatch ? String(initBatch) : '')
+  const [laborHours, setLaborHours] = useState(initHours ? String(initHours) : '')
+  const [assume, setAssume] = useState<PricingAssumptions>(DEFAULT_ASSUMPTIONS)
+  const [showAssume, setShowAssume] = useState(false)
+  useEffect(() => {
+    try { const raw = localStorage.getItem('proveo.pricing.assumptions'); if (raw) setAssume({ ...DEFAULT_ASSUMPTIONS, ...JSON.parse(raw) }) } catch { /* sin almacenamiento: valores por defecto */ }
+  }, [])
+  function updateAssume(k: keyof PricingAssumptions, v: number) {
+    const next = { ...assume, [k]: v }
+    setAssume(next)
+    try { localStorage.setItem('proveo.pricing.assumptions', JSON.stringify(next)) } catch { /* ignorar */ }
+  }
+  const toNum = (s: string) => Number(s.replace(',', '.')) || 0
+  const rec = useMemo(
+    () => recommendPrices({ materia: cost, batchUnits: toNum(batchUnits), laborHours: toNum(laborHours) }, assume),
+    [cost, batchUnits, laborHours, assume],
+  )
+  const eur = (n: number) => (n < 1 ? n.toFixed(3) : n.toFixed(2)).replace('.', ',')
 
   // Se puede partir del margen, del precio sin IVA o del precio final (con IVA): lo último que
   // escribas manda y los otros dos se calculan solos. «typed» es el texto del campo que mandas.
@@ -346,6 +381,8 @@ function PricingCalculator({
       <input type="hidden" name="iva_rate"        value={(ivaPct / 100).toFixed(6)} />
       {/* price_override drives the final price saved to DB */}
       <input type="hidden" name="price_override"  value={priceNoIva > 0 ? priceNoIva.toFixed(6) : ''} />
+      {laborEnabled && <input type="hidden" name="batch_units" value={batchUnits} />}
+      {laborEnabled && <input type="hidden" name="labor_hours" value={laborHours} />}
 
       <p className="text-xs text-amber-900">Escribe el <b>margen</b>, el <b>precio sin IVA</b> o el <b>precio final</b>: lo demás se calcula solo.</p>
 
@@ -426,6 +463,103 @@ function PricingCalculator({
           </div>
         )}
         <p className="text-xs text-gray-600 pt-0.5">Este es el precio que verán los restaurantes</p>
+      </div>
+
+      {/* Precio recomendado por tipo de cliente */}
+      <div className="bg-white rounded-lg p-3 border border-amber-200 space-y-2.5">
+        <div className="flex items-center gap-1.5">
+          <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+          <span className="text-xs font-semibold text-amber-800 uppercase tracking-wide">Precio recomendado (sin IVA)</span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="text-[11px] text-gray-700 font-medium block mb-0.5">Unidades que salen de la tanda</label>
+            <input type="text" inputMode="decimal" value={batchUnits} onChange={e => setBatchUnits(e.target.value)}
+              placeholder="Ej: 153" className="w-full border border-amber-200 bg-white rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
+          </div>
+          <div>
+            <label className="text-[11px] text-gray-700 font-medium block mb-0.5">Horas de trabajo (suma de personas)</label>
+            <input type="text" inputMode="decimal" value={laborHours} onChange={e => setLaborHours(e.target.value)}
+              placeholder="Ej: 6" className="w-full border border-amber-200 bg-white rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
+          </div>
+        </div>
+        <p className="text-[11px] text-gray-500 -mt-1">
+          2 personas durante 2 horas = 4 horas. {laborEnabled ? 'Se guardan con el producto.' : isNew ? 'Se guardan al editar el producto.' : 'Aún no se guardan: falta ejecutar el SQL de tanda y horas en Supabase.'}
+        </p>
+
+        {!rec ? (
+          <p className="text-xs text-gray-600">Pon el precio de coste (materia prima) para ver el precio recomendado.</p>
+        ) : (
+          <>
+            <p className="text-[11px] text-gray-600 tabular-nums">
+              Coste completo <b className="text-black">{eur(rec.fullCost)} €</b> = materia prima {eur(rec.materia)} + mano de obra {eur(rec.labor)} + indirectos {eur(rec.indirect)}
+            </p>
+            {!rec.hasLabor && (
+              <p className="text-[11px] text-amber-800 bg-amber-50 rounded px-2 py-1">Sin mano de obra todavía: rellena unidades de la tanda y horas para afinar el precio.</p>
+            )}
+
+            <div className="divide-y divide-amber-100 border border-amber-100 rounded-lg">
+              {([
+                ['directo', 'Cliente directo', null],
+                ['grupo', 'Restaurantes del grupo', priceNoIva > 0 ? priceNoIva : null],
+                ['distribuidor', 'Distribuidores (pestaña Clientes)', clientPrices && clientPrices.count > 0 ? clientPrices.min : null],
+              ] as const).map(([key, label, today]) => {
+                const t = rec.tiers[key]
+                const below = today != null && today < t.price * 0.995
+                return (
+                  <div key={key} className="px-2.5 py-2 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-black">{label}</p>
+                      <p className="text-[11px] text-gray-600 tabular-nums">
+                        Margen {t.marginOnPricePct.toFixed(0)} % · beneficio {eur(t.profit)} €/ud
+                        {today != null && (
+                          <span className={below ? 'text-red-600 font-semibold' : ''}>
+                            {' · hoy '}{eur(today)} €{key === 'distribuidor' && clientPrices && clientPrices.max !== clientPrices.min ? ' (mín.)' : ''}{below ? ' — por debajo' : ''}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-base font-bold text-[#1E2B28] tabular-nums">{eur(t.price)} €</span>
+                      {key === 'grupo' && (
+                        <button type="button" onClick={() => { setSource('sin'); setTyped(String(t.price)) }}
+                          className="text-xs font-semibold px-2 py-1 rounded-lg bg-[#1E2B28] text-white hover:bg-[#141F1C]">Usar</button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            <p className="text-[11px] text-gray-600 tabular-nums">
+              Si el distribuidor se queda un {assume.distMarginPct} % de margen, venderá a unos <b className="text-black">{eur(rec.distributorPvp)} €</b> (sin IVA): compáralo con el mercado.
+            </p>
+          </>
+        )}
+
+        <button type="button" onClick={() => setShowAssume(v => !v)} className="text-[11px] font-semibold text-amber-800 underline underline-offset-2">
+          {showAssume ? 'Ocultar supuestos' : 'Ver o cambiar supuestos'}
+        </button>
+        {showAssume && (
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            {([
+              ['laborRate', 'Mano de obra (€/hora)'],
+              ['indirectPct', 'Indirectos (luz y otros, %)'],
+              ['directoPct', 'Recargo cliente directo (%)'],
+              ['grupoPct', 'Recargo restaurantes grupo (%)'],
+              ['distribuidorPct', 'Recargo distribuidores (%)'],
+              ['distMarginPct', 'Margen del distribuidor (%)'],
+            ] as const).map(([k, label]) => (
+              <div key={k}>
+                <label className="text-[11px] text-gray-700 font-medium block mb-0.5">{label}</label>
+                <input type="number" step="0.5" min="0" value={assume[k]} onChange={e => updateAssume(k, Number(e.target.value) || 0)}
+                  className="w-full border border-amber-200 bg-white rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
+              </div>
+            ))}
+            <p className="col-span-2 text-[11px] text-gray-500">El recargo se aplica sobre el coste completo. Estos supuestos se recuerdan en este navegador.</p>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -608,6 +742,10 @@ function EditModal({
               margin={product.margin}
               iva_rate={product.iva_rate}
               fallbackPrice={product.price}
+              batch_units={product.batch_units}
+              labor_hours={product.labor_hours}
+              laborEnabled={product.labor_enabled}
+              clientPrices={product.client_prices}
             />
           )}
           <ProductFields product={product} categories={categories} isNave={isNave} />
@@ -654,7 +792,7 @@ function NuevoModal({
         </div>
         <form onSubmit={handleSubmit} className="px-6 py-4 space-y-4">
           {isNave && (
-            <PricingCalculator iva_rate={0.10} />
+            <PricingCalculator iva_rate={0.10} isNew />
           )}
           {/* Inline fields (same as ProductFields but with defaultCategoryId) */}
           <div className="space-y-3">

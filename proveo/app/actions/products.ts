@@ -74,13 +74,20 @@ export async function createProduct(formData: FormData) {
 }
 
 // Notas internas (solo nave): viven en su propia tabla con RLS para que ningún restaurante pueda leerlas.
-async function saveInternalNotes(sb: any, productId: string, notes: string) {
+// Si el formulario trae la tanda y las horas (batch_units / labor_hours) se guardan en la misma fila.
+async function saveInternalNotes(sb: any, productId: string, notes: string, labor: { batch_units: number | null; labor_hours: number | null } | null) {
   const text = notes.trim()
+  const hasLabor = !!labor && (labor.batch_units != null || labor.labor_hours != null)
   const { data: { user } } = await sb.auth.getUser()
-  const res = text
-    ? await sb.from('product_internal_notes').upsert({ product_id: productId, notes: text, updated_at: new Date().toISOString(), updated_by: user?.id ?? null }, { onConflict: 'product_id' })
+  const res = (text || hasLabor)
+    ? await sb.from('product_internal_notes').upsert({ product_id: productId, notes: text, updated_at: new Date().toISOString(), updated_by: user?.id ?? null, ...(labor ?? {}) }, { onConflict: 'product_id' })
     : await sb.from('product_internal_notes').delete().eq('product_id', productId)
-  if (res.error) throw new Error('El producto se guardó, pero no las notas internas (falta ejecutar el SQL de notas en Supabase).')
+  if (res.error) throw new Error('El producto se guardó, pero no las notas internas ni la tanda (falta ejecutar el SQL en Supabase).')
+}
+
+const positiveOrNull = (v: FormDataEntryValue | null) => {
+  const n = Number(String(v ?? '').replace(',', '.'))
+  return Number.isFinite(n) && n > 0 ? n : null
 }
 
 export async function updateProduct(productId: string, formData: FormData) {
@@ -131,7 +138,12 @@ export async function updateProduct(productId: string, formData: FormData) {
 
   if (error) throw new Error(error.message)
   await syncProductCategories(sb, productId, category_ids)
-  if (formData.has('internal_notes')) await saveInternalNotes(sb, productId, String(formData.get('internal_notes') ?? ''))
+  if (formData.has('internal_notes')) {
+    const labor = formData.has('batch_units') || formData.has('labor_hours')
+      ? { batch_units: positiveOrNull(formData.get('batch_units')), labor_hours: positiveOrNull(formData.get('labor_hours')) }
+      : null
+    await saveInternalNotes(sb, productId, String(formData.get('internal_notes') ?? ''), labor)
+  }
   revalidatePath('/admin/productos')
 }
 
