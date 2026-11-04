@@ -38,6 +38,11 @@ const LT_PER_UNIT: Record<string, number> = {
   l: 1, ml: 0.001,
 }
 
+/** Kilos que pesa una unidad (1 bolsa 1 kg = 1; 1 barqueta 2 kg = 2), o null si no tiene peso fijo. */
+export function kgPerUnit(unit: string): number | null {
+  return KG_PER_UNIT[unit] ?? null
+}
+
 /** Cantidad pedida (nº de bolsas/barquetas/kg/etc.) → equivalente real en kg, o null si la unidad no es convertible. */
 export function toKg(unit: string, quantity: number): number | null {
   const factor = KG_PER_UNIT[unit]

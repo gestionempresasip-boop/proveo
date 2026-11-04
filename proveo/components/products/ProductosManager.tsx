@@ -11,7 +11,7 @@ import {
 import type { BulkPricingField, BulkPricingMode } from '@/app/actions/products'
 import { setFavoriteProduct, setFavoriteProductsBatch } from '@/app/actions/favorites'
 import { unlockProducts, lockProducts, setCategoryProtected } from '@/app/actions/productsGate'
-import { UNIT_OPTIONS, unitLabel } from '@/lib/units'
+import { UNIT_OPTIONS, unitLabel, kgPerUnit } from '@/lib/units'
 import { recommendPrices, DEFAULT_ASSUMPTIONS, type PricingAssumptions } from '@/lib/priceRecommendation'
 import { Pager, usePaged } from '@/components/ui/Pager'
 import { ExportMenu } from '@/components/stats/ExportMenu'
@@ -309,6 +309,7 @@ function PricingCalculator({
   laborEnabled = false,
   isNew = false,
   clientPrices = null,
+  unit = null,
 }: {
   cost_price?: number | null
   margin?: number | null
@@ -319,6 +320,7 @@ function PricingCalculator({
   laborEnabled?: boolean
   isNew?: boolean
   clientPrices?: { min: number; max: number; count: number } | null
+  unit?: string | null
 }) {
   const [cost, setCost]     = useState(Number(initCost)   || 0)
   const [ivaPct, setIvaPct] = useState(Math.round((Number(initIva)   || 0.10) * 100)) // as %
@@ -342,6 +344,9 @@ function PricingCalculator({
     () => recommendPrices({ materia: cost, batchUnits: toNum(batchUnits), laborHours: toNum(laborHours) }, assume),
     [cost, batchUnits, laborHours, assume],
   )
+  // La tanda se cuenta en la misma unidad en la que se vende el producto y se pone el coste
+  const unitName = unit ? unitLabel(unit) : null
+  const packKg = unit ? kgPerUnit(unit) : null
   const eur = (n: number) => (n < 1 ? n.toFixed(3) : n.toFixed(2)).replace('.', ',')
 
   // Se puede partir del margen, del precio sin IVA o del precio final (con IVA): lo último que
@@ -481,7 +486,9 @@ function PricingCalculator({
 
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="text-[11px] text-gray-700 font-medium block mb-0.5">Unidades que salen de la tanda</label>
+            <label className="text-[11px] text-gray-700 font-medium block mb-0.5">
+              {unitName ? <>Cuántas «{unitName}» salen de la tanda</> : 'Cuántas unidades de venta salen de la tanda'}
+            </label>
             <input type="text" inputMode="decimal" value={batchUnits} onChange={e => setBatchUnits(e.target.value)}
               placeholder="Ej: 153" className="w-full border border-amber-200 bg-white rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
           </div>
@@ -492,6 +499,17 @@ function PricingCalculator({
           </div>
         </div>
         <p className="text-[11px] text-gray-500 -mt-1">
+          {unitName
+            ? <>Cuenta en «{unitName}», la misma unidad en la que se vende y se pone el coste. </>
+            : <>Cuenta en la misma unidad en la que se vende y se pone el coste (kg, l, bolsas…). </>}
+          {packKg != null && packKg !== 1 && (
+            <>¿Lo tienes en kilos?{' '}
+              <input type="text" inputMode="decimal" placeholder="kg de la tanda" aria-label="Kilos totales de la tanda"
+                onChange={e => { const kg = toNum(e.target.value); setBatchUnits(kg > 0 ? String(Math.round((kg / packKg) * 100) / 100) : '') }}
+                className="w-24 border border-amber-200 rounded px-1.5 py-0.5 text-[11px] align-baseline" />{' '}
+              y se convierte solo. </>
+          )}
+          {unit === 'bolsa' && <>Si tienes los kilos, divídelos por lo que pesa cada bolsa (37 kg ÷ 0,15 kg = 246 bolsas). </>}
           2 personas durante 2 horas = 4 horas. {laborEnabled ? 'Se guardan con el producto.' : isNew ? 'Se guardan al editar el producto.' : 'Aún no se guardan: falta ejecutar el SQL de tanda y horas en Supabase.'}
         </p>
 
@@ -754,6 +772,7 @@ function EditModal({
               labor_hours={product.labor_hours}
               laborEnabled={product.labor_enabled}
               clientPrices={product.client_prices}
+              unit={product.unit}
             />
           )}
           <ProductFields product={product} categories={categories} isNave={isNave} />
