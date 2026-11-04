@@ -328,6 +328,7 @@ function PricingCalculator({
   const [laborHours, setLaborHours] = useState(initHours ? String(initHours) : '')
   const [assume, setAssume] = useState<PricingAssumptions>(DEFAULT_ASSUMPTIONS)
   const [showAssume, setShowAssume] = useState(false)
+  const [openReco, setOpenReco] = useState(false)
   useEffect(() => {
     try { const raw = localStorage.getItem('proveo.pricing.assumptions'); if (raw) setAssume({ ...DEFAULT_ASSUMPTIONS, ...JSON.parse(raw) }) } catch { /* sin almacenamiento: valores por defecto */ }
   }, [])
@@ -467,10 +468,16 @@ function PricingCalculator({
 
       {/* Precio recomendado por tipo de cliente */}
       <div className="bg-white rounded-lg p-3 border border-amber-200 space-y-2.5">
-        <div className="flex items-center gap-1.5">
+        <button type="button" onClick={() => setOpenReco(v => !v)} aria-expanded={openReco}
+          className="w-full flex items-center gap-1.5 text-left">
           <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-          <span className="text-xs font-semibold text-amber-800 uppercase tracking-wide">Precio recomendado (sin IVA)</span>
-        </div>
+          <span className="text-xs font-semibold text-amber-800 uppercase tracking-wide">Precio Nina sin IVA</span>
+          {!openReco && rec && (
+            <span className="ml-auto text-xs text-gray-600 tabular-nums">Grupo <b className="text-black">{eur(rec.tiers.grupo.price)} €</b></span>
+          )}
+          <ChevronDown className={'w-4 h-4 text-amber-700 transition-transform ' + (openReco ? 'rotate-180' : 'ml-auto') + (!openReco && rec ? ' !ml-1' : '')} />
+        </button>
+        {openReco && (<>
 
         <div className="grid grid-cols-2 gap-2">
           <div>
@@ -560,6 +567,7 @@ function PricingCalculator({
             <p className="col-span-2 text-[11px] text-gray-500">El recargo se aplica sobre el coste completo. Estos supuestos se recuerdan en este navegador.</p>
           </div>
         )}
+        </>)}
       </div>
     </div>
   )
