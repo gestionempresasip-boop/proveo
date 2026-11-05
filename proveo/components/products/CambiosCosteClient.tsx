@@ -10,6 +10,7 @@ import { unitLabel } from '@/lib/units'
 export type PriceLogRow = {
   id: string; product_id: string; product_name: string; unit: string | null
   old_cost: number | null; new_cost: number | null; old_price: number | null; new_price: number | null
+  old_margin?: number | null; new_margin?: number | null   // fracción (0,25 = 25 %)
   changed_at: string; billed_at: string | null
   changed_by?: string | null; changed_by_name?: string
 }
@@ -20,25 +21,31 @@ type Dir = 'sube' | 'baja' | 'igual' | 'nuevo'
 type Agg = {
   product_id: string; name: string; unit: string | null
   oldCost: number | null; newCost: number | null; oldPrice: number | null; newPrice: number | null
+  oldMargin: number | null; newMargin: number | null
   last: string; n: number; dir: Dir
 }
 
 const r4 = (v: number | null) => Math.round((v ?? 0) * 10000) / 10000
 const eur = (v: number | null) => (v == null ? '—' : (v < 1 ? v.toFixed(3) : v.toFixed(2)).replace('.', ',') + ' €')
 const pct = (from: number | null, to: number | null) => (from && from > 0 && to != null ? ((to / from) - 1) * 100 : null)
+// Margen guardado como fracción (0,25) → «25 %»
+const mg = (v: number | null | undefined) => (v == null ? '—' : (Math.round(v * 1000) / 10).toString().replace('.', ',') + ' %')
+const mgPts = (v: number | null | undefined) => (v == null ? '' : Math.round(v * 1000) / 10)
+const sameMargin = (a: number | null | undefined, b: number | null | undefined) => Math.round((a ?? 0) * 10000) === Math.round((b ?? 0) * 10000)
 const fmtPct = (p: number | null) => (p == null ? '' : (p > 0 ? '+' : '') + p.toFixed(1).replace('.', ',') + ' %')
 const fecha = (iso: string, time = false) => new Date(iso).toLocaleString('es-ES', time
   ? { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }
   : { day: '2-digit', month: '2-digit', year: '2-digit' })
 
-// Dirección del cambio: manda el coste; si el coste no cambió, el precio.
-function directionOf(oldCost: number | null, newCost: number | null, oldPrice: number | null, newPrice: number | null): Dir {
+// Dirección del cambio: manda el coste; si el coste no cambió, el precio; si tampoco, el margen.
+function directionOf(oldCost: number | null, newCost: number | null, oldPrice: number | null, newPrice: number | null, oldMargin?: number | null, newMargin?: number | null): Dir {
   if (!(r4(oldCost) > 0) && r4(newCost) > 0) return 'nuevo'
   if (r4(newCost) > r4(oldCost)) return 'sube'
   if (r4(newCost) < r4(oldCost)) return 'baja'
   if (!(r4(oldPrice) > 0) && r4(newPrice) > 0) return 'nuevo'
   if (r4(newPrice) > r4(oldPrice)) return 'sube'
   if (r4(newPrice) < r4(oldPrice)) return 'baja'
+  if (!sameMargin(oldMargin, newMargin)) return (newMargin ?? 0) > (oldMargin ?? 0) ? 'sube' : 'baja'
   return 'igual'
 }
 
@@ -71,8 +78,9 @@ function aggregate(rows: PriceLogRow[]): Agg[] {
     out.push({
       product_id, name: last.product_name, unit: last.unit,
       oldCost: first.old_cost, newCost: last.new_cost, oldPrice: first.old_price, newPrice: last.new_price,
+      oldMargin: first.old_margin ?? null, newMargin: last.new_margin ?? null,
       last: last.changed_at, n: asc.length,
-      dir: directionOf(first.old_cost, last.new_cost, first.old_price, last.new_price),
+      dir: directionOf(first.old_cost, last.new_cost, first.old_price, last.new_price, first.old_margin, last.new_margin),
     })
   }
   return out.sort((a, b) => a.name.localeCompare(b.name, 'es'))
@@ -118,14 +126,15 @@ export function CambiosCosteClient({ pending, history, tableMissing }: { pending
         d.toLocaleDateString('es-ES'), d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
         r.product_name, r.unit ? unitLabel(r.unit) : '',
         r.old_cost ?? '', r.new_cost ?? '', pc == null ? '' : Math.round(pc * 10) / 10,
+        mgPts(r.old_margin), mgPts(r.new_margin),
         r.old_price ?? '', r.new_price ?? '', pp == null ? '' : Math.round(pp * 10) / 10,
-        DIR_LABEL[directionOf(r.old_cost, r.new_cost, r.old_price, r.new_price)],
+        DIR_LABEL[directionOf(r.old_cost, r.new_cost, r.old_price, r.new_price, r.old_margin, r.new_margin)],
         r.changed_by_name ?? 'Proceso automático',
         r.billed_at ? 'Pasado el ' + fecha(r.billed_at) : 'Pendiente',
       ]
     })
     await exportReportExcel(
-      [{ heading: 'Cambios de coste', headers: ['Fecha', 'Hora', 'Producto', 'Unidad', 'Coste anterior', 'Coste nuevo', 'Var. coste %', 'Precio anterior', 'Precio nuevo', 'Var. precio %', 'Cambio', 'Modificado por', 'Facturación'], rows }],
+      [{ heading: 'Cambios de coste', headers: ['Fecha', 'Hora', 'Producto', 'Unidad', 'Coste anterior', 'Coste nuevo', 'Var. coste %', 'Margen anterior %', 'Margen nuevo %', 'Precio anterior (sin IVA)', 'Precio nuevo (sin IVA)', 'Var. precio %', 'Cambio', 'Modificado por', 'Facturación'], rows }],
       'historial_cambios_de_coste_' + new Date().toISOString().slice(0, 10) + '.xlsx',
     )
   }
@@ -142,11 +151,12 @@ export function CambiosCosteClient({ pending, history, tableMissing }: { pending
     const rows = selected.map(a => [
       a.name, a.unit ? unitLabel(a.unit) : '',
       a.oldCost ?? '', a.newCost ?? '', pct(a.oldCost, a.newCost) == null ? '' : Math.round((pct(a.oldCost, a.newCost) as number) * 10) / 10,
+      mgPts(a.oldMargin), mgPts(a.newMargin),
       a.oldPrice ?? '', a.newPrice ?? '', pct(a.oldPrice, a.newPrice) == null ? '' : Math.round((pct(a.oldPrice, a.newPrice) as number) * 10) / 10,
       DIR_LABEL[a.dir], fecha(a.last),
     ])
     await exportReportExcel(
-      [{ heading: 'Cambios pendientes', headers: ['Producto', 'Unidad', 'Coste anterior', 'Coste nuevo', 'Var. coste %', 'Precio anterior', 'Precio nuevo', 'Var. precio %', 'Cambio', 'Último cambio'], rows }],
+      [{ heading: 'Cambios pendientes', headers: ['Producto', 'Unidad', 'Coste anterior', 'Coste nuevo', 'Var. coste %', 'Margen anterior %', 'Margen nuevo %', 'Precio anterior (sin IVA)', 'Precio nuevo (sin IVA)', 'Var. precio %', 'Cambio', 'Último cambio'], rows }],
       'cambios_de_coste_' + new Date().toISOString().slice(0, 10) + '.xlsx',
     )
   }
@@ -177,7 +187,7 @@ export function CambiosCosteClient({ pending, history, tableMissing }: { pending
     <div className="space-y-4">
       <div>
         <h1 className="text-xl sm:text-2xl font-bold text-black">Cambios de coste</h1>
-        <p className="text-gray-700 mt-0.5 text-sm">Cada vez que cambia el coste o el precio de un producto queda apuntado lo de antes y lo nuevo. Solo lo ve la nave.</p>
+        <p className="text-gray-700 mt-0.5 text-sm">Cada vez que cambia el coste, el margen o el precio (sin IVA) de un producto queda apuntado lo de antes y lo nuevo. Solo lo ve la nave.</p>
       </div>
 
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
@@ -245,7 +255,9 @@ export function CambiosCosteClient({ pending, history, tableMissing }: { pending
                         <p className="text-xs text-gray-700 tabular-nums mt-0.5">
                           Coste <b>{eur(a.oldCost)}</b> → <b>{eur(a.newCost)}</b> {pc != null && <span className={pc > 0 ? 'text-red-600' : pc < 0 ? 'text-green-700' : ''}>({fmtPct(pc)})</span>}
                           <span className="mx-2 text-gray-300">|</span>
-                          Precio <b>{eur(a.oldPrice)}</b> → <b>{eur(a.newPrice)}</b> {pp != null && <span>({fmtPct(pp)})</span>}
+                          Margen <b>{mg(a.oldMargin)}</b> → <b>{mg(a.newMargin)}</b>
+                          <span className="mx-2 text-gray-300">|</span>
+                          Precio sin IVA <b>{eur(a.oldPrice)}</b> → <b>{eur(a.newPrice)}</b> {pp != null && <span>({fmtPct(pp)})</span>}
                         </p>
                       </div>
                       <span className="text-[11px] text-gray-500 shrink-0">{fecha(a.last)}</span>
@@ -285,7 +297,7 @@ export function CambiosCosteClient({ pending, history, tableMissing }: { pending
           ) : (
             <ul className="divide-y divide-gray-100">
               {histVisible.map(r => {
-                const dir = directionOf(r.old_cost, r.new_cost, r.old_price, r.new_price)
+                const dir = directionOf(r.old_cost, r.new_cost, r.old_price, r.new_price, r.old_margin, r.new_margin)
                 return (
                   <li key={r.id} className="flex items-start gap-3 px-3 py-2.5">
                     <div className="min-w-0 flex-1">
@@ -298,7 +310,9 @@ export function CambiosCosteClient({ pending, history, tableMissing }: { pending
                       <p className="text-xs text-gray-700 tabular-nums mt-0.5">
                         Coste <b>{eur(r.old_cost)}</b> → <b>{eur(r.new_cost)}</b>
                         <span className="mx-2 text-gray-300">|</span>
-                        Precio <b>{eur(r.old_price)}</b> → <b>{eur(r.new_price)}</b>
+                        Margen <b>{mg(r.old_margin)}</b> → <b>{mg(r.new_margin)}</b>
+                        <span className="mx-2 text-gray-300">|</span>
+                        Precio sin IVA <b>{eur(r.old_price)}</b> → <b>{eur(r.new_price)}</b>
                       </p>
                     </div>
                     <span className="text-[11px] text-gray-500 shrink-0">{fecha(r.changed_at, true)}</span>

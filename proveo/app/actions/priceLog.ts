@@ -5,11 +5,13 @@ import { createClient } from '@/lib/supabase/server'
 import { getAuthProfile } from '@/lib/supabase/helpers'
 import { assertUnlocked } from '@/lib/gateGuard'
 import { fetchAll } from '@/lib/fetchAll'
+import { marginOfLog } from '@/lib/marginLog'
 
 export type CostHistoryEntry = {
   changed_at: string
   old_cost: number | null; new_cost: number | null
   old_price: number | null; new_price: number | null
+  old_margin: number | null; new_margin: number | null   // fracción (0,25 = 25 %)
 }
 
 // Historial de coste y precio de UN producto (para la ficha), del más reciente al más antiguo.
@@ -20,17 +22,24 @@ export async function getProductCostHistory(productId: string): Promise<CostHist
   await assertUnlocked('productos')
 
   const sb = (await createClient()) as any
-  const { data, error } = await sb
+  const read = (cols: string) => sb
     .from('product_price_log')
-    .select('changed_at, old_cost, new_cost, old_price, new_price')
+    .select(cols)
     .eq('product_id', productId)
     .order('changed_at', { ascending: false })
     .limit(200)
-  if (error) throw new Error('No se pudo leer el historial (falta ejecutar el SQL del registro de cambios)')
+  // Si aún no se ha ejecutado el SQL del margen, se lee sin esas dos columnas y el margen se calcula
+  let res = await read('changed_at, old_cost, new_cost, old_price, new_price, old_margin, new_margin')
+  if (res.error) res = await read('changed_at, old_cost, new_cost, old_price, new_price')
+  if (res.error) throw new Error('No se pudo leer el historial (falta ejecutar el SQL del registro de cambios)')
   const n = (v: unknown) => (v == null ? null : Number(v))
-  return ((data ?? []) as CostHistoryEntry[]).map(r => ({
-    changed_at: r.changed_at, old_cost: n(r.old_cost), new_cost: n(r.new_cost), old_price: n(r.old_price), new_price: n(r.new_price),
-  }))
+  return ((res.data ?? []) as Record<string, unknown>[]).map(r => {
+    const oc = n(r.old_cost), nc = n(r.new_cost), op = n(r.old_price), np = n(r.new_price)
+    return {
+      changed_at: String(r.changed_at), old_cost: oc, new_cost: nc, old_price: op, new_price: np,
+      old_margin: marginOfLog(r.old_margin, oc, op), new_margin: marginOfLog(r.new_margin, nc, np),
+    }
+  })
 }
 
 export type LastCostChange = { old_cost: number | null; new_cost: number | null; changed_at: string }

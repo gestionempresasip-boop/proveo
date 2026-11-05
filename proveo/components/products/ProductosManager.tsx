@@ -339,7 +339,8 @@ function PricingCalculator({
   unit?: string | null
 }) {
   const [cost, setCost]     = useState(Number(initCost)   || 0)
-  const [ivaPct, setIvaPct] = useState(Math.round((Number(initIva)   || 0.10) * 100)) // as %
+  // 0 % (exento) es un valor válido: solo si no hay IVA guardado se parte del 10 %
+  const [ivaPct, setIvaPct] = useState(Math.round((initIva == null || !Number.isFinite(Number(initIva)) ? 0.10 : Number(initIva)) * 100)) // as %
 
   // Precio recomendado: tanda, horas y supuestos (el €/hora y los recargos se recuerdan en este navegador)
   const [batchUnits, setBatchUnits] = useState(initBatch ? String(initBatch) : '')
@@ -553,7 +554,7 @@ function PricingCalculator({
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-black">{label}</p>
                       <p className="text-[11px] text-gray-600 tabular-nums">
-                        Margen {t.marginOnPricePct.toFixed(0)} % · beneficio {eur(t.profit)} €/ud
+                        Recargo {assume[(key + 'Pct') as 'directoPct' | 'grupoPct' | 'distribuidorPct']} % sobre el coste completo (= {t.marginOnPricePct.toFixed(0)} % del precio de venta) · beneficio {eur(t.profit)} €/ud
                         {today != null && (
                           <span className={below ? 'text-red-600 font-semibold' : ''}>
                             {' · hoy '}{eur(today)} €{key === 'distribuidor' && clientPrices && clientPrices.max !== clientPrices.min ? ' (mín.)' : ''}{below ? ' — por debajo' : ''}
@@ -756,6 +757,7 @@ function CostHistory({ productId }: { productId: string }) {
 
   const money = (v: number | null) => (v == null || !(v > 0) ? '—' : (v < 1 ? v.toFixed(3) : v.toFixed(2)).replace('.', ',') + ' €')
   const day = (iso: string) => new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })
+  const pctOf = (m: number | null) => (m == null ? '—' : (Math.round(m * 1000) / 10).toString().replace('.', ',') + ' %')
   const diff = (a: number | null, b: number | null) => (a && a > 0 && b != null ? ((b / a) - 1) * 100 : null)
 
   async function toggle() {
@@ -774,7 +776,7 @@ function CostHistory({ productId }: { productId: string }) {
     <div className="border border-gray-200 rounded-xl">
       <button type="button" onClick={toggle} aria-expanded={open} className="w-full flex items-center gap-2 px-3 py-2.5 text-left">
         <History className="w-3.5 h-3.5 text-gray-600" />
-        <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Historial de coste</span>
+        <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Historial de coste y margen</span>
         <ChevronDown className={'w-4 h-4 text-gray-500 ml-auto transition-transform ' + (open ? 'rotate-180' : '')} />
       </button>
       {open && (
@@ -782,19 +784,22 @@ function CostHistory({ productId }: { productId: string }) {
           {loading && <p className="text-xs text-gray-600">Cargando…</p>}
           {error && <p className="text-xs text-red-600">{error}</p>}
           {rows && rows.length === 0 && (
-            <p className="text-xs text-gray-600">Aún no hay cambios apuntados. Cuando cambies el coste y guardes, aquí quedará lo que valía antes y la fecha.</p>
+            <p className="text-xs text-gray-600">Aún no hay cambios apuntados. Cuando cambies el coste, el margen o el precio y guardes, aquí quedará lo que valía antes y la fecha.</p>
           )}
           {rows && rows.map((r, i) => {
             const costChanged = Math.round((r.old_cost ?? 0) * 10000) !== Math.round((r.new_cost ?? 0) * 10000)
             const priceChanged = Math.round((r.old_price ?? 0) * 10000) !== Math.round((r.new_price ?? 0) * 10000)
+            const marginChanged = Math.round((r.old_margin ?? 0) * 10000) !== Math.round((r.new_margin ?? 0) * 10000)
             const pc = diff(r.old_cost, r.new_cost)
+            const parts: React.ReactNode[] = []
+            if (costChanged) parts.push(<span key="c">Coste <b>{money(r.old_cost)}</b> → <b>{money(r.new_cost)}</b>{pc != null && <span className={pc > 0 ? 'text-red-600' : 'text-green-700'}> ({pc > 0 ? '+' : ''}{pc.toFixed(1).replace('.', ',')} %)</span>}</span>)
+            if (marginChanged) parts.push(<span key="m">Margen <b>{pctOf(r.old_margin)}</b> → <b>{pctOf(r.new_margin)}</b></span>)
+            if (priceChanged) parts.push(<span key="p" className="text-gray-700">Precio sin IVA {money(r.old_price)} → {money(r.new_price)}</span>)
             return (
               <div key={i} className="flex items-baseline gap-2 text-xs tabular-nums">
                 <span className="text-gray-600 w-24 shrink-0">{day(r.changed_at)}</span>
                 <span className="text-black">
-                  {costChanged && <>Coste <b>{money(r.old_cost)}</b> → <b>{money(r.new_cost)}</b>{pc != null && <span className={pc > 0 ? 'text-red-600' : 'text-green-700'}> ({pc > 0 ? '+' : ''}{pc.toFixed(1).replace('.', ',')} %)</span>}</>}
-                  {costChanged && priceChanged && <span className="text-gray-400"> · </span>}
-                  {priceChanged && <span className="text-gray-700">Precio {money(r.old_price)} → {money(r.new_price)}</span>}
+                  {parts.map((p, k) => <span key={k}>{k > 0 && <span className="text-gray-400"> · </span>}{p}</span>)}
                 </span>
               </div>
             )

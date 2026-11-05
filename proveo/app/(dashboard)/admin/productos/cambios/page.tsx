@@ -5,6 +5,7 @@ import { fetchAll } from '@/lib/fetchAll'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { ProductosGate } from '@/components/products/ProductosGate'
 import { CambiosCosteClient, type PriceLogRow } from '@/components/products/CambiosCosteClient'
+import { marginOfLog } from '@/lib/marginLog'
 import { isProductsCodeConfigured, isProductsUnlocked } from '@/app/actions/productsGate'
 
 export default async function CambiosCostePage() {
@@ -17,7 +18,11 @@ export default async function CambiosCostePage() {
   if (!unlocked) return <ProductosGate configured={codeConfigured} />
 
   const sb = (await createClient()) as any
-  const cols = 'id, product_id, product_name, unit, old_cost, new_cost, old_price, new_price, changed_at, billed_at, changed_by'
+  const baseCols = 'id, product_id, product_name, unit, old_cost, new_cost, old_price, new_price, changed_at, billed_at, changed_by'
+  // Con el margen guardado (SQL del margen ejecutado); si no, sin esas dos columnas y el margen se calcula
+  let cols = baseCols + ', old_margin, new_margin'
+  const probe = await sb.from('product_price_log').select(cols).limit(1)
+  if (probe.error) cols = baseCols
 
   let tableMissing = false
   let pending: PriceLogRow[] = []
@@ -43,10 +48,14 @@ export default async function CambiosCostePage() {
   }
 
   const num = (v: unknown) => (v == null ? null : Number(v))
-  const norm = (r: PriceLogRow): PriceLogRow => ({
-    ...r, old_cost: num(r.old_cost), new_cost: num(r.new_cost), old_price: num(r.old_price), new_price: num(r.new_price),
-    changed_by_name: r.changed_by ? (names.get(r.changed_by) ?? 'Usuario eliminado') : 'Proceso automático',
-  })
+  const norm = (r: PriceLogRow): PriceLogRow => {
+    const oc = num(r.old_cost), nc = num(r.new_cost), op = num(r.old_price), np = num(r.new_price)
+    return {
+      ...r, old_cost: oc, new_cost: nc, old_price: op, new_price: np,
+      old_margin: marginOfLog(r.old_margin, oc, op), new_margin: marginOfLog(r.new_margin, nc, np),
+      changed_by_name: r.changed_by ? (names.get(r.changed_by) ?? 'Usuario eliminado') : 'Proceso automático',
+    }
+  }
 
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-4">

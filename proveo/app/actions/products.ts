@@ -6,6 +6,13 @@ import { assertUnlocked } from '@/lib/gateGuard'
 import { getAuthProfile } from '@/lib/supabase/helpers'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+// 0 % es un IVA válido (exento): solo se usa el 10 % si el formulario no trae ningún valor
+function parseIva(v: FormDataEntryValue | null): number {
+  if (v === null || String(v).trim() === '') return 0.10
+  const n = Number(v)
+  return Number.isFinite(n) && n >= 0 ? n : 0.10
+}
+
 function computePrice(costPrice: number, margin: number, priceOverride: number, priceManual: number): number {
   if (priceOverride > 0) return priceOverride
   if (costPrice > 0) return costPrice * (1 + margin)
@@ -37,7 +44,7 @@ export async function createProduct(formData: FormData) {
 
   const cost_price = Number(formData.get('cost_price')) || 0
   const margin     = Number(formData.get('margin'))     || 0  // decimal e.g. 0.25
-  const iva_rate   = Number(formData.get('iva_rate'))   || 0.10
+  const iva_rate   = parseIva(formData.get('iva_rate'))
   const price_override = Number(formData.get('price_override')) || 0
   const price_manual   = Number(formData.get('price')) || 0
   const price = computePrice(cost_price, margin, price_override, price_manual)
@@ -106,7 +113,7 @@ export async function updateProduct(productId: string, formData: FormData) {
 
   const cost_price = Number(formData.get('cost_price')) || 0
   const margin     = Number(formData.get('margin'))     || 0
-  const iva_rate   = Number(formData.get('iva_rate'))   || 0.10
+  const iva_rate   = parseIva(formData.get('iva_rate'))
   const price_override = Number(formData.get('price_override')) || 0
   const price_manual   = Number(formData.get('price')) || 0
   const price = computePrice(cost_price, margin, price_override, price_manual)
@@ -350,6 +357,12 @@ export async function bulkAdjustPricing(
       const currentFinal = currentPrice * (1 + iva)
       const newFinal = mode === 'fixed' ? currentFinal + value : currentFinal * (1 + value / 100)
       const newPrice = Math.max(0, newFinal) / (1 + iva)
+      // Con coste, el margen se actualiza a lo que sale con el precio nuevo (si no, al abrir la ficha
+      // el precio volvería a coste × margen antiguo). Solo si cabe en la columna y no es negativo.
+      const impliedMargin = cost > 0 ? newPrice / cost - 1 : null
+      if (impliedMargin != null && impliedMargin >= 0 && impliedMargin < 9.9999) {
+        return { id: p.id, price: Math.max(0, newPrice), margin: Math.round(impliedMargin * 10000) / 10000 }
+      }
       return { id: p.id, price: Math.max(0, newPrice) }
     }
     if (field === 'coste') {
