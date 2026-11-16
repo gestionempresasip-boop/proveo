@@ -82,9 +82,9 @@ export async function createProduct(formData: FormData) {
 
 // Notas internas (solo nave): viven en su propia tabla con RLS para que ningún restaurante pueda leerlas.
 // Si el formulario trae la tanda y las horas (batch_units / labor_hours) se guardan en la misma fila.
-async function saveInternalNotes(sb: any, productId: string, notes: string, labor: { batch_units: number | null; labor_hours: number | null } | null) {
+async function saveInternalNotes(sb: any, productId: string, notes: string, labor: Record<string, number | null> | null) {
   const text = notes.trim()
-  const hasLabor = !!labor && (labor.batch_units != null || labor.labor_hours != null)
+  const hasLabor = !!labor && Object.values(labor).some(v => v != null)
   const { data: { user } } = await sb.auth.getUser()
   const res = (text || hasLabor)
     ? await sb.from('product_internal_notes').upsert({ product_id: productId, notes: text, updated_at: new Date().toISOString(), updated_by: user?.id ?? null, ...(labor ?? {}) }, { onConflict: 'product_id' })
@@ -146,9 +146,11 @@ export async function updateProduct(productId: string, formData: FormData) {
   if (error) throw new Error(error.message)
   await syncProductCategories(sb, productId, category_ids)
   if (formData.has('internal_notes')) {
-    const labor = formData.has('batch_units') || formData.has('labor_hours')
+    const labor: Record<string, number | null> | null = formData.has('batch_units') || formData.has('labor_hours')
       ? { batch_units: positiveOrNull(formData.get('batch_units')), labor_hours: positiveOrNull(formData.get('labor_hours')) }
       : null
+    // Coste total de la tanda: solo se envía si existe la columna (el formulario no trae el campo si falta el SQL)
+    if (labor && formData.has('batch_cost')) labor.batch_cost = positiveOrNull(formData.get('batch_cost'))
     await saveInternalNotes(sb, productId, String(formData.get('internal_notes') ?? ''), labor)
   }
   revalidatePath('/admin/productos')

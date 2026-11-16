@@ -46,14 +46,16 @@ export default async function AdminProductosPage() {
 
   // Notas internas (solo nave). Si la tabla aún no existe (falta ejecutar el SQL) el campo simplemente no aparece.
   // Tanda y horas (columnas nuevas): si aún no se ha ejecutado el SQL se lee solo lo de antes y nada se rompe.
-  type NoteRow = { product_id: string; notes: string; batch_units?: number | string | null; labor_hours?: number | string | null }
+  type NoteRow = { product_id: string; notes: string; batch_units?: number | string | null; labor_hours?: number | string | null; batch_cost?: number | string | null }
   let laborEnabled = true
-  let notesRes: { data: unknown; error: unknown } = await sb.from('product_internal_notes').select('product_id, notes, batch_units, labor_hours')
+  let costEnabled = true
+  let notesRes: { data: unknown; error: unknown } = await sb.from('product_internal_notes').select('product_id, notes, batch_units, labor_hours, batch_cost')
+  if (notesRes.error) { costEnabled = false; notesRes = await sb.from('product_internal_notes').select('product_id, notes, batch_units, labor_hours') }
   if (notesRes.error) { laborEnabled = false; notesRes = await sb.from('product_internal_notes').select('product_id, notes') }
   const notesEnabled = !notesRes.error
   const noteRows = (notesRes.data ?? []) as NoteRow[]
   const notesById = new Map<string, string>(noteRows.map(n => [n.product_id, n.notes]))
-  const laborById = new Map(noteRows.map(n => [n.product_id, { batch: n.batch_units != null ? Number(n.batch_units) : null, hours: n.labor_hours != null ? Number(n.labor_hours) : null }]))
+  const laborById = new Map(noteRows.map(n => [n.product_id, { batch: n.batch_units != null ? Number(n.batch_units) : null, hours: n.labor_hours != null ? Number(n.labor_hours) : null, cost: n.batch_cost != null ? Number(n.batch_cost) : null }]))
   // Lo que cobran hoy los distribuidores (pestaña Clientes), para compararlo con el precio recomendado
   const clientPrice = new Map<string, { min: number; max: number; count: number }>()
   try {
@@ -72,7 +74,7 @@ export default async function AdminProductosPage() {
   const accessRes = await sb.from('product_restaurant_access').select('product_id, organization_id')
   const accessById = new Map<string, string[]>()
   for (const r of ((accessRes.data ?? []) as { product_id: string; organization_id: string }[])) accessById.set(r.product_id, [...(accessById.get(r.product_id) ?? []), r.organization_id])
-  const visible = visibleBase.map(p => ({ ...p, access_org_ids: accessById.get(p.id) ?? [], notes_enabled: notesEnabled, labor_enabled: laborEnabled && notesEnabled, batch_units: laborById.get(p.id)?.batch ?? null, labor_hours: laborById.get(p.id)?.hours ?? null, client_prices: clientPrice.get(p.id) ?? null, internal_notes: notesById.get(p.id) ?? '', stock: invById.get(p.id)?.stock ?? null, min_stock: invById.get(p.id)?.min ?? null }))
+  const visible = visibleBase.map(p => ({ ...p, access_org_ids: accessById.get(p.id) ?? [], notes_enabled: notesEnabled, labor_enabled: laborEnabled && notesEnabled, batch_units: laborById.get(p.id)?.batch ?? null, labor_hours: laborById.get(p.id)?.hours ?? null, cost_enabled: costEnabled && laborEnabled && notesEnabled, batch_cost: laborById.get(p.id)?.cost ?? null, client_prices: clientPrice.get(p.id) ?? null, internal_notes: notesById.get(p.id) ?? '', stock: invById.get(p.id)?.stock ?? null, min_stock: invById.get(p.id)?.min ?? null }))
 
   return (
     <div className="p-6 max-w-5xl mx-auto">

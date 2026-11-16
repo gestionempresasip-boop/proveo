@@ -14,7 +14,7 @@ import { setFavoriteProduct, setFavoriteProductsBatch } from '@/app/actions/favo
 import { unlockProducts, lockProducts, setCategoryProtected } from '@/app/actions/productsGate'
 import { UNIT_OPTIONS, unitLabel, kgPerUnit } from '@/lib/units'
 import { getProductCostHistory, getLastCostChanges, type CostHistoryEntry, type LastCostChange } from '@/app/actions/priceLog'
-import { recommendPrices, DEFAULT_ASSUMPTIONS, type PricingAssumptions } from '@/lib/priceRecommendation'
+import { recommendPrices, roundPrice, DEFAULT_ASSUMPTIONS, type PricingAssumptions } from '@/lib/priceRecommendation'
 import { Pager, usePaged } from '@/components/ui/Pager'
 import { ExportMenu } from '@/components/stats/ExportMenu'
 import { exportReportExcel, exportReportPDF, type ReportSection } from '@/lib/reportExport'
@@ -46,6 +46,8 @@ export type Product = {
   min_stock?: number | null
   notes_enabled?: boolean
   labor_enabled?: boolean
+  cost_enabled?: boolean
+  batch_cost?: number | null
   batch_units?: number | null
   labor_hours?: number | null
   client_prices?: { min: number; max: number; count: number } | null
@@ -315,6 +317,13 @@ function ProductExportMenu({ products, categories, categoryId, label }: { produc
 
 // ── Pricing calculator (nave/admin only) ──────────────────────────────────────
 
+// Supuestos (€/hora, indirectos, recargos): se recuerdan en este navegador
+function loadAssumptions(): PricingAssumptions {
+  if (typeof window === 'undefined') return DEFAULT_ASSUMPTIONS
+  try { const raw = localStorage.getItem('proveo.pricing.assumptions'); if (raw) return { ...DEFAULT_ASSUMPTIONS, ...JSON.parse(raw) } } catch { /* sin almacenamiento: valores por defecto */ }
+  return DEFAULT_ASSUMPTIONS
+}
+
 function PricingCalculator({
   cost_price: initCost = 0,
   margin: initMargin = 0,      // stored as decimal 0–n, e.g. 0.25 = 25%
@@ -322,7 +331,9 @@ function PricingCalculator({
   fallbackPrice = 0,
   batch_units: initBatch = null,
   labor_hours: initHours = null,
+  batch_cost: initBatchCost = null,
   laborEnabled = false,
+  costEnabled = false,
   isNew = false,
   clientPrices = null,
   unit = null,
@@ -333,7 +344,9 @@ function PricingCalculator({
   fallbackPrice?: number
   batch_units?: number | null
   labor_hours?: number | null
+  batch_cost?: number | null
   laborEnabled?: boolean
+  costEnabled?: boolean
   isNew?: boolean
   clientPrices?: { min: number; max: number; count: number } | null
   unit?: string | null
@@ -341,27 +354,45 @@ function PricingCalculator({
   const [cost, setCost]     = useState(Number(initCost)   || 0)
   // 0 % (exento) es un valor válido: solo si no hay IVA guardado se parte del 10 %
   const [ivaPct, setIvaPct] = useState(Math.round((initIva == null || !Number.isFinite(Number(initIva)) ? 0.10 : Number(initIva)) * 100)) // as %
+  // Si no se toca nada, al guardar se conservan exactamente el precio y el margen que ya tenía el producto
+  const [touched, setTouched] = useState(false)
 
-  // Precio recomendado: tanda, horas y supuestos (el €/hora y los recargos se recuerdan en este navegador)
+  // Tanda: lo que costó entera, cuántas unidades salieron y las horas de trabajo
+  const [batchCost, setBatchCost]   = useState(initBatchCost ? String(initBatchCost) : '')
   const [batchUnits, setBatchUnits] = useState(initBatch ? String(initBatch) : '')
   const [laborHours, setLaborHours] = useState(initHours ? String(initHours) : '')
-  const [assume, setAssume] = useState<PricingAssumptions>(DEFAULT_ASSUMPTIONS)
+  const [assume, setAssume] = useState<PricingAssumptions>(loadAssumptions)
   const [showAssume, setShowAssume] = useState(false)
   const [openReco, setOpenReco] = useState(false)
-  useEffect(() => {
-    try { const raw = localStorage.getItem('proveo.pricing.assumptions'); if (raw) setAssume({ ...DEFAULT_ASSUMPTIONS, ...JSON.parse(raw) }) } catch { /* sin almacenamiento: valores por defecto */ }
-  }, [])
   function updateAssume(k: keyof PricingAssumptions, v: number) {
     const next = { ...assume, [k]: v }
+    setTouched(true)
     setAssume(next)
     try { localStorage.setItem('proveo.pricing.assumptions', JSON.stringify(next)) } catch { /* ignorar */ }
   }
   const toNum = (s: string) => Number(s.replace(',', '.')) || 0
+
+  // Coste total ÷ unidades = coste de materia prima por unidad (se puede corregir a mano en su casilla)
+  function setBatch(field: 'cost' | 'units', v: string) {
+    setTouched(true)
+    const c = toNum(field === 'cost' ? v : batchCost), u = toNum(field === 'units' ? v : batchUnits)
+    if (field === 'cost') setBatchCost(v); else setBatchUnits(v)
+    if (c > 0 && u > 0) setCost(Math.round((c / u) * 10000) / 10000)
+  }
+  const perUnitFromBatch = toNum(batchCost) > 0 && toNum(batchUnits) > 0 ? toNum(batchCost) / toNum(batchUnits) : null
+
   const rec = useMemo(
     () => recommendPrices({ materia: cost, batchUnits: toNum(batchUnits), laborHours: toNum(laborHours) }, assume),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [cost, batchUnits, laborHours, assume],
   )
-  // La tanda se cuenta en la misma unidad en la que se vende el producto y se pone el coste
+  // Con mano de obra el margen se calcula sobre el coste completo (materia + mano de obra + indirectos);
+  // sin ella, sobre el coste de siempre.
+  const withLabor = cost > 0 && !!rec?.hasLabor
+  const base = withLabor && rec ? rec.fullCost : cost
+  const baseLabel = withLabor ? 'coste completo' : 'coste'
+
+  // La tanda se cuenta en la misma unidad en la que se vende y se pone el coste
   const unitName = unit ? unitLabel(unit) : null
   const packKg = unit ? kgPerUnit(unit) : null
   const eur = (n: number) => (n < 1 ? n.toFixed(3) : n.toFixed(2)).replace('.', ',')
@@ -371,23 +402,45 @@ function PricingCalculator({
   type Source = 'margin' | 'sin' | 'con'
   const startsFromCost = (Number(initCost) || 0) > 0
   const [source, setSource] = useState<Source>(startsFromCost ? 'margin' : 'sin')
-  const [typed, setTyped] = useState<string>(
-    startsFromCost ? String(Math.round((Number(initMargin) || 0) * 10000) / 100) : (fallbackPrice ? String(fallbackPrice) : '')
-  )
+  const [typed, setTyped] = useState<string>(() => {
+    if (!startsFromCost) return fallbackPrice ? String(fallbackPrice) : ''
+    // Producto con mano de obra: el margen que se ve es sobre el coste completo, sacado del precio guardado
+    const full = recommendPrices({ materia: Number(initCost) || 0, batchUnits: Number(initBatch) || 0, laborHours: Number(initHours) || 0 }, assume)
+    if (full?.hasLabor && fallbackPrice > 0) return String(Math.round((fallbackPrice / full.fullCost - 1) * 10000) / 100)
+    return String(Math.round((Number(initMargin) || 0) * 10000) / 100)
+  })
   const num = (Number(typed.replace(',', '.')) || 0)
 
   const priceNoIva =
-    source === 'margin' ? (cost > 0 ? cost * (1 + num / 100) : (fallbackPrice || 0))
+    source === 'margin' ? (base > 0 ? base * (1 + num / 100) : (fallbackPrice || 0))
     : source === 'sin'  ? num
     : num / (1 + ivaPct / 100)
   const priceConIva = source === 'con' ? num : priceNoIva * (1 + ivaPct / 100)
   const ivaAmount   = priceConIva - priceNoIva
-  const margin = source === 'margin' ? num : (cost > 0 && priceNoIva > 0 ? (priceNoIva / cost - 1) * 100 : 0)
+  const margin = source === 'margin' ? num : (base > 0 && priceNoIva > 0 ? (priceNoIva / base - 1) * 100 : 0)
+
+  // Lo que se guarda: el margen de la base de datos sigue siendo sobre el coste de materia (lo usan Informes, Precios en masa…)
+  const storedMargin = cost > 0 && priceNoIva > 0 ? Math.min(9.9999, Math.max(0, priceNoIva / cost - 1)) : 0
+  const keep = !touched && !isNew && startsFromCost
 
   const fmt = (n: number, d: number) => (n ? String(Math.round(n * 10 ** d) / 10 ** d) : '')
   const shown = (s: Source, computed: string) => (source === s ? typed : computed)
-  const edit = (s: Source) => (e: React.ChangeEvent<HTMLInputElement>) => { setSource(s); setTyped(e.target.value) }
+  const edit = (s: Source) => (e: React.ChangeEvent<HTMLInputElement>) => { setTouched(true); setSource(s); setTyped(e.target.value) }
   const field = 'w-full border border-amber-200 bg-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400'
+  const small = 'w-full border border-amber-200 bg-white rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400'
+
+  // Precio sin IVA por tipo de cliente: el del grupo es el que escribes; los otros dos salen de él con la
+  // diferencia de recargos de «supuestos» (directo +15 puntos, distribuidor −10 por defecto)
+  const tierRows = base > 0 && priceNoIva > 0
+    ? ([
+        ['grupo', 'Restaurantes del grupo', 0, null],
+        ['distribuidor', 'Distribuidores', assume.distribuidorPct - assume.grupoPct, clientPrices && clientPrices.count > 0 ? clientPrices.min : null],
+        ['directo', 'Cliente final', assume.directoPct - assume.grupoPct, null],
+      ] as const).map(([key, label, gap, today]) => {
+        const price = key === 'grupo' ? priceNoIva : Math.max(0, roundPrice(base * (1 + (margin + gap) / 100)))
+        return { key, label, price, profit: price - base, mpct: base > 0 ? (price / base - 1) * 100 : 0, today }
+      })
+    : null
 
   return (
     <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
@@ -399,37 +452,83 @@ function PricingCalculator({
       </div>
 
       {/* Hidden inputs for the form */}
-      <input type="hidden" name="cost_price"     value={cost} />
-      <input type="hidden" name="margin"          value={(margin / 100).toFixed(6)} />
+      <input type="hidden" name="cost_price"     value={keep ? (Number(initCost) || 0) : cost} />
+      <input type="hidden" name="margin"          value={keep ? (Number(initMargin) || 0).toFixed(6) : storedMargin.toFixed(6)} />
       <input type="hidden" name="iva_rate"        value={(ivaPct / 100).toFixed(6)} />
       {/* price_override drives the final price saved to DB */}
-      <input type="hidden" name="price_override"  value={priceNoIva > 0 ? priceNoIva.toFixed(6) : ''} />
+      <input type="hidden" name="price_override"  value={keep ? (fallbackPrice > 0 ? String(fallbackPrice) : '') : (priceNoIva > 0 ? priceNoIva.toFixed(6) : '')} />
       {laborEnabled && <input type="hidden" name="batch_units" value={batchUnits} />}
       {laborEnabled && <input type="hidden" name="labor_hours" value={laborHours} />}
+      {laborEnabled && costEnabled && <input type="hidden" name="batch_cost" value={batchCost} />}
+
+      {/* Tanda de producción */}
+      <div className="bg-white rounded-lg p-3 border border-amber-200 space-y-2.5">
+        <p className="text-[11px] font-semibold text-gray-700 uppercase tracking-wide">Tanda de producción</p>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="text-[11px] text-gray-700 font-medium block mb-0.5">Coste total de la tanda (€)</label>
+            <input type="text" inputMode="decimal" value={batchCost} onChange={e => setBatch('cost', e.target.value)}
+              placeholder="Ej: 85,50" className={small} />
+          </div>
+          <div>
+            <label className="text-[11px] text-gray-700 font-medium block mb-0.5">
+              {unitName ? <>Cuántas «{unitName}» salen</> : 'Unidades que salen'}
+            </label>
+            <input type="text" inputMode="decimal" value={batchUnits} onChange={e => setBatch('units', e.target.value)}
+              placeholder="Ej: 153" className={small} />
+          </div>
+          <div>
+            <label className="text-[11px] text-gray-700 font-medium block mb-0.5">Horas de trabajo</label>
+            <input type="text" inputMode="decimal" value={laborHours} onChange={e => { setTouched(true); setLaborHours(e.target.value) }}
+              placeholder="Ej: 6" className={small} />
+          </div>
+          <div className="flex items-end">
+            <p className="text-[11px] text-gray-600 tabular-nums pb-1.5">
+              {perUnitFromBatch != null
+                ? <>Materia prima por unidad: <b className="text-black">{eur(perUnitFromBatch)} €</b></>
+                : 'Total ÷ unidades = coste por unidad'}
+            </p>
+          </div>
+        </div>
+        <p className="text-[11px] text-gray-500">
+          Las horas son la suma de todas las personas (2 personas × 2 horas = 4 horas). La tanda se cuenta en {unitName ? <>«{unitName}»</> : 'la unidad en la que se vende'}.{' '}
+          {packKg != null && packKg !== 1 && (
+            <>¿Lo tienes en kilos?{' '}
+              <input type="text" inputMode="decimal" placeholder="kg de la tanda" aria-label="Kilos totales de la tanda"
+                onChange={e => { const kg = toNum(e.target.value); setBatch('units', kg > 0 ? String(Math.round((kg / packKg) * 100) / 100) : '') }}
+                className="w-24 border border-amber-200 rounded px-1.5 py-0.5 text-[11px] align-baseline" />{' '}
+              y se convierte solo.{' '}</>
+          )}
+          {unit === 'bolsa' && <>Si tienes los kilos, divídelos por lo que pesa cada bolsa (37 kg ÷ 0,15 kg = 246 bolsas).{' '}</>}
+          {laborEnabled
+            ? (costEnabled || isNew ? 'Se guardan con el producto.' : 'El coste total de la tanda aún no se guarda: falta ejecutar el SQL del coste de tanda en Supabase (el coste por unidad sí).')
+            : isNew ? 'Se guardan al editar el producto.' : 'Aún no se guardan: falta ejecutar el SQL de tanda y horas en Supabase.'}
+        </p>
+      </div>
 
       <p className="text-xs text-amber-900">Escribe el <b>margen</b>, el <b>precio sin IVA</b> o el <b>precio final</b>: lo demás se calcula solo.</p>
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-xs text-gray-700 font-medium block mb-1">Precio de coste (€)</label>
+          <label className="text-xs text-gray-700 font-medium block mb-1">Precio de coste por unidad (€)</label>
           <input
             type="number" step="0.0001" min="0"
             value={cost || ''}
-            onChange={e => setCost(Number(e.target.value) || 0)}
+            onChange={e => { setTouched(true); setCost(Number(e.target.value) || 0) }}
             placeholder="0.0000"
             className={field}
           />
         </div>
         <div>
-          <label className="text-xs text-gray-700 font-medium block mb-1">Margen (%)</label>
+          <label className="text-xs text-gray-700 font-medium block mb-1">Margen sobre el {baseLabel} (%)</label>
           <input
-            type="number" step="0.01" min="0" max="5000" inputMode="decimal"
-            value={shown('margin', cost > 0 && priceNoIva > 0 ? fmt(margin, 2) : '')}
+            type="number" step="0.01" min="-99" max="5000" inputMode="decimal"
+            value={shown('margin', base > 0 && priceNoIva > 0 ? fmt(margin, 2) : '')}
             onChange={edit('margin')}
-            placeholder={cost > 0 ? '0' : '—'}
-            disabled={cost <= 0}
-            title={cost <= 0 ? 'Pon primero el coste para calcular el margen' : undefined}
-            className={field + (cost <= 0 ? ' opacity-60' : '')}
+            placeholder={base > 0 ? '0' : '—'}
+            disabled={base <= 0}
+            title={base <= 0 ? 'Pon primero el coste para calcular el margen' : undefined}
+            className={field + (base <= 0 ? ' opacity-60' : '')}
           />
         </div>
         <div>
@@ -453,6 +552,17 @@ function PricingCalculator({
           />
         </div>
       </div>
+
+      {withLabor && rec && (
+        <p className="text-[11px] text-gray-700 tabular-nums bg-white/70 rounded px-2 py-1.5 border border-amber-100">
+          Coste completo por unidad <b className="text-black">{eur(rec.fullCost)} €</b> = materia prima {eur(rec.materia)} + mano de obra {eur(rec.labor)} ({laborHours} h × {assume.laborRate} €/h) + indirectos {eur(rec.indirect)} ({assume.indirectPct} %). El margen se calcula sobre este coste.
+        </p>
+      )}
+      {cost > 0 && !withLabor && (
+        <p className="text-[11px] text-amber-800 bg-white/70 rounded px-2 py-1.5 border border-amber-100">
+          Sin mano de obra: el margen se calcula solo sobre el coste de materia prima. Rellena la tanda y las horas para que cuente también la mano de obra y los indirectos.
+        </p>
+      )}
 
       <div>
         <label className="text-xs text-gray-700 font-medium block mb-1">IVA aplicable</label>
@@ -479,13 +589,44 @@ function PricingCalculator({
           <span className="text-sm font-semibold text-black">Precio final (con IVA)</span>
           <span className="text-xl font-bold text-[#1E2B28] tabular-nums">{priceConIva.toFixed(2)} €</span>
         </div>
-        {cost > 0 && priceNoIva > 0 && (
+        {base > 0 && priceNoIva > 0 && (
           <div className="flex justify-between text-xs text-gray-600 tabular-nums pt-0.5">
-            <span>Margen sobre el coste</span>
-            <span className="font-semibold text-amber-800">{margin.toFixed(2)} %</span>
+            <span>Margen sobre el {baseLabel}</span>
+            <span className={'font-semibold ' + (margin < 0 ? 'text-red-600' : 'text-amber-800')}>{margin.toFixed(2)} %</span>
           </div>
         )}
         <p className="text-xs text-gray-600 pt-0.5">Este es el precio que verán los restaurantes</p>
+
+        {tierRows && (
+          <div className="border-t border-amber-100 pt-2 mt-1 space-y-1.5">
+            <p className="text-[11px] font-semibold text-gray-700 uppercase tracking-wide">Precio sin IVA por tipo de cliente</p>
+            {tierRows.map(t => {
+              const losing = t.profit < 0
+              const below = t.today != null && t.today < t.price * 0.995
+              return (
+                <div key={t.key} className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm text-black">{t.label}</p>
+                    <p className="text-[11px] text-gray-600 tabular-nums">
+                      {t.mpct.toFixed(0)} % sobre el {baseLabel} · beneficio {eur(t.profit)} €/ud
+                      {losing && <span className="text-red-600 font-semibold"> — por debajo del coste</span>}
+                      {t.today != null && (
+                        <span className={below ? 'text-red-600 font-semibold' : ''}>
+                          {' · hoy '}{eur(t.today)} €{clientPrices && clientPrices.max !== clientPrices.min ? ' (mín.)' : ''}{below ? ' — por debajo' : ''}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <span className="text-base font-bold text-[#1E2B28] tabular-nums shrink-0">{eur(t.price)} €</span>
+                </div>
+              )
+            })}
+            <p className="text-[11px] text-gray-500">
+              El de restaurantes es el precio que escribes. Distribuidor y cliente final salen de él con la diferencia de recargos de «supuestos»
+              ({assume.distribuidorPct - assume.grupoPct > 0 ? '+' : ''}{assume.distribuidorPct - assume.grupoPct} puntos y +{assume.directoPct - assume.grupoPct}).
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Precio recomendado por tipo de cliente */}
@@ -501,44 +642,15 @@ function PricingCalculator({
         </button>
         {openReco && (<>
 
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className="text-[11px] text-gray-700 font-medium block mb-0.5">
-              {unitName ? <>Cuántas «{unitName}» salen de la tanda</> : 'Cuántas unidades de venta salen de la tanda'}
-            </label>
-            <input type="text" inputMode="decimal" value={batchUnits} onChange={e => setBatchUnits(e.target.value)}
-              placeholder="Ej: 153" className="w-full border border-amber-200 bg-white rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
-          </div>
-          <div>
-            <label className="text-[11px] text-gray-700 font-medium block mb-0.5">Horas de trabajo (suma de personas)</label>
-            <input type="text" inputMode="decimal" value={laborHours} onChange={e => setLaborHours(e.target.value)}
-              placeholder="Ej: 6" className="w-full border border-amber-200 bg-white rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
-          </div>
-        </div>
-        <p className="text-[11px] text-gray-500 -mt-1">
-          {unitName
-            ? <>Cuenta en «{unitName}», la misma unidad en la que se vende y se pone el coste. </>
-            : <>Cuenta en la misma unidad en la que se vende y se pone el coste (kg, l, bolsas…). </>}
-          {packKg != null && packKg !== 1 && (
-            <>¿Lo tienes en kilos?{' '}
-              <input type="text" inputMode="decimal" placeholder="kg de la tanda" aria-label="Kilos totales de la tanda"
-                onChange={e => { const kg = toNum(e.target.value); setBatchUnits(kg > 0 ? String(Math.round((kg / packKg) * 100) / 100) : '') }}
-                className="w-24 border border-amber-200 rounded px-1.5 py-0.5 text-[11px] align-baseline" />{' '}
-              y se convierte solo. </>
-          )}
-          {unit === 'bolsa' && <>Si tienes los kilos, divídelos por lo que pesa cada bolsa (37 kg ÷ 0,15 kg = 246 bolsas). </>}
-          2 personas durante 2 horas = 4 horas. {laborEnabled ? 'Se guardan con el producto.' : isNew ? 'Se guardan al editar el producto.' : 'Aún no se guardan: falta ejecutar el SQL de tanda y horas en Supabase.'}
-        </p>
-
         {!rec ? (
           <p className="text-xs text-gray-600">Pon el precio de coste (materia prima) para ver el precio recomendado.</p>
         ) : (
           <>
             <p className="text-[11px] text-gray-600 tabular-nums">
-              Coste completo <b className="text-black">{eur(rec.fullCost)} €</b> = materia prima {eur(rec.materia)} + mano de obra {eur(rec.labor)} + indirectos {eur(rec.indirect)}
+              Recomendado con los recargos de «supuestos» sobre el coste completo <b className="text-black">{eur(rec.fullCost)} €</b> = materia prima {eur(rec.materia)} + mano de obra {eur(rec.labor)} + indirectos {eur(rec.indirect)}
             </p>
             {!rec.hasLabor && (
-              <p className="text-[11px] text-amber-800 bg-amber-50 rounded px-2 py-1">Sin mano de obra todavía: rellena unidades de la tanda y horas para afinar el precio.</p>
+              <p className="text-[11px] text-amber-800 bg-amber-50 rounded px-2 py-1">Sin mano de obra todavía: rellena el coste y las unidades de la tanda y las horas para afinar el precio.</p>
             )}
 
             <div className="divide-y divide-amber-100 border border-amber-100 rounded-lg">
@@ -565,7 +677,7 @@ function PricingCalculator({
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-base font-bold text-[#1E2B28] tabular-nums">{eur(t.price)} €</span>
                       {key === 'grupo' && (
-                        <button type="button" onClick={() => { setSource('sin'); setTyped(String(t.price)) }}
+                        <button type="button" onClick={() => { setTouched(true); setSource('sin'); setTyped(String(t.price)) }}
                           className="text-xs font-semibold px-2 py-1 rounded-lg bg-[#1E2B28] text-white hover:bg-[#141F1C]">Usar</button>
                       )}
                     </div>
@@ -596,10 +708,10 @@ function PricingCalculator({
               <div key={k}>
                 <label className="text-[11px] text-gray-700 font-medium block mb-0.5">{label}</label>
                 <input type="number" step="0.5" min="0" value={assume[k]} onChange={e => updateAssume(k, Number(e.target.value) || 0)}
-                  className="w-full border border-amber-200 bg-white rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
+                  className={small} />
               </div>
             ))}
-            <p className="col-span-2 text-[11px] text-gray-500">El recargo se aplica sobre el coste completo. Estos supuestos se recuerdan en este navegador.</p>
+            <p className="col-span-2 text-[11px] text-gray-500">Los recargos se aplican sobre el coste completo. Estos supuestos se recuerdan en este navegador.</p>
           </div>
         )}
         </>)}
@@ -856,7 +968,9 @@ function EditModal({
               fallbackPrice={product.price}
               batch_units={product.batch_units}
               labor_hours={product.labor_hours}
+              batch_cost={product.batch_cost}
               laborEnabled={product.labor_enabled}
+              costEnabled={product.cost_enabled}
               clientPrices={product.client_prices}
               unit={product.unit}
             />
