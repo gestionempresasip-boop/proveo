@@ -110,12 +110,12 @@ function InventoryRowItem({
   }
 
   return (
-    <div className={`px-4 py-4 border-b border-gray-100 last:border-b-0 border-l-4 ${
+    <div className={`@container px-4 py-4 border-b border-gray-100 last:border-b-0 border-l-4 ${
       dirty ? 'border-l-[#A8793A] bg-amber-50/50' : isEmpty ? 'border-l-red-400 bg-red-50/30' : isLow ? 'border-l-orange-400 bg-orange-50/30' : 'border-l-transparent'
     }`}>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-3 @min-[54rem]:grid @min-[54rem]:grid-cols-[minmax(0,1fr)_14rem_9rem_5.5rem_11.5rem]">
         {/* Producto */}
-        <div className="flex-1 min-w-[200px]">
+        <div className="flex-1 min-w-[200px] @min-[54rem]:min-w-0">
           <p className="font-semibold text-black text-sm leading-tight">{row.product_name}</p>
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
             <StockStatus current={currentNum} min={minNum} />
@@ -131,7 +131,7 @@ function InventoryRowItem({
         </div>
 
         {/* Stock actual */}
-        <div className="w-[16.5rem] shrink-0">
+        <div className="w-[14rem] shrink-0">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-600 mb-1">Stock actual</p>
           <div className="flex items-center gap-1.5">
             <button onClick={() => bump(-1)} className="w-9 h-9 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center active:scale-95" aria-label="Restar 1">
@@ -143,15 +143,15 @@ function InventoryRowItem({
               step="0.001"
               value={stockValue}
               onChange={e => onStockChange(e.target.value)}
-              className={`w-24 border rounded-lg px-2 py-2 text-base text-center font-bold focus:outline-none focus:ring-2 focus:ring-[#1E2B28] ${
+              className={`w-20 border rounded-lg px-2 py-2 text-base text-center font-bold focus:outline-none focus:ring-2 focus:ring-[#1E2B28] ${
                 isEmpty ? 'border-red-300 text-red-600' : isLow ? 'border-orange-300 text-orange-600' : 'border-gray-200 text-[#1E2B28]'
               }`}
             />
             <button onClick={() => bump(1)} className="w-9 h-9 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center active:scale-95" aria-label="Sumar 1">
               <Plus className="w-4 h-4" />
             </button>
-            <div className="ml-1 w-20 shrink-0">
-              <span className="text-xs text-gray-600 block truncate" title={unitLabel(row.product_unit)}>{unitLabel(row.product_unit)}</span>
+            <div className="ml-1 w-14 shrink-0">
+              <span className="text-xs text-gray-600 block leading-tight break-words" title={unitLabel(row.product_unit)}>{unitLabel(row.product_unit)}</span>
               {row.allows_box_order && row.box_units && currentNum > 0 && (
                 <span className="text-[10px] text-blue-600 font-medium block whitespace-nowrap">
                   ≈{Math.floor(currentNum / row.box_units)} caj.
@@ -162,7 +162,7 @@ function InventoryRowItem({
         </div>
 
         {/* Mínimo */}
-        <div className="w-[11.5rem] shrink-0">
+        <div className="w-[9rem] shrink-0">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-600 mb-1">Mínimo (alerta)</p>
           <div className="flex items-center gap-1.5">
             <input
@@ -171,14 +171,14 @@ function InventoryRowItem({
               step="0.001"
               value={minValue}
               onChange={e => onMinChange(e.target.value)}
-              className="w-24 border border-gray-200 rounded-lg px-2 py-2 text-base text-center text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
+              className="w-20 border border-gray-200 rounded-lg px-2 py-2 text-base text-center text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
             />
-            <span className="text-xs text-gray-600 w-20 truncate" title={unitLabel(row.product_unit)}>{unitLabel(row.product_unit)}</span>
+            <span className="text-xs text-gray-600 w-14 leading-tight break-words" title={unitLabel(row.product_unit)}>{unitLabel(row.product_unit)}</span>
           </div>
         </div>
 
         {/* Actualizado */}
-        <div className="hidden lg:block w-28 shrink-0">
+        <div className="hidden @min-[40rem]:block w-[5.5rem] shrink-0">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-600 mb-1">Actualizado</p>
           <p className="text-xs text-gray-700">
             {row.last_updated
@@ -188,7 +188,7 @@ function InventoryRowItem({
         </div>
 
         {/* Acciones */}
-        <div className="flex items-center justify-end gap-2 ml-auto w-[12rem] shrink-0">
+        <div className="flex items-center justify-end gap-2 ml-auto w-[11.5rem] shrink-0">
           {saved ? (
             <span className="text-sm text-green-600 font-semibold px-3">✓ Guardado</span>
           ) : (
