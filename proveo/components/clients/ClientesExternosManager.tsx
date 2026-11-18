@@ -108,6 +108,7 @@ function NewClientForm({ onDone }: { onDone: (id?: string) => void }) {
   const router = useRouter()
   const [f, setF] = useState({ name: '', slug: '', pin: '', fiscalName: '', taxId: '', address: '', phone: '' })
   const [slugTouched, setSlugTouched] = useState(false)
+  const [showCompany, setShowCompany] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const set = (k: keyof typeof f, v: string) => setF(p => ({ ...p, [k]: v }))
@@ -145,19 +146,25 @@ function NewClientForm({ onDone }: { onDone: (id?: string) => void }) {
           </div>
           <span className="text-xs text-gray-600">Es el enlace que le das al cliente: en él solo aparece su local.</span>
         </label>
-        <label className="text-sm font-medium text-black">Razón social
-          <input className={cn(inputCls, 'mt-1')} value={f.fiscalName} onChange={e => set('fiscalName', e.target.value)} />
-        </label>
-        <label className="text-sm font-medium text-black">CIF
-          <input className={cn(inputCls, 'mt-1')} value={f.taxId} onChange={e => set('taxId', e.target.value)} />
-        </label>
-        <label className="text-sm font-medium text-black sm:col-span-2">Dirección
-          <input className={cn(inputCls, 'mt-1')} value={f.address} onChange={e => set('address', e.target.value)} />
-        </label>
-        <label className="text-sm font-medium text-black">Teléfono
-          <input className={cn(inputCls, 'mt-1')} value={f.phone} onChange={e => set('phone', e.target.value)} />
-        </label>
       </div>
+      <CompanyToggle open={showCompany} onToggle={() => setShowCompany(v => !v)}
+        summary={[f.fiscalName, f.taxId].filter(Boolean).join(' · ')} />
+      {showCompany && (
+        <div className="grid sm:grid-cols-2 gap-3">
+          <label className="text-sm font-medium text-black">Razón social
+            <input className={cn(inputCls, 'mt-1')} value={f.fiscalName} onChange={e => set('fiscalName', e.target.value)} />
+          </label>
+          <label className="text-sm font-medium text-black">CIF
+            <input className={cn(inputCls, 'mt-1')} value={f.taxId} onChange={e => set('taxId', e.target.value)} />
+          </label>
+          <label className="text-sm font-medium text-black sm:col-span-2">Dirección
+            <input className={cn(inputCls, 'mt-1')} value={f.address} onChange={e => set('address', e.target.value)} />
+          </label>
+          <label className="text-sm font-medium text-black">Teléfono
+            <input className={cn(inputCls, 'mt-1')} value={f.phone} onChange={e => set('phone', e.target.value)} />
+          </label>
+        </div>
+      )}
       {error && <p className="text-sm text-red-600 font-medium">{error}</p>}
       <div className="flex gap-2">
         <button disabled={busy} className="rounded-xl bg-[#1E2B28] text-white text-sm font-semibold px-4 py-2.5 disabled:opacity-50">
@@ -170,12 +177,25 @@ function NewClientForm({ onDone }: { onDone: (id?: string) => void }) {
   )
 }
 
+// Cabecera desplegable «Datos de la empresa»: cerrada por defecto para no tener los datos siempre en pantalla
+function CompanyToggle({ open, onToggle, summary }: { open: boolean; onToggle: () => void; summary?: string }) {
+  return (
+    <button type="button" onClick={onToggle} aria-expanded={open}
+      className="w-full flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2.5 text-left hover:border-[#1E2B28] transition-colors">
+      {open ? <ChevronDown className="w-4 h-4 shrink-0 text-gray-600" /> : <ChevronRight className="w-4 h-4 shrink-0 text-gray-600" />}
+      <span className="text-sm font-semibold text-black">Datos de la empresa</span>
+      {!open && summary && <span className="text-xs text-gray-600 truncate">{summary}</span>}
+    </button>
+  )
+}
+
 function ClientInfo({ client }: { client: ExternalClient }) {
   const router = useRouter()
   const [f, setF] = useState({ name: client.name, fiscalName: client.fiscal_name ?? '', taxId: client.tax_id ?? '', address: client.address ?? '', phone: client.phone ?? '' })
   const [msg, setMsg] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [showData, setShowData] = useState(false)
   const set = (k: keyof typeof f, v: string) => { setF(p => ({ ...p, [k]: v })); setMsg(null) }
   const url = typeof window !== 'undefined' && client.login_slug ? `${window.location.origin}/cliente/${client.login_slug}` : `/cliente/${client.login_slug}`
 
@@ -199,27 +219,34 @@ function ClientInfo({ client }: { client: ExternalClient }) {
         </button>
       </div>
       <p className="text-xs text-gray-600 break-all">{url}</p>
-      <div className="grid sm:grid-cols-2 gap-3">
-        <label className="text-sm font-medium text-black">Nombre comercial
-          <input className={cn(inputCls, 'mt-1')} value={f.name} onChange={e => set('name', e.target.value)} />
-        </label>
-        <label className="text-sm font-medium text-black">Razón social
-          <input className={cn(inputCls, 'mt-1')} value={f.fiscalName} onChange={e => set('fiscalName', e.target.value)} />
-        </label>
-        <label className="text-sm font-medium text-black">CIF
-          <input className={cn(inputCls, 'mt-1')} value={f.taxId} onChange={e => set('taxId', e.target.value)} />
-        </label>
-        <label className="text-sm font-medium text-black">Teléfono
-          <input className={cn(inputCls, 'mt-1')} value={f.phone} onChange={e => set('phone', e.target.value)} />
-        </label>
-        <label className="text-sm font-medium text-black sm:col-span-2">Dirección
-          <input className={cn(inputCls, 'mt-1')} value={f.address} onChange={e => set('address', e.target.value)} />
-        </label>
-      </div>
-      <div className="flex items-center gap-3">
-        <button onClick={save} disabled={busy} className="rounded-xl bg-[#1E2B28] text-white text-sm font-semibold px-4 py-2.5 disabled:opacity-50">Guardar datos</button>
-        {msg && <span className={cn('text-sm font-medium', msg === 'Guardado' ? 'text-green-700' : 'text-red-600')}>{msg}</span>}
-      </div>
+      <CompanyToggle open={showData} onToggle={() => setShowData(v => !v)}
+        summary={[f.fiscalName, f.taxId].filter(Boolean).join(' · ')} />
+      {showData && (
+        <>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <label className="text-sm font-medium text-black">Nombre comercial
+              <input className={cn(inputCls, 'mt-1')} value={f.name} onChange={e => set('name', e.target.value)} />
+            </label>
+            <label className="text-sm font-medium text-black">Razón social
+              <input className={cn(inputCls, 'mt-1')} value={f.fiscalName} onChange={e => set('fiscalName', e.target.value)} />
+            </label>
+            <label className="text-sm font-medium text-black">CIF
+              <input className={cn(inputCls, 'mt-1')} value={f.taxId} onChange={e => set('taxId', e.target.value)} />
+            </label>
+            <label className="text-sm font-medium text-black">Teléfono
+              <input className={cn(inputCls, 'mt-1')} value={f.phone} onChange={e => set('phone', e.target.value)} />
+            </label>
+            <label className="text-sm font-medium text-black sm:col-span-2">Dirección
+              <input className={cn(inputCls, 'mt-1')} value={f.address} onChange={e => set('address', e.target.value)} />
+            </label>
+          </div>
+          <div className="flex items-center gap-3">
+            <button onClick={save} disabled={busy} className="rounded-xl bg-[#1E2B28] text-white text-sm font-semibold px-4 py-2.5 disabled:opacity-50">Guardar datos</button>
+            {msg && <span className={cn('text-sm font-medium', msg === 'Guardado' ? 'text-green-700' : 'text-red-600')}>{msg}</span>}
+          </div>
+        </>
+      )}
+      {!showData && msg && <span className={cn('text-sm font-medium', msg === 'Guardado' ? 'text-green-700' : 'text-red-600')}>{msg}</span>}
     </section>
   )
 }

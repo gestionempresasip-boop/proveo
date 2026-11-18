@@ -321,7 +321,7 @@ export function AlbaranesClient({ notes: initialNotes, isNave }: { notes: Note[]
       </div>
 
       {(isNave && restaurants.length > 1) || hasReturns ? (
-        <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex flex-wrap gap-2">
           <button onClick={() => { setTypeFilter('todos'); setRestaurant('todos') }} className={chip(!hasFilters || (typeFilter === 'todos' && restaurant === 'todos'))}>
             Todos
           </button>
