@@ -23,6 +23,7 @@ interface NavItem {
   roles?: string[]
   orgTypes?: string[]
   desktopOnly?: boolean
+  hidden?: boolean
 }
 
 // Pestañas que van dentro de la carpeta «Nina» (no se ven sueltas en el menú). Cada una conserva su propia clave.
@@ -42,7 +43,8 @@ const navItems: NavItem[] = [
   { href: '/promociones',     label: 'Promociones', icon: Tag,           orgTypes: ['nave'] },
   { href: '/inventario',      label: 'Stock',       icon: Boxes,         orgTypes: ['nave'] },
   { href: '/albaranes',       label: 'Albaranes',   icon: FileText },
-  { href: '/produccion',      label: 'Producción',  icon: Timer,         orgTypes: ['nave'] },
+  // Producción: oculta de momento. Para volver a mostrarla, quitar «hidden: true».
+  { href: '/produccion',      label: 'Producción',  icon: Timer,         orgTypes: ['nave'], hidden: true },
   { href: '/costes',          label: 'Costes',      icon: Calculator,    roles: ['admin', 'nave_manager'], orgTypes: ['nave'] },
   { href: '/estadisticas',    label: 'Informes',    icon: BarChart3,     orgTypes: ['nave'] },
   { href: '/admin/productos', label: 'Productos',   icon: Package,       roles: ['admin', 'nave_manager'] },
@@ -61,6 +63,7 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
   const isNave = profile.organizations.type === 'nave'
 
   const visible = navItems.filter(item => {
+    if (item.hidden) return false
     if (item.roles && !item.roles.includes(profile.role)) return false
     if (item.orgTypes && !item.orgTypes.includes(profile.organizations.type)) return false
     return true
