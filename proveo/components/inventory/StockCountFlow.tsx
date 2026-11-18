@@ -1,8 +1,34 @@
 'use client'
 
-import { useState, useMemo, useTransition } from 'react'
+import { useState, useMemo, useTransition, useEffect, useSyncExternalStore } from 'react'
 import { applyStockCount } from '@/app/actions/stockCount'
-import { X, ClipboardList, ArrowRight, ArrowLeft, Check, Search } from 'lucide-react'
+import { X, ClipboardList, ArrowRight, ArrowLeft, Check, Search, WifiOff } from 'lucide-react'
+
+// El recuento en curso se guarda en la propia tablet (no en internet) a cada cifra que se escribe, para que
+// no se pierda si dentro del congelador se corta la conexión, se recarga la página o se cierra la ventana.
+const DRAFT_KEY = 'proveo.stockcount.draft'
+const DRAFT_MAX_AGE_MS = 3 * 24 * 60 * 60 * 1000
+type Draft = { counts: Record<string, string>; category: string; savedAt: number }
+
+function readDraft(): Draft | null {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY)
+    if (!raw) return null
+    const d = JSON.parse(raw) as Draft
+    if (!d || typeof d.counts !== 'object' || Date.now() - Number(d.savedAt) > DRAFT_MAX_AGE_MS) return null
+    const counts = Object.fromEntries(Object.entries(d.counts).filter(([, v]) => typeof v === 'string' && v.trim() !== ''))
+    return Object.keys(counts).length > 0 ? { counts, category: typeof d.category === 'string' ? d.category : 'todas', savedAt: d.savedAt } : null
+  } catch { return null }
+}
+function writeDraft(d: Draft | null) {
+  try { if (d) localStorage.setItem(DRAFT_KEY, JSON.stringify(d)); else localStorage.removeItem(DRAFT_KEY) } catch { /* sin almacenamiento */ }
+}
+
+function subscribeOnline(cb: () => void) {
+  window.addEventListener('online', cb); window.addEventListener('offline', cb)
+  return () => { window.removeEventListener('online', cb); window.removeEventListener('offline', cb) }
+}
+const useOnline = () => useSyncExternalStore(subscribeOnline, () => navigator.onLine, () => true)
 
 type InventoryRow = {
   product_id: string; product_name: string; product_unit: string
@@ -11,18 +37,21 @@ type InventoryRow = {
 }
 type Category = { id: string; name: string; color: string | null }
 
-// Recuento "ciego": no se ve el stock que dice el sistema mientras se
-// cuenta, para no sesgar el conteo hacia lo que "debería" salir. La
-// diferencia solo se muestra en la pantalla de revisión, antes de aplicar
-// nada — así se puede cancelar si algo no cuadra en vez de corregir a
-// ciegas como con la edición normal de stock.
+// Recuento: no se muestra el stock que dice el sistema, solo la diferencia
+// (contado − sistema) junto a cada cantidad en cuanto se escribe. Antes de
+// aplicar nada hay una pantalla de revisión, así se puede cancelar si algo no
+// cuadra en vez de corregir a ciegas como con la edición normal de stock.
 export function StockCountFlow({ rows, categories, onClose, onApplied }: {
   rows: InventoryRow[]; categories: Category[]; onClose: () => void; onApplied: () => void
 }) {
-  const [step, setStep] = useState<'setup' | 'count' | 'review' | 'done'>('setup')
-  const [categoryFilter, setCategoryFilter] = useState<string>('todas')
+  // Si había un recuento sin terminar guardado en la tablet, se recupera y se sigue por donde iba
+  const [draft] = useState<Draft | null>(readDraft)
+  const [recovered, setRecovered] = useState(!!draft)
+  const online = useOnline()
+  const [step, setStep] = useState<'setup' | 'count' | 'review' | 'done'>(draft ? 'count' : 'setup')
+  const [categoryFilter, setCategoryFilter] = useState<string>(draft?.category ?? 'todas')
   const [search, setSearch] = useState('')
-  const [counts, setCounts] = useState<Record<string, string>>({})
+  const [counts, setCounts] = useState<Record<string, string>>(draft?.counts ?? {})
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [appliedCount, setAppliedCount] = useState(0)
@@ -36,6 +65,17 @@ export function StockCountFlow({ rows, categories, onClose, onApplied }: {
     const q = search.toLowerCase()
     return scopedRows.filter(r => r.product_name.toLowerCase().includes(q))
   }, [scopedRows, search])
+
+  // Guardado automático en la tablet a cada cambio (no se pierde aunque no haya internet). Al aplicar se borra.
+  useEffect(() => {
+    if (step === 'done') return
+    const filled = Object.fromEntries(Object.entries(counts).filter(([, v]) => v.trim() !== ''))
+    writeDraft(Object.keys(filled).length > 0 ? { counts: filled, category: categoryFilter, savedAt: Date.now() } : null)
+  }, [counts, categoryFilter, step])
+
+  function discardDraft() {
+    setCounts({}); setRecovered(false); writeDraft(null)
+  }
 
   const countedIds = Object.keys(counts).filter(id => counts[id].trim() !== '')
   const diffs = useMemo(() => {
@@ -56,10 +96,13 @@ export function StockCountFlow({ rows, categories, onClose, onApplied }: {
       try {
         const { applied } = await applyStockCount(diffs.map(d => ({ productId: d.row.product_id, countedQty: d.counted })))
         setAppliedCount(applied)
+        writeDraft(null)
         setStep('done')
         onApplied()
       } catch {
-        setError('No se pudo aplicar el recuento, inténtalo de nuevo')
+        setError(typeof navigator !== 'undefined' && !navigator.onLine
+          ? 'Sin conexión: el recuento NO se ha aplicado todavía. Tus cantidades siguen guardadas en esta tablet; cuando tengas internet, vuelve a pulsar «Confirmar y aplicar».'
+          : 'No se pudo aplicar el recuento. Tus cantidades siguen guardadas en esta tablet; inténtalo de nuevo.')
       }
     })
   }
@@ -111,23 +154,52 @@ export function StockCountFlow({ rows, categories, onClose, onApplied }: {
                   className="w-full border border-gray-200 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E2B28]"
                 />
               </div>
-              <p className="text-xs text-gray-600">{countedIds.length}/{scopedRows.length} contados — deja en blanco lo que no cuentes ahora</p>
+              <p className="text-xs text-gray-600">
+                {countedIds.length}/{scopedRows.length} contados — deja en blanco lo que no cuentes ahora
+                {countedIds.length > 0 && <span className="text-green-700"> · guardado en la tablet</span>}
+              </p>
+              {!online && (
+                <p className="flex items-center gap-1.5 text-xs font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                  <WifiOff className="w-3.5 h-3.5 shrink-0" />
+                  Sin conexión: sigue contando, lo que escribas queda guardado en la tablet. Cuando vuelva internet, pulsa «Revisar diferencias».
+                </p>
+              )}
+              {recovered && countedIds.length > 0 && (
+                <p className="flex items-center justify-between gap-2 text-xs text-blue-800 bg-blue-50 border border-blue-200 rounded-lg px-2.5 py-1.5">
+                  <span>Recuento recuperado: {countedIds.length} producto{countedIds.length !== 1 ? 's' : ''} ya contado{countedIds.length !== 1 ? 's' : ''}.</span>
+                  <button type="button" onClick={discardDraft} className="font-semibold underline shrink-0">Empezar de cero</button>
+                </p>
+              )}
             </div>
             <div className="max-h-[26rem] overflow-y-auto divide-y divide-gray-50">
-              {visibleRows.map(row => (
-                <div key={row.product_id} className="flex items-center gap-3 px-6 py-2.5">
-                  <span className="flex-1 min-w-0 text-sm text-black truncate">{row.product_name}</span>
-                  <input
-                    type="number" step="0.001" min="0" placeholder="—"
-                    value={counts[row.product_id] ?? ''}
-                    onChange={e => setCounts(prev => ({ ...prev, [row.product_id]: e.target.value }))}
-                    className={`w-24 border rounded-lg px-2.5 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#1E2B28] ${
-                      counts[row.product_id]?.trim() ? 'border-[#1E2B28] bg-[#1E2B28]/5' : 'border-gray-200'
-                    }`}
-                  />
-                  <span className="text-xs text-gray-600 w-10 shrink-0">{row.product_unit}</span>
-                </div>
-              ))}
+              {visibleRows.map(row => {
+                // Diferencia contada − sistema, en cuanto se escribe la cantidad (sin mostrar el stock del sistema)
+                const raw = counts[row.product_id]?.trim() ?? ''
+                const counted = raw === '' ? NaN : parseFloat(raw.replace(',', '.'))
+                const delta = Number.isNaN(counted) ? null : Math.round((counted - row.current_stock) * 1000) / 1000
+                return (
+                  <div key={row.product_id} className="flex items-center gap-3 px-4 sm:px-6 py-2.5">
+                    <span className="flex-1 min-w-0 text-sm text-black leading-tight sm:truncate">{row.product_name}</span>
+                    <input
+                      type="number" step="0.001" min="0" placeholder="—"
+                      value={counts[row.product_id] ?? ''}
+                      onChange={e => setCounts(prev => ({ ...prev, [row.product_id]: e.target.value }))}
+                      className={`w-24 shrink-0 border rounded-lg px-2.5 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#1E2B28] ${
+                        raw !== '' ? 'border-[#1E2B28] bg-[#1E2B28]/5' : 'border-gray-200'
+                      }`}
+                    />
+                    <span className="text-xs text-gray-600 w-9 sm:w-10 shrink-0">{row.product_unit}</span>
+                    <span
+                      className={`w-16 sm:w-24 shrink-0 text-right text-xs sm:text-sm font-semibold tabular-nums ${
+                        delta === null ? '' : delta === 0 ? 'text-gray-600' : delta > 0 ? 'text-green-600' : 'text-red-500'
+                      }`}
+                      title={delta === null ? undefined : delta === 0 ? 'Coincide con el sistema' : 'Diferencia con el sistema'}
+                    >
+                      {delta === null ? '' : delta === 0 ? '✓ coincide' : `${delta > 0 ? '+' : ''}${String(delta).replace('.', ',')}`}
+                    </span>
+                  </div>
+                )
+              })}
               {visibleRows.length === 0 && <p className="text-center py-8 text-gray-600 text-sm">Sin productos</p>}
             </div>
             <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100">
