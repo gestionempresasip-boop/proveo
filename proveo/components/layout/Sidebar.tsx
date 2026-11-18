@@ -82,7 +82,14 @@ export function Sidebar({ profile }: { profile: ProfileWithOrg }) {
     ...visible.filter(i => !NINA_FOLDER.has(i.label)).map((item): Entry => ({ kind: 'link', label: item.label, item })),
     ...(folderChildren.length > 0 ? [{ kind: 'folder', label: 'Nina', children: folderChildren } as Entry] : []),
   ]
-  if (isNave) entries.sort((a, b) => a.label.localeCompare(b.label, 'es'))
+  // Nave: primero las pestañas en amarillo (Albaranes, Pedidos, Productos, Stock) y debajo el resto; cada grupo en orden alfabético
+  if (isNave) {
+    const rank = (e: Entry) => (e.kind === 'link' && HIGHLIGHT.has(e.label) ? 0 : 1)
+    entries.sort((a, b) => rank(a) - rank(b) || a.label.localeCompare(b.label, 'es'))
+  }
+  // La carpeta Nina va siempre la última, debajo de Usuarios
+  const folderAt = entries.findIndex(e => e.kind === 'folder')
+  if (folderAt >= 0) entries.push(...entries.splice(folderAt, 1))
 
   const orgLabel = isNave ? 'Nave Obrador' : profile.organizations.name
   const orgLogo = ORG_LOGOS[profile.organizations.name]
