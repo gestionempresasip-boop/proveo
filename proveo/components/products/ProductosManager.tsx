@@ -47,7 +47,9 @@ export type Product = {
   notes_enabled?: boolean
   labor_enabled?: boolean
   cost_enabled?: boolean
+  pack_enabled?: boolean
   batch_cost?: number | null
+  packaging_cost?: number | null
   batch_units?: number | null
   labor_hours?: number | null
   client_prices?: { min: number; max: number; count: number } | null
@@ -332,8 +334,10 @@ function PricingCalculator({
   batch_units: initBatch = null,
   labor_hours: initHours = null,
   batch_cost: initBatchCost = null,
+  packaging_cost: initEnvase = null,
   laborEnabled = false,
   costEnabled = false,
+  packEnabled = false,
   isNew = false,
   clientPrices = null,
   unit = null,
@@ -345,8 +349,10 @@ function PricingCalculator({
   batch_units?: number | null
   labor_hours?: number | null
   batch_cost?: number | null
+  packaging_cost?: number | null
   laborEnabled?: boolean
   costEnabled?: boolean
+  packEnabled?: boolean
   isNew?: boolean
   clientPrices?: { min: number; max: number; count: number } | null
   unit?: string | null
@@ -361,6 +367,8 @@ function PricingCalculator({
   const [batchCost, setBatchCost]   = useState(initBatchCost ? String(initBatchCost) : '')
   const [batchUnits, setBatchUnits] = useState(initBatch ? String(initBatch) : '')
   const [laborHours, setLaborHours] = useState(initHours ? String(initHours) : '')
+  // Coste del envase por unidad (bolsa, barqueta, cajón…): se suma a la materia prima de la tanda
+  const [envaseCost, setEnvaseCost] = useState(initEnvase ? String(initEnvase) : '')
   // Producción a granel (kg o l) que luego se envasa en bolsas, barquetas, bandejas…
   const [prodQty, setProdQty]   = useState('')
   const [prodUnit, setProdUnit] = useState('kg')
@@ -377,12 +385,12 @@ function PricingCalculator({
   }
   const toNum = (s: string) => Number(s.replace(',', '.')) || 0
 
-  // Coste total ÷ unidades = coste de materia prima por unidad (se puede corregir a mano en su casilla)
-  function setBatch(field: 'cost' | 'units', v: string) {
+  // Coste total ÷ unidades + envase = coste por unidad (se puede corregir a mano en su casilla)
+  function setBatch(field: 'cost' | 'units' | 'envase', v: string) {
     setTouched(true)
-    const c = toNum(field === 'cost' ? v : batchCost), u = toNum(field === 'units' ? v : batchUnits)
-    if (field === 'cost') setBatchCost(v); else setBatchUnits(v)
-    if (c > 0 && u > 0) setCost(Math.round((c / u) * 10000) / 10000)
+    const c = toNum(field === 'cost' ? v : batchCost), u = toNum(field === 'units' ? v : batchUnits), e = toNum(field === 'envase' ? v : envaseCost)
+    if (field === 'cost') setBatchCost(v); else if (field === 'units') setBatchUnits(v); else setEnvaseCost(v)
+    if (c > 0 && u > 0) setCost(Math.round((c / u + e) * 10000) / 10000)
   }
   const perUnitFromBatch = toNum(batchCost) > 0 && toNum(batchUnits) > 0 ? toNum(batchCost) / toNum(batchUnits) : null
 
@@ -469,6 +477,7 @@ function PricingCalculator({
       {laborEnabled && <input type="hidden" name="batch_units" value={batchUnits} />}
       {laborEnabled && <input type="hidden" name="labor_hours" value={laborHours} />}
       {laborEnabled && costEnabled && <input type="hidden" name="batch_cost" value={batchCost} />}
+      {laborEnabled && costEnabled && packEnabled && <input type="hidden" name="packaging_cost" value={envaseCost} />}
 
       {/* Tanda de producción */}
       <div className="bg-white rounded-lg p-3 border border-amber-200 space-y-2.5">
@@ -491,14 +500,21 @@ function PricingCalculator({
             <input type="text" inputMode="decimal" value={laborHours} onChange={e => { setTouched(true); setLaborHours(e.target.value) }}
               placeholder="Ej: 6" className={small} />
           </div>
-          <div className="flex items-end">
-            <p className="text-[11px] text-gray-600 tabular-nums pb-1.5">
-              {perUnitFromBatch != null
-                ? <>Materia prima por unidad: <b className="text-black">{eur(perUnitFromBatch)} €</b></>
-                : 'Total ÷ unidades = coste por unidad'}
-            </p>
+          <div>
+            <label className="text-[11px] text-gray-700 font-medium block mb-0.5">Coste del envase (€ por unidad)</label>
+            {packEnabled || isNew ? (
+              <input type="text" inputMode="decimal" value={envaseCost} onChange={e => setBatch('envase', e.target.value)}
+                placeholder="Ej: 0,15 (bolsa, barqueta…)" className={small} />
+            ) : (
+              <p className="text-[11px] text-gray-600 py-1.5">Aún no se guarda: falta ejecutar el SQL del coste de envase en Supabase.</p>
+            )}
           </div>
         </div>
+        <p className="text-[11px] text-gray-600 tabular-nums">
+          {perUnitFromBatch != null
+            ? <>Materia prima <b className="text-black">{eur(perUnitFromBatch)} €</b>{toNum(envaseCost) > 0 && <> + envase <b className="text-black">{eur(toNum(envaseCost))} €</b></>} = <b className="text-black">{eur(perUnitFromBatch + toNum(envaseCost))} € por unidad</b></>
+            : 'Total ÷ unidades + envase = coste por unidad (rellena el coste y las unidades de la tanda)'}
+        </p>
         {showPack && (
           <div className="rounded-lg bg-amber-50/70 border border-amber-100 p-2.5 space-y-2">
             <p className="text-[11px] font-semibold text-gray-700">¿Se produce a granel y luego se envasa en «{unitName}»?</p>
@@ -972,6 +988,8 @@ function EditModal({
               batch_cost={product.batch_cost}
               laborEnabled={product.labor_enabled}
               costEnabled={product.cost_enabled}
+              packaging_cost={product.packaging_cost}
+              packEnabled={product.pack_enabled}
               clientPrices={product.client_prices}
               unit={product.unit}
             />

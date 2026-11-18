@@ -151,6 +151,8 @@ export async function updateProduct(productId: string, formData: FormData) {
       : null
     // Coste total de la tanda: solo se envía si existe la columna (el formulario no trae el campo si falta el SQL)
     if (labor && formData.has('batch_cost')) labor.batch_cost = positiveOrNull(formData.get('batch_cost'))
+    // Coste del envase por unidad (bolsa, barqueta…): solo se envía si existe la columna
+    if (labor && formData.has('packaging_cost')) labor.packaging_cost = positiveOrNull(formData.get('packaging_cost'))
     await saveInternalNotes(sb, productId, String(formData.get('internal_notes') ?? ''), labor)
   }
   revalidatePath('/admin/productos')
