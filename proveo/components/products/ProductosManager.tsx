@@ -400,7 +400,15 @@ function PricingCalculator({
   const toNum = (s: string) => Number(s.replace(',', '.')) || 0
 
   // Coste total ÷ unidades + envase = coste por unidad (se puede corregir a mano en su casilla)
+  // Producto que ya tiene precio: al tocar tanda, horas o envase el precio NO se mueve (si no, el mismo margen
+  // lo subiría solo al crecer el coste). Se queda fijo y lo que cambia es el margen que se ve.
+  function freezePrice() {
+    if (isNew || source !== 'margin') return
+    const p = !touched && fallbackPrice > 0 ? fallbackPrice : priceNoIva
+    if (p > 0) { setSource('sin'); setTyped(String(Math.round(p * 10000) / 10000)) }
+  }
   function applyBatch(p: { cost?: string; units?: string; envase?: string }) {
+    freezePrice()
     setTouched(true)
     const c = toNum(p.cost ?? batchCost), u = toNum(p.units ?? batchUnits), e = toNum(p.envase ?? envaseCost)
     if (p.cost !== undefined) setBatchCost(p.cost)
@@ -571,7 +579,7 @@ function PricingCalculator({
           </div>
           <div>
             <label className="text-[11px] text-gray-700 font-medium block mb-0.5">Horas de trabajo</label>
-            <input type="text" inputMode="decimal" value={laborHours} onChange={e => { setTouched(true); setLaborHours(e.target.value) }}
+            <input type="text" inputMode="decimal" value={laborHours} onChange={e => { freezePrice(); setTouched(true); setLaborHours(e.target.value) }}
               placeholder="Ej: 6" className={small} />
           </div>
           <div>
