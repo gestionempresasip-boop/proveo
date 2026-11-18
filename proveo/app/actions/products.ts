@@ -82,7 +82,7 @@ export async function createProduct(formData: FormData) {
 
 // Notas internas (solo nave): viven en su propia tabla con RLS para que ningún restaurante pueda leerlas.
 // Si el formulario trae la tanda y las horas (batch_units / labor_hours) se guardan en la misma fila.
-async function saveInternalNotes(sb: any, productId: string, notes: string, labor: Record<string, number | null> | null) {
+async function saveInternalNotes(sb: any, productId: string, notes: string, labor: Record<string, unknown> | null) {
   const text = notes.trim()
   const hasLabor = !!labor && Object.values(labor).some(v => v != null)
   const { data: { user } } = await sb.auth.getUser()
@@ -90,6 +90,25 @@ async function saveInternalNotes(sb: any, productId: string, notes: string, labo
     ? await sb.from('product_internal_notes').upsert({ product_id: productId, notes: text, updated_at: new Date().toISOString(), updated_by: user?.id ?? null, ...(labor ?? {}) }, { onConflict: 'product_id' })
     : await sb.from('product_internal_notes').delete().eq('product_id', productId)
   if (res.error) throw new Error('El producto se guardó, pero no las notas internas ni la tanda (falta ejecutar el SQL en Supabase).')
+}
+
+// Ingredientes de la tanda y datos del envasado (JSON del formulario). Se valida y se recorta lo que venga.
+function parseBatchDetail(raw: FormDataEntryValue | null) {
+  const text = String(raw ?? '').trim()
+  if (!text) return null
+  try {
+    const d = JSON.parse(text) as Record<string, unknown>
+    const str = (v: unknown, n: number) => String(v ?? '').slice(0, n)
+    const unitOf = (v: unknown, allowed: string[], fallback: string) => (typeof v === 'string' && allowed.includes(v) ? v : fallback)
+    const rows = Array.isArray(d.items) ? (d.items as Record<string, unknown>[]).slice(0, 40) : []
+    const items = rows.map(i => ({ name: str(i?.name, 80), qty: str(i?.qty, 20), unit: unitOf(i?.unit, ['kg', 'g', 'l', 'ml', 'ud'], 'kg'), cost: str(i?.cost, 20) }))
+    const out = {
+      items,
+      prodQty: str(d.prodQty, 20), prodUnit: unitOf(d.prodUnit, ['kg', 'l', 'ud'], 'kg'),
+      packQty: str(d.packQty, 20), packUnit: unitOf(d.packUnit, ['g', 'kg', 'ml', 'l', 'ud'], 'g'),
+    }
+    return items.length > 0 || out.prodQty || out.packQty ? out : null
+  } catch { return null }
 }
 
 const positiveOrNull = (v: FormDataEntryValue | null) => {
@@ -146,13 +165,15 @@ export async function updateProduct(productId: string, formData: FormData) {
   if (error) throw new Error(error.message)
   await syncProductCategories(sb, productId, category_ids)
   if (formData.has('internal_notes')) {
-    const labor: Record<string, number | null> | null = formData.has('batch_units') || formData.has('labor_hours')
+    const labor: Record<string, unknown> | null = formData.has('batch_units') || formData.has('labor_hours')
       ? { batch_units: positiveOrNull(formData.get('batch_units')), labor_hours: positiveOrNull(formData.get('labor_hours')) }
       : null
     // Coste total de la tanda: solo se envía si existe la columna (el formulario no trae el campo si falta el SQL)
     if (labor && formData.has('batch_cost')) labor.batch_cost = positiveOrNull(formData.get('batch_cost'))
     // Coste del envase por unidad (bolsa, barqueta…): solo se envía si existe la columna
     if (labor && formData.has('packaging_cost')) labor.packaging_cost = positiveOrNull(formData.get('packaging_cost'))
+    // Ingredientes y envasado: solo se envía si existe la columna
+    if (labor && formData.has('batch_detail')) labor.batch_detail = parseBatchDetail(formData.get('batch_detail'))
     await saveInternalNotes(sb, productId, String(formData.get('internal_notes') ?? ''), labor)
   }
   revalidatePath('/admin/productos')
