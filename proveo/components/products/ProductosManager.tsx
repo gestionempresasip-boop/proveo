@@ -361,6 +361,11 @@ function PricingCalculator({
   const [batchCost, setBatchCost]   = useState(initBatchCost ? String(initBatchCost) : '')
   const [batchUnits, setBatchUnits] = useState(initBatch ? String(initBatch) : '')
   const [laborHours, setLaborHours] = useState(initHours ? String(initHours) : '')
+  // Producción a granel (kg o l) que luego se envasa en bolsas, barquetas, bandejas…
+  const [prodQty, setProdQty]   = useState('')
+  const [prodUnit, setProdUnit] = useState('kg')
+  const [packQty, setPackQty]   = useState('')
+  const [packUnit, setPackUnit] = useState('g')
   const [assume, setAssume] = useState<PricingAssumptions>(loadAssumptions)
   const [showAssume, setShowAssume] = useState(false)
   const [openReco, setOpenReco] = useState(false)
@@ -396,6 +401,24 @@ function PricingCalculator({
   const unitName = unit ? unitLabel(unit) : null
   const packKg = unit ? kgPerUnit(unit) : null
   const eur = (n: number) => (n < 1 ? n.toFixed(3) : n.toFixed(2)).replace('.', ',')
+
+  // Se produce a granel (kg o l) y luego se envasa: salen  total producido ÷ contenido de cada envase
+  const FACTOR: Record<string, number> = { kg: 1, g: 0.001, l: 1, ml: 0.001 }
+  const familyOf = (u: string) => (u === 'kg' || u === 'g' ? 'peso' : 'volumen')
+  const showPack = !!unit && !['kg', 'g', 'l', 'ml'].includes(unit)
+  const prodBase = toNum(prodQty) * FACTOR[prodUnit]
+  const packBase = packKg != null ? packKg : toNum(packQty) * FACTOR[packUnit]
+  const packFamily = packKg != null ? 'peso' : familyOf(packUnit)
+  const packMismatch = prodBase > 0 && packBase > 0 && familyOf(prodUnit) !== packFamily
+  function setProd(next: { q?: string; u?: string; pq?: string; pu?: string }) {
+    const q = next.q ?? prodQty, u = next.u ?? prodUnit, pq = next.pq ?? packQty, pu = next.pu ?? packUnit
+    setProdQty(q); setProdUnit(u); setPackQty(pq); setPackUnit(pu)
+    const b = toNum(q) * FACTOR[u]
+    const pb = packKg != null ? packKg : toNum(pq) * FACTOR[pu]
+    const sameFamily = (packKg != null ? 'peso' : familyOf(pu)) === familyOf(u)
+    if (b > 0 && pb > 0 && sameFamily) setBatch('units', String(Math.round((b / pb) * 100) / 100))
+  }
+  const costPerBulk = toNum(batchCost) > 0 && prodBase > 0 ? toNum(batchCost) / prodBase : null
 
   // Se puede partir del margen, del precio sin IVA o del precio final (con IVA): lo último que
   // escribas manda y los otros dos se calculan solos. «typed» es el texto del campo que mandas.
@@ -476,16 +499,54 @@ function PricingCalculator({
             </p>
           </div>
         </div>
+        {showPack && (
+          <div className="rounded-lg bg-amber-50/70 border border-amber-100 p-2.5 space-y-2">
+            <p className="text-[11px] font-semibold text-gray-700">¿Se produce a granel y luego se envasa en «{unitName}»?</p>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[11px] text-gray-700 font-medium block mb-0.5">Total producido</label>
+                <div className="flex gap-1.5">
+                  <input type="text" inputMode="decimal" value={prodQty} onChange={e => setProd({ q: e.target.value })}
+                    placeholder="Ej: 30" aria-label="Total producido" className={small} />
+                  <select value={prodUnit} onChange={e => setProd({ u: e.target.value })} aria-label="Unidad producida"
+                    className="border border-amber-200 bg-white rounded-lg px-1.5 py-1.5 text-sm">
+                    <option value="kg">kg</option><option value="l">l</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                {packKg != null ? (
+                  <>
+                    <label className="text-[11px] text-gray-700 font-medium block mb-0.5">Contenido de cada «{unitName}»</label>
+                    <p className="text-sm text-black py-1.5">{packKg} kg (ya lo sabe)</p>
+                  </>
+                ) : (
+                  <>
+                    <label className="text-[11px] text-gray-700 font-medium block mb-0.5">Cada «{unitName}» lleva</label>
+                    <div className="flex gap-1.5">
+                      <input type="text" inputMode="decimal" value={packQty} onChange={e => setProd({ pq: e.target.value })}
+                        placeholder="Ej: 430" aria-label="Contenido de cada envase" className={small} />
+                      <select value={packUnit} onChange={e => setProd({ pu: e.target.value })} aria-label="Unidad del envase"
+                        className="border border-amber-200 bg-white rounded-lg px-1.5 py-1.5 text-sm">
+                        <option value="g">g</option><option value="kg">kg</option><option value="ml">ml</option><option value="l">l</option>
+                      </select>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+            {packMismatch && <p className="text-[11px] text-red-600 font-semibold">Usa peso (kg/g) o volumen (l/ml) en los dos lados.</p>}
+            {!packMismatch && prodBase > 0 && packBase > 0 && toNum(batchUnits) > 0 && (
+              <p className="text-[11px] text-gray-700 tabular-nums">
+                {prodQty} {prodUnit} ÷ {packKg != null ? packKg + ' kg' : packQty + ' ' + packUnit} = <b className="text-black">{toNum(batchUnits)} «{unitName}»</b>
+                {costPerBulk != null && <> · coste a granel: <b className="text-black">{eur(costPerBulk)} €/{familyOf(prodUnit) === 'peso' ? 'kg' : 'l'}</b></>}
+              </p>
+            )}
+            <p className="text-[11px] text-gray-500">Rellena estos dos datos y «Cuántas salen» se calcula solo (también puedes escribirlo tú). Estos dos no se guardan, solo el resultado.</p>
+          </div>
+        )}
         <p className="text-[11px] text-gray-500">
           Las horas son la suma de todas las personas (2 personas × 2 horas = 4 horas). La tanda se cuenta en {unitName ? <>«{unitName}»</> : 'la unidad en la que se vende'}.{' '}
-          {packKg != null && packKg !== 1 && (
-            <>¿Lo tienes en kilos?{' '}
-              <input type="text" inputMode="decimal" placeholder="kg de la tanda" aria-label="Kilos totales de la tanda"
-                onChange={e => { const kg = toNum(e.target.value); setBatch('units', kg > 0 ? String(Math.round((kg / packKg) * 100) / 100) : '') }}
-                className="w-24 border border-amber-200 rounded px-1.5 py-0.5 text-[11px] align-baseline" />{' '}
-              y se convierte solo.{' '}</>
-          )}
-          {unit === 'bolsa' && <>Si tienes los kilos, divídelos por lo que pesa cada bolsa (37 kg ÷ 0,15 kg = 246 bolsas).{' '}</>}
           {laborEnabled
             ? (costEnabled || isNew ? 'Se guardan con el producto.' : 'El coste total de la tanda aún no se guarda: falta ejecutar el SQL del coste de tanda en Supabase (el coste por unidad sí).')
             : isNew ? 'Se guardan al editar el producto.' : 'Aún no se guardan: falta ejecutar el SQL de tanda y horas en Supabase.'}
