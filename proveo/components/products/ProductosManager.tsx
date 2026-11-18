@@ -14,7 +14,7 @@ import { setFavoriteProduct, setFavoriteProductsBatch } from '@/app/actions/favo
 import { unlockProducts, lockProducts, setCategoryProtected } from '@/app/actions/productsGate'
 import { UNIT_OPTIONS, unitLabel, kgPerUnit } from '@/lib/units'
 import { getProductCostHistory, getLastCostChanges, type CostHistoryEntry, type LastCostChange } from '@/app/actions/priceLog'
-import { recommendPrices, roundPrice, DEFAULT_ASSUMPTIONS, type PricingAssumptions } from '@/lib/priceRecommendation'
+import { recommendPrices, DEFAULT_ASSUMPTIONS, type PricingAssumptions } from '@/lib/priceRecommendation'
 import { Pager, usePaged } from '@/components/ui/Pager'
 import { ExportMenu } from '@/components/stats/ExportMenu'
 import { exportReportExcel, exportReportPDF, type ReportSection } from '@/lib/reportExport'
@@ -416,7 +416,6 @@ function PricingCalculator({
     : source === 'sin'  ? num
     : num / (1 + ivaPct / 100)
   const priceConIva = source === 'con' ? num : priceNoIva * (1 + ivaPct / 100)
-  const ivaAmount   = priceConIva - priceNoIva
   const margin = source === 'margin' ? num : (base > 0 && priceNoIva > 0 ? (priceNoIva / base - 1) * 100 : 0)
 
   // Lo que se guarda: el margen de la base de datos sigue siendo sobre el coste de materia (lo usan Informes, Precios en masa…)
@@ -428,19 +427,6 @@ function PricingCalculator({
   const edit = (s: Source) => (e: React.ChangeEvent<HTMLInputElement>) => { setTouched(true); setSource(s); setTyped(e.target.value) }
   const field = 'w-full border border-amber-200 bg-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400'
   const small = 'w-full border border-amber-200 bg-white rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400'
-
-  // Precio sin IVA por tipo de cliente: el del grupo es el que escribes; los otros dos salen de él con la
-  // diferencia de recargos de «supuestos» (directo +15 puntos, distribuidor −10 por defecto)
-  const tierRows = base > 0 && priceNoIva > 0
-    ? ([
-        ['grupo', 'Restaurantes del grupo', 0, null],
-        ['distribuidor', 'Distribuidores', assume.distribuidorPct - assume.grupoPct, clientPrices && clientPrices.count > 0 ? clientPrices.min : null],
-        ['directo', 'Cliente final', assume.directoPct - assume.grupoPct, null],
-      ] as const).map(([key, label, gap, today]) => {
-        const price = key === 'grupo' ? priceNoIva : Math.max(0, roundPrice(base * (1 + (margin + gap) / 100)))
-        return { key, label, price, profit: price - base, mpct: base > 0 ? (price / base - 1) * 100 : 0, today }
-      })
-    : null
 
   return (
     <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
@@ -575,59 +561,13 @@ function PricingCalculator({
         </select>
       </div>
 
-      {/* Calculated breakdown */}
-      <div className="bg-white rounded-lg p-3 border border-amber-100 space-y-1.5">
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-700">Precio venta <span className="text-xs text-gray-600">(sin IVA)</span></span>
-          <span className="font-semibold text-black tabular-nums">{priceNoIva.toFixed(4)} €</span>
-        </div>
-        <div className="flex justify-between text-xs text-gray-600 tabular-nums">
-          <span>+ IVA {ivaPct}%</span>
-          <span>+ {ivaAmount.toFixed(4)} €</span>
-        </div>
-        <div className="flex justify-between items-baseline border-t border-amber-100 pt-1.5">
-          <span className="text-sm font-semibold text-black">Precio final (con IVA)</span>
-          <span className="text-xl font-bold text-[#1E2B28] tabular-nums">{priceConIva.toFixed(2)} €</span>
-        </div>
-        {base > 0 && priceNoIva > 0 && (
-          <div className="flex justify-between text-xs text-gray-600 tabular-nums pt-0.5">
-            <span>Margen sobre el {baseLabel}</span>
-            <span className={'font-semibold ' + (margin < 0 ? 'text-red-600' : 'text-amber-800')}>{margin.toFixed(2)} %</span>
-          </div>
-        )}
-        <p className="text-xs text-gray-600 pt-0.5">Este es el precio que verán los restaurantes</p>
-
-        {tierRows && (
-          <div className="border-t border-amber-100 pt-2 mt-1 space-y-1.5">
-            <p className="text-[11px] font-semibold text-gray-700 uppercase tracking-wide">Precio sin IVA por tipo de cliente</p>
-            {tierRows.map(t => {
-              const losing = t.profit < 0
-              const below = t.today != null && t.today < t.price * 0.995
-              return (
-                <div key={t.key} className="flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-sm text-black">{t.label}</p>
-                    <p className="text-[11px] text-gray-600 tabular-nums">
-                      {t.mpct.toFixed(0)} % sobre el {baseLabel} · beneficio {eur(t.profit)} €/ud
-                      {losing && <span className="text-red-600 font-semibold"> — por debajo del coste</span>}
-                      {t.today != null && (
-                        <span className={below ? 'text-red-600 font-semibold' : ''}>
-                          {' · hoy '}{eur(t.today)} €{clientPrices && clientPrices.max !== clientPrices.min ? ' (mín.)' : ''}{below ? ' — por debajo' : ''}
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                  <span className="text-base font-bold text-[#1E2B28] tabular-nums shrink-0">{eur(t.price)} €</span>
-                </div>
-              )
-            })}
-            <p className="text-[11px] text-gray-500">
-              El de restaurantes es el precio que escribes. Distribuidor y cliente final salen de él con la diferencia de recargos de «supuestos»
-              ({assume.distribuidorPct - assume.grupoPct > 0 ? '+' : ''}{assume.distribuidorPct - assume.grupoPct} puntos y +{assume.directoPct - assume.grupoPct}).
-            </p>
-          </div>
-        )}
-      </div>
+      {/* Resumen: el precio final y el margen ya están en las casillas de arriba */}
+      {base > 0 && priceNoIva > 0 && (
+        <p className="text-xs text-gray-600">
+          Este es el precio que verán los restaurantes.
+          {margin < 0 && <span className="text-red-600 font-semibold"> Está por debajo del {baseLabel}.</span>}
+        </p>
+      )}
 
       {/* Precio recomendado por tipo de cliente */}
       <div className="bg-white rounded-lg p-3 border border-amber-200 space-y-2.5">
