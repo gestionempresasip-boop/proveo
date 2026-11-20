@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { FileText, Trash2, Undo2, Search, X, ChevronRight, Printer } from 'lucide-react'
 import { deleteDeliveryNote } from '@/app/actions/orders'
 import { cn } from '@/lib/utils'
-import { Pager, usePaged } from '@/components/ui/Pager'
+import { Pager, PagerTop, usePaged } from '@/components/ui/Pager'
 
 type Note = {
   id: string
@@ -356,6 +356,7 @@ export function AlbaranesClient({ notes: initialNotes, isNave }: { notes: Note[]
         </div>
       ) : (
         <div className="space-y-5">
+          <PagerTop {...paged} />
           {months.map(([key, m]) => {
             const rows = m.notes.filter(n => visibleIds.has(n.id))
             if (rows.length === 0) return null

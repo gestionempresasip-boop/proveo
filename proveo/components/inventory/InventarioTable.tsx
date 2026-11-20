@@ -10,7 +10,7 @@ import { MovementsTab } from './MovementsTab'
 import { StockCountFlow } from './StockCountFlow'
 import { PurchaseSuggestionTab } from './PurchaseSuggestionTab'
 import { AlertTriangle, CheckCircle2, XCircle, Save, ChevronDown, ChevronUp, History, Package, Download, ListChecks, X, Check, FileSpreadsheet, Trash2, Shield, ArrowUp, PackageOpen, ClipboardList, ShoppingCart, Search, Minus, Plus } from 'lucide-react'
-import { Pager, usePaged } from '@/components/ui/Pager'
+import { Pager, PagerTop, usePaged } from '@/components/ui/Pager'
 import { unitLabel } from '@/lib/units'
 
 type InventoryRow = {
@@ -1039,6 +1039,7 @@ export function InventarioTable({
               </button>
             </div>
           )}
+          <PagerTop {...paged} />
           {Object.entries(byCategory).map(([cat, group]) => {
             const isOpen = openCategories[cat] !== false
             const pageRows = group.rows.filter(r => pageIds.has(r.product_id))

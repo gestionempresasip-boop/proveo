@@ -11,7 +11,7 @@ import { eur, pct } from '@/lib/finance'
 import { cn } from '@/lib/utils'
 import { errorMessage } from '@/lib/errors'
 import { HistorialTandas } from './HistorialTandas'
-import { Pager, usePaged } from '@/components/ui/Pager'
+import { Pager, PagerTop, usePaged } from '@/components/ui/Pager'
 import { SettingsPanel } from './SettingsPanel'
 import { SheetEditor } from './SheetEditor'
 import { TiemposMedidos } from './TiemposMedidos'
@@ -239,6 +239,7 @@ export function CostesClient({
               ))}
             </div>
 
+            <PagerTop {...pagedRows} />
             <div className="bg-white rounded-2xl border border-gray-100 overflow-x-auto">
               <table className="w-full text-sm min-w-[760px]">
                 <thead>

@@ -15,7 +15,7 @@ import { unlockProducts, lockProducts, setCategoryProtected } from '@/app/action
 import { UNIT_OPTIONS, unitLabel, kgPerUnit } from '@/lib/units'
 import { getProductCostHistory, getLastCostChanges, type CostHistoryEntry, type LastCostChange } from '@/app/actions/priceLog'
 import { recommendPrices, DEFAULT_ASSUMPTIONS, type PricingAssumptions } from '@/lib/priceRecommendation'
-import { Pager, usePaged } from '@/components/ui/Pager'
+import { Pager, PagerTop, usePaged } from '@/components/ui/Pager'
 import { ExportMenu } from '@/components/stats/ExportMenu'
 import { exportReportExcel, exportReportPDF, type ReportSection } from '@/lib/reportExport'
 
@@ -1794,6 +1794,7 @@ function FavoritosManager({
       </p>
 
       <div className="space-y-3">
+        <PagerTop {...pagedFav} />
         {byCategory.filter(g => g.products.some(p => favVisible.has(`${g.id}:${p.id}`))).map(group => (
           <div key={group.id} className="bg-white rounded-xl border border-gray-100 overflow-hidden">
             <div className="flex items-center gap-2 px-4 py-2.5 bg-gray-50 border-b border-gray-100">
@@ -2521,6 +2522,7 @@ export function ProductosManager({
             {gate && <GateBar gate={gate} onUnlock={() => setShowCode(true)} />}
 
             <div className="space-y-3">
+              <PagerTop {...pagedList} />
               {grouped.map(g => {
                 const pageProducts = g.products.filter(p => pageKeys.has(`${g.id}:${p.id}`))
                 if (g.products.length > 0 && pageProducts.length === 0) return null // sin filas en esta página
@@ -2648,6 +2650,7 @@ export function ProductosManager({
             {buscarResults.length > 0 ? (
               <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
                 <>
+                  <PagerTop {...pagedBuscar} className="px-4 pt-3" />
                   <ProductsTable products={pagedBuscar.pageItems} categories={categories} isNave={isNave} onEdit={setEditProduct} />
                   <Pager {...pagedBuscar} noun="productos" className="px-4 pb-3" />
                 </>

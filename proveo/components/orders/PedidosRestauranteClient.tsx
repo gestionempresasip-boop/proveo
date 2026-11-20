@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 import { unitLabel } from '@/lib/units'
 import { OrderChat } from '@/components/orders/OrderChat'
 import { ReturnSheet, type ReturnLine } from '@/components/orders/ReturnSheet'
-import { Pager, usePaged } from '@/components/ui/Pager'
+import { Pager, PagerTop, usePaged } from '@/components/ui/Pager'
 
 const STATUS_STYLE: Record<string, { label: string; cls: string }> = {
   pendiente:      { label: 'Pendiente',      cls: 'bg-yellow-100 text-yellow-800' },
@@ -409,6 +409,7 @@ export function PedidosRestauranteClient({ orders: initialOrders, deletedOrders 
         </div>
       ) : (
         <div className="space-y-3">
+          <PagerTop {...paged} />
           {groups.map(([key, group], idx) => {
             const rows = group.filter(o => visibleIds.has(o.id))
             if (rows.length === 0) return null

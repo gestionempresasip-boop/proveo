@@ -7,7 +7,7 @@ import { deleteRun, type RunHistoryItem } from '@/app/actions/production'
 import { fmtDuration } from '@/lib/productionTime'
 import { cn } from '@/lib/utils'
 import { field } from './ui'
-import { Pager, usePaged } from '@/components/ui/Pager'
+import { Pager, PagerTop, usePaged } from '@/components/ui/Pager'
 
 export function HistorialTandas({ history, filter, onFilter }: { history: RunHistoryItem[]; filter: string; onFilter: (v: string) => void }) {
   const router = useRouter()
@@ -49,6 +49,7 @@ export function HistorialTandas({ history, filter, onFilter }: { history: RunHis
         <input value={filter} onChange={e => onFilter(e.target.value)} placeholder="Filtrar por producto…" className={cn(field, 'pl-9')} />
       </div>
       {msg && <p className="text-sm rounded-xl bg-green-50 border border-green-200 text-green-800 px-3.5 py-2.5">{msg}</p>}
+      <PagerTop {...paged} />
       <div className="bg-white rounded-2xl border border-gray-100 divide-y divide-gray-100 overflow-hidden">
         {shown.length === 0 && <p className="px-4 py-8 text-center text-gray-600 text-sm">No hay tandas con ese producto.</p>}
         {paged.pageItems.map(h => {

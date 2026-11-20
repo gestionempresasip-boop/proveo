@@ -60,6 +60,24 @@ function pageList(page: number, pages: number): (number | '…')[] {
   return out
 }
 
+/** Versión compacta para poner ARRIBA a la derecha de la lista: «1–10 de 48  ‹ Página 1 de 5 ›». Se oculta si solo hay una página. */
+export function PagerTop({ page, pages, total, from, to, setPage, className }: Pick<PagerProps, 'page' | 'pages' | 'total' | 'from' | 'to' | 'setPage' | 'className'>) {
+  if (pages <= 1) return null
+  const btn = 'w-9 h-9 rounded-lg border border-gray-200 bg-white text-gray-700 flex items-center justify-center hover:border-[#1E2B28] transition-colors disabled:opacity-40 disabled:hover:border-gray-200'
+  return (
+    <nav aria-label="Cambiar de página" className={cn('flex items-center justify-end gap-2', className)}>
+      <span className="hidden sm:inline text-xs text-gray-600 tabular-nums">{from}–{to} de {total.toLocaleString('es-ES')}</span>
+      <button onClick={() => setPage(page - 1)} disabled={page <= 1} aria-label="Página anterior" className={btn}>
+        <ChevronLeft className="w-4 h-4" />
+      </button>
+      <span className="text-sm font-semibold text-black tabular-nums whitespace-nowrap">Página {page} de {pages}</span>
+      <button onClick={() => setPage(page + 1)} disabled={page >= pages} aria-label="Página siguiente" className={btn}>
+        <ChevronRight className="w-4 h-4" />
+      </button>
+    </nav>
+  )
+}
+
 export function Pager({ page, pages, size, total, from, to, setPage, setSize, noun = 'resultados', className }: PagerProps) {
   if (total <= PAGE_SIZES[0] && size === PAGE_SIZES[0]) return null // menos de una página: no hace falta
   const btn = 'min-w-[40px] h-10 px-2 rounded-lg text-sm font-semibold border transition-colors flex items-center justify-center'

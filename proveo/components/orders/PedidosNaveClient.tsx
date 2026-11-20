@@ -7,7 +7,7 @@ import type { OrderStatus } from '@/app/actions/orders'
 import { unitLabel } from '@/lib/units'
 import { getOrdersSince, getTrashOrders } from '@/app/actions/ordersList'
 import { OrderChat } from '@/components/orders/OrderChat'
-import { Pager, usePaged } from '@/components/ui/Pager'
+import { Pager, PagerTop, usePaged } from '@/components/ui/Pager'
 import { boxWordOf, boxPlural } from '@/lib/boxLabel'
 import {
   Calendar, Filter, ChevronDown, MessageCircle, Printer,
@@ -895,6 +895,7 @@ export function PedidosNaveClient({ orders: initialOrders, trashCount, loadedFro
             <p className="text-center py-10 text-gray-600 text-sm">No hay pedidos eliminados</p>
           ) : (
             <div className="divide-y divide-gray-50">
+              <div className="px-4 pt-3"><PagerTop {...pagedTrash} /></div>
               {pagedTrash.pageItems.map(o => (
                 <div key={o.id} className="p-4 flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -1021,6 +1022,7 @@ export function PedidosNaveClient({ orders: initialOrders, trashCount, loadedFro
             Pendientes de días anteriores ({pastPending.length})
           </h2>
           <div className="space-y-3">
+            <PagerTop {...pagedPast} />
             {pagedPast.pageItems.map(o => <OrderCard key={o.id} order={o} onDeleted={handleDeleted} onStatusChange={handleStatusChange} onRectified={handleRectified} onItemCanceled={handleItemCanceled} onPreparedChange={handlePreparedChange} onLotChange={handleLotChange} onWeightChange={handleWeightChange} onBoxExactUnitsChange={handleBoxExactUnitsChange} currentUserId={currentUserId} />)}
             <Pager {...pagedPast} noun="pedidos" />
           </div>
@@ -1043,6 +1045,7 @@ export function PedidosNaveClient({ orders: initialOrders, trashCount, loadedFro
           </div>
         ) : (
           <div className="space-y-3">
+            <PagerTop {...pagedToday} />
             {pagedToday.pageItems.map(o => <OrderCard key={o.id} order={o} onDeleted={handleDeleted} onStatusChange={handleStatusChange} onRectified={handleRectified} onItemCanceled={handleItemCanceled} onPreparedChange={handlePreparedChange} onLotChange={handleLotChange} onWeightChange={handleWeightChange} onBoxExactUnitsChange={handleBoxExactUnitsChange} currentUserId={currentUserId} />)}
             <Pager {...pagedToday} noun="pedidos" />
           </div>
