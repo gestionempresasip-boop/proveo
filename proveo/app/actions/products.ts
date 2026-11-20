@@ -102,12 +102,15 @@ function parseBatchDetail(raw: FormDataEntryValue | null) {
     const unitOf = (v: unknown, allowed: string[], fallback: string) => (typeof v === 'string' && allowed.includes(v) ? v : fallback)
     const rows = Array.isArray(d.items) ? (d.items as Record<string, unknown>[]).slice(0, 40) : []
     const items = rows.map(i => ({ name: str(i?.name, 80), qty: str(i?.qty, 20), unit: unitOf(i?.unit, ['kg', 'g', 'l', 'ml', 'ud'], 'kg'), cost: str(i?.cost, 20) }))
+    const packRows = Array.isArray(d.packs) ? (d.packs as Record<string, unknown>[]).slice(0, 20) : []
+    const packs = packRows.map(p => ({ n: str(p?.n, 20), qty: str(p?.qty, 20), unit: unitOf(p?.unit, ['g', 'kg', 'ml', 'l', 'ud'], 'g'), cost: str(p?.cost, 20) }))
     const out = {
       items,
       prodQty: str(d.prodQty, 20), prodUnit: unitOf(d.prodUnit, ['kg', 'l', 'ud'], 'kg'),
       packQty: str(d.packQty, 20), packUnit: unitOf(d.packUnit, ['g', 'kg', 'ml', 'l', 'ud'], 'g'),
+      packs, envN: str(d.envN, 20), envEach: str(d.envEach, 20),
     }
-    return items.length > 0 || out.prodQty || out.packQty ? out : null
+    return items.length > 0 || out.prodQty || out.packQty || packs.length > 0 || out.envN || out.envEach ? out : null
   } catch { return null }
 }
 
