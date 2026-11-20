@@ -37,10 +37,9 @@ type InventoryRow = {
 }
 type Category = { id: string; name: string; color: string | null }
 
-// Recuento: no se muestra el stock que dice el sistema, solo la diferencia
-// (contado − sistema) junto a cada cantidad en cuanto se escribe. Antes de
-// aplicar nada hay una pantalla de revisión, así se puede cancelar si algo no
-// cuadra en vez de corregir a ciegas como con la edición normal de stock.
+// Recuento a ciegas: mientras se cuenta no se muestra el stock del sistema ni la diferencia.
+// Las diferencias (contado − sistema) aparecen solo en la pantalla de revisión, donde se puede
+// cancelar si algo no cuadra antes de aplicar nada, en vez de corregir a ciegas como en la edición normal.
 export function StockCountFlow({ rows, categories, onClose, onApplied }: {
   rows: InventoryRow[]; categories: Category[]; onClose: () => void; onApplied: () => void
 }) {
@@ -173,10 +172,8 @@ export function StockCountFlow({ rows, categories, onClose, onApplied }: {
             </div>
             <div className="max-h-[26rem] overflow-y-auto divide-y divide-gray-50">
               {visibleRows.map(row => {
-                // Diferencia contada − sistema, en cuanto se escribe la cantidad (sin mostrar el stock del sistema)
+                // Aquí NO se muestra el stock del sistema ni la diferencia: así quien cuenta no sabe cuánto debería haber
                 const raw = counts[row.product_id]?.trim() ?? ''
-                const counted = raw === '' ? NaN : parseFloat(raw.replace(',', '.'))
-                const delta = Number.isNaN(counted) ? null : Math.round((counted - row.current_stock) * 1000) / 1000
                 return (
                   <div key={row.product_id} className="flex items-center gap-3 px-4 sm:px-6 py-2.5">
                     <span className="flex-1 min-w-0 text-sm text-black leading-tight sm:truncate">{row.product_name}</span>
@@ -189,14 +186,6 @@ export function StockCountFlow({ rows, categories, onClose, onApplied }: {
                       }`}
                     />
                     <span className="text-xs text-gray-600 w-9 sm:w-10 shrink-0">{row.product_unit}</span>
-                    <span
-                      className={`w-16 sm:w-24 shrink-0 text-right text-xs sm:text-sm font-semibold tabular-nums ${
-                        delta === null ? '' : delta === 0 ? 'text-gray-600' : delta > 0 ? 'text-green-600' : 'text-red-500'
-                      }`}
-                      title={delta === null ? undefined : delta === 0 ? 'Coincide con el sistema' : 'Diferencia con el sistema'}
-                    >
-                      {delta === null ? '' : delta === 0 ? '✓ coincide' : `${delta > 0 ? '+' : ''}${String(delta).replace('.', ',')}`}
-                    </span>
                   </div>
                 )
               })}
